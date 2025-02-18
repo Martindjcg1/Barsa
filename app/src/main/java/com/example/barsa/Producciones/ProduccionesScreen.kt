@@ -15,7 +15,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun ProduccionesScreen() {
+// Recibir onNavigate
+fun ProduccionesScreen(onNavigate: (String) -> Unit) {
     var searchText by remember { mutableStateOf(TextFieldValue("")) }
     val scrollState = rememberScrollState()
 
@@ -47,7 +48,8 @@ fun ProduccionesScreen() {
     ) {
         // Mostrar los procesos filtrados
         filteredProducciones.forEach { produccion ->
-            ProduccionCard(produccion)
+            // Mandar onNavigate
+            ProduccionCard(produccion, onNavigate)
         }
 
         // Si no hay coincidencias
@@ -62,7 +64,7 @@ fun ProduccionesScreen() {
 }
 
 @Composable
-fun ProduccionCard(produccion: Produccion) {
+fun ProduccionCard(produccion: Produccion, onNavigate: (String) -> Unit) {
     val accentBrown = Color(0xFF654321)
     Card(
         modifier = Modifier
@@ -84,7 +86,8 @@ fun ProduccionCard(produccion: Produccion) {
                     colors = ButtonDefaults.buttonColors(containerColor = accentBrown)) {
                     Text("Ver detalles")
                 }
-                Button(onClick = { /* Pantalla de tiempos */ },
+                // Navegar a la vista composable
+                Button(onClick = { onNavigate("cronometro") },
                     colors = ButtonDefaults.buttonColors(containerColor = accentBrown)) {
                     Text("Tiempos")
                 }

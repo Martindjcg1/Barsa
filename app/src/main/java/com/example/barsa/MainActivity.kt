@@ -15,11 +15,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.barsa.Navegator.MainNavigator
+import com.example.barsa.Network.NetworkMonitor
 import com.example.barsa.ui.theme.BarsaTheme
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var networkMonitor: NetworkMonitor
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        networkMonitor = NetworkMonitor(this)
+        networkMonitor.register()
         setContent {
             BarsaTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

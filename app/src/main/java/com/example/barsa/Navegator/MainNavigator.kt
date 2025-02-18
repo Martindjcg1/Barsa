@@ -18,6 +18,7 @@ import com.example.barsa.Header.Header
 import com.example.barsa.Login.LoginScreen
 import com.example.barsa.Header.Notification
 import com.example.barsa.Header.NotificationBox
+import com.example.barsa.Producciones.CronometroScreen
 
 @Composable
 fun MainNavigator() {
@@ -88,5 +89,8 @@ fun MainNavigator() {
                 }
             }
         }
+
+        // Agregando ruta de la vista de cronometro
+        composable("cronometro") { CronometroScreen() }
     }
 }

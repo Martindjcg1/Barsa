@@ -1,18 +1,20 @@
 package com.example.barsa.Producciones
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
 fun CronometroScreen() {
-    var time by rememberSaveable { mutableStateOf(96390) } // Tiempo en segundos
+    var time by rememberSaveable { mutableStateOf(0) } // Tiempo en segundos
     var isRunning by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(isRunning) {
@@ -23,7 +25,7 @@ fun CronometroScreen() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(Color.White),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

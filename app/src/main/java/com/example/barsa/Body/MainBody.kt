@@ -10,6 +10,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
 
@@ -49,11 +50,12 @@ fun MainBody(
                     )
                 }
                 "producciones" -> {
-                    /*Text(
+                    Text(
                         text = "Pantalla de Producciones",
                         style = MaterialTheme.typography.headlineMedium
-                    )*/
-                    ProduccionesScreen()
+                    )
+                    // Pasar onNavigate para cambiar de ruta en la navegación
+                    //ProduccionesScreen(onNavigate)
                 }
                 "usuario" -> {
                     Text(
@@ -65,6 +67,10 @@ fun MainBody(
                         text = "Bienvenido a tu perfil de usuario",
                         style = MaterialTheme.typography.bodyLarge
                     )
+                }
+                // Agregar la vista al mainbody
+                "cronometro" -> {
+                    CronometroScreen()
                 }
             }
         }
