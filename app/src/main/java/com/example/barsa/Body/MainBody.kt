@@ -50,12 +50,12 @@ fun MainBody(
                     )
                 }
                 "producciones" -> {
-                    Text(
+                    /*Text(
                         text = "Pantalla de Producciones",
                         style = MaterialTheme.typography.headlineMedium
-                    )
+                    )*/
                     // Pasar onNavigate para cambiar de ruta en la navegación
-                    //ProduccionesScreen(onNavigate)
+                    ProduccionesScreen(onNavigate)
                 }
                 "usuario" -> {
                     Text(
@@ -69,9 +69,7 @@ fun MainBody(
                     )
                 }
                 // Agregar la vista al mainbody
-                "cronometro" -> {
-                    CronometroScreen()
-                }
+                "cronometro" -> { CronometroScreen() }
             }
         }
     }

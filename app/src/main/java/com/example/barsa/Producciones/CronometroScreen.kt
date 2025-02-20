@@ -16,6 +16,9 @@ import kotlinx.coroutines.delay
 fun CronometroScreen() {
     var time by rememberSaveable { mutableStateOf(0) } // Tiempo en segundos
     var isRunning by rememberSaveable { mutableStateOf(false) }
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    //var currentProcess by rememberSaveable { mutableStateOf(1) }
+    //val maxProcesses = 4
 
     LaunchedEffect(isRunning) {
         while (isRunning) {
@@ -23,6 +26,30 @@ fun CronometroScreen() {
             time++
         }
     }
+
+    /*Column(
+        modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.Start
+    )
+    {
+        when (currentProcess) {
+            1 -> {
+                Text(text = "Madera", style = MaterialTheme.typography.headlineLarge)
+            }
+
+            2 -> {
+                Text(text = "Pintura", style = MaterialTheme.typography.headlineLarge)
+            }
+
+            3 -> {
+                Text(text = "Tapicería", style = MaterialTheme.typography.headlineLarge)
+            }
+
+            4 -> {
+                Text(text = "Empaque", style = MaterialTheme.typography.headlineLarge)
+            }
+        }
+    }*/
 
     Column(
         modifier = Modifier.fillMaxSize().background(Color.White),
@@ -43,12 +70,44 @@ fun CronometroScreen() {
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Button(onClick = {
-                isRunning = false
-                time = 0
-            }) {
+            Button(onClick = { showDialog = true }, enabled = time != 0) {
                 Text("Reiniciar")
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(onClick = {
+                /*if (currentProcess < maxProcesses) {
+                    isRunning = false
+                    time = 0
+                    currentProcess++
+                }*/
+
+            }) {
+                Text("Terminar")
+            }
+        }
+
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text("Confirmación") },
+                text = { Text("¿Estás seguro que quieres reiniciar?") },
+                confirmButton = {
+                    Button(onClick = {
+                        isRunning = false
+                        time = 0
+                        showDialog = false
+                    }) {
+                        Text("Sí")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { showDialog = false }) {
+                        Text("No")
+                    }
+                }
+            )
         }
     }
 }

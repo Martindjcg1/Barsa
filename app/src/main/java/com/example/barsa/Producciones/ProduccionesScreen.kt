@@ -22,16 +22,16 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
 
     // Pendiente: Hacer dinamica de acuerdo a la API
     val producciones = listOf(
-        Produccion("Folio:1254", "120 unidades"),
-        Produccion("Folio:1303", "200 unidades"),
-        Produccion("Folio:1421", "80 unidades"),
-        Produccion("Folio:1591", "150 unidades"),
-        Produccion("Folio:1873", "300 unidades")
+        Produccion("1254", "120 unidades"),
+        Produccion("2303", "200 unidades"),
+        Produccion("2421", "80 unidades"),
+        Produccion("1591", "150 unidades"),
+        Produccion("4873", "300 unidades")
     )
 
     // Filtrar los procesos según la búsqueda
     val filteredProducciones = producciones.filter {
-        it.nombre.contains(searchText.text, ignoreCase = true)
+        it.folio.contains(searchText.text, ignoreCase = true)
     }
 
     // Barra de búsqueda
@@ -77,7 +77,7 @@ fun ProduccionCard(produccion: Produccion, onNavigate: (String) -> Unit) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize().padding(horizontal = 16.dp)
         ) {
-            Text(text = produccion.nombre, style = MaterialTheme.typography.headlineMedium)
+            Text(text = "Folio: ${produccion.folio}", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Cantidad: ${produccion.cantidad}")
             Spacer(modifier = Modifier.height(16.dp))
@@ -97,7 +97,7 @@ fun ProduccionCard(produccion: Produccion, onNavigate: (String) -> Unit) {
 }
 
 // Pendiente: Modificar de acuerdo a la API
-data class Produccion(val nombre: String, val cantidad: String)
+data class Produccion(val folio: String, val cantidad: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
