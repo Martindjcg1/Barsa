@@ -67,7 +67,20 @@ fun MainBody(
                     )
                 }
                 // Agregar la vista al mainbody
-                "cronometro" -> { CronometroScreen() }
+                //"cronometro" -> { CronometroScreen(folio, cantidad, fecha)
+                else -> {
+                   if(currentRoute.startsWith("cronometro/")) {
+                        val parts = currentRoute.removePrefix("cronometro/").split("°")
+                        if (parts.size == 3) {
+                            val folio = parts[0]
+                            val cantidad = parts[1].toIntOrNull() ?: 0
+                            val fecha = parts[2]
+                            CronometroScreen(folio, cantidad, fecha)
+                        } else {
+                            Text("Error: Datos incompletos para el cronómetro")
+                        }
+                    }
+                }
             }
         }
     }

@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
-fun CronometroScreen() {
+fun CronometroScreen(folio: String, cantidad: Int, fecha: String) {
     var time by rememberSaveable { mutableStateOf(0) } // Tiempo en segundos
     var isRunning by rememberSaveable { mutableStateOf(false) }
     var showDialog by rememberSaveable { mutableStateOf(false) }
@@ -27,95 +27,95 @@ fun CronometroScreen() {
         }
     }
 
-    /*Column(
-        modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.Start
-    )
-    {
-        when (currentProcess) {
-            1 -> {
-                Text(text = "Madera", style = MaterialTheme.typography.headlineLarge)
-            }
-
-            2 -> {
-                Text(text = "Pintura", style = MaterialTheme.typography.headlineLarge)
-            }
-
-            3 -> {
-                Text(text = "Tapicería", style = MaterialTheme.typography.headlineLarge)
-            }
-
-            4 -> {
-                Text(text = "Empaque", style = MaterialTheme.typography.headlineLarge)
-            }
-        }
-    }*/
-
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color.White),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = formatTime(time),
-            style = MaterialTheme.typography.headlineLarge
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row {
-            Button(onClick = { isRunning = !isRunning }) {
-                Text(if (isRunning) "Pausar" else "Iniciar")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = { showDialog = true }, enabled = time != 0) {
-                Text("Reiniciar")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                /*if (currentProcess < maxProcesses) {
-                    isRunning = false
-                    time = 0
-                    currentProcess++
-                }*/
-
-            }) {
-                Text("Terminar")
-            }
+/*Column(
+    modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 16.dp),
+    horizontalAlignment = Alignment.Start
+)
+{
+    when (cuentProcess) {
+        1 -> {
+            Text(text = "Madera", style = MaterialTheme.typography.headlineLarge)
         }
 
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false },
-                title = { Text("Confirmación") },
-                text = { Text("¿Estás seguro que quieres reiniciar?") },
-                confirmButton = {
-                    Button(onClick = {
-                        isRunning = false
-                        time = 0
-                        showDialog = false
-                    }) {
-                        Text("Sí")
-                    }
-                },
-                dismissButton = {
-                    Button(onClick = { showDialog = false }) {
-                        Text("No")
-                    }
-                }
-            )
+        2 -> {
+            Text(text = "Pintura", style = MaterialTheme.typography.headlineLarge)
+        }
+
+        3 -> {
+            Text(text = "Tapicería", style = MaterialTheme.typography.headlineLarge)
+        }
+
+        4 -> {
+            Text(text = "Empaque", style = MaterialTheme.typography.headlineLarge)
         }
     }
+}*/
+
+Column(
+    modifier = Modifier.fillMaxSize().background(Color.White),
+    verticalArrangement = Arrangement.Center,
+    horizontalAlignment = Alignment.CenterHorizontally
+) {
+    Text(
+        text = formatTime(time),
+        style = MaterialTheme.typography.headlineLarge
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Row {
+        Button(onClick = { isRunning = !isRunning }) {
+            Text(if (isRunning) "Pausar" else "Iniciar")
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Button(onClick = { showDialog = true }, enabled = time != 0) {
+            Text("Reiniciar")
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Button(onClick = {
+            /*if (currentProcess < maxProcesses) {
+                isRunning = false
+                time = 0
+                currentProcess++
+            }*/
+
+        }) {
+            Text("Terminar")
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Confirmación") },
+            text = { Text("¿Estás seguro que quieres reiniciar?") },
+            confirmButton = {
+                Button(onClick = {
+                    isRunning = false
+                    time = 0
+                    showDialog = false
+                }) {
+                    Text("Sí")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDialog = false }) {
+                    Text("No")
+                }
+            }
+        )
+    }
+}
 }
 
 @SuppressLint("DefaultLocale")
 fun formatTime(seconds: Int): String {
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    val remainingSeconds = seconds % 60
-    return String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
+val hours = seconds / 3600
+val minutes = (seconds % 3600) / 60
+val remainingSeconds = seconds % 60
+return String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
 }

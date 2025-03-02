@@ -17,7 +17,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.barsa.Navegator.MainNavigator
 import com.example.barsa.Network.NetworkMonitor
 import com.example.barsa.ui.theme.BarsaTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private lateinit var networkMonitor: NetworkMonitor

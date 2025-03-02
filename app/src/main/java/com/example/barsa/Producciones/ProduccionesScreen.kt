@@ -11,8 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import com.example.barsa.Models.Produccion
 
 @Composable
 // Recibir onNavigate
@@ -22,11 +24,11 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
 
     // Pendiente: Hacer dinamica de acuerdo a la API
     val producciones = listOf(
-        Produccion("1254", "120 unidades"),
-        Produccion("2303", "200 unidades"),
-        Produccion("2421", "80 unidades"),
-        Produccion("1591", "150 unidades"),
-        Produccion("4873", "300 unidades")
+        Produccion("1254", 120, "20/02/2025"),
+        Produccion("2303", 80, "23/12/2024"),
+        Produccion("2421", 50, "07/10/2024"),
+        Produccion("1591", 150, "01/02/2025"),
+        Produccion("4873", 30, "17/02/2025")
     )
 
     // Filtrar los procesos según la búsqueda
@@ -34,31 +36,45 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
         it.folio.contains(searchText.text, ignoreCase = true)
     }
 
-    // Barra de búsqueda
-    SearchBar(
-        query = searchText.text, // Convertimos el TextFieldValue a String
-        onQueryChange = { searchText = TextFieldValue(it) }
-    )
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(scrollState)
     ) {
-        // Mostrar los procesos filtrados
-        filteredProducciones.forEach { produccion ->
-            // Mandar onNavigate
-            ProduccionCard(produccion, onNavigate)
-        }
+        Text(
+            text = "Producción",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        // Barra de búsqueda
+        SearchBar(
+            query = searchText.text, // Convertimos el TextFieldValue a String
+            onQueryChange = { searchText = TextFieldValue(it) }
+        )
 
-        // Si no hay coincidencias
-        if (filteredProducciones.isEmpty()) {
-            Text(
-                text = "No se encontraron procesos.",
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                color = Color.Gray
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+        ) {
+            // Mostrar los procesos filtrados
+            filteredProducciones.forEach { produccion ->
+                ProduccionCard(produccion, onNavigate)
+            }
+
+            // Si no hay coincidencias
+            if (filteredProducciones.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No se encontraron procesos.",
+                        color = Color.Gray
+                    )
+                }
+            }
         }
     }
 }
@@ -77,17 +93,24 @@ fun ProduccionCard(produccion: Produccion, onNavigate: (String) -> Unit) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxSize().padding(horizontal = 16.dp)
         ) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.End) {
+                Text(text = "Fecha: ${produccion.fecha}", style = MaterialTheme.typography.labelSmall)
+            }
             Text(text = "Folio: ${produccion.folio}", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Cantidad: ${produccion.cantidad}")
             Spacer(modifier = Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(),horizontalArrangement = Arrangement.SpaceBetween) {
-                Button(onClick = { /* Acción para más detalles */ },
+                /*Button(onClick = { /* Acción para más detalles */ },
                     colors = ButtonDefaults.buttonColors(containerColor = accentBrown)) {
                     Text("Ver detalles")
-                }
+                }*/
                 // Navegar a la vista composable
-                Button(onClick = { onNavigate("cronometro") },
+                Button(onClick = {
+                            //onNavigate("cronometro")
+                    val route = "cronometro/${produccion.folio}°${produccion.cantidad}°${produccion.fecha}"
+                    onNavigate(route)
+                                 },
                     colors = ButtonDefaults.buttonColors(containerColor = accentBrown)) {
                     Text("Tiempos")
                 }
@@ -95,9 +118,6 @@ fun ProduccionCard(produccion: Produccion, onNavigate: (String) -> Unit) {
         }
     }
 }
-
-// Pendiente: Modificar de acuerdo a la API
-data class Produccion(val folio: String, val cantidad: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -91,6 +91,15 @@ fun MainNavigator() {
         }
 
         // Agregando ruta de la vista de cronometro
-        composable("cronometro") { CronometroScreen() }
+        //composable("cronometro") { CronometroScreen() }
+        composable(
+            "cronometro/{folio}/{cantidad}/{fecha}"
+        ) { backStackEntry ->
+            val folio = backStackEntry.arguments?.getString("folio") ?: ""
+            val cantidad = backStackEntry.arguments?.getString("cantidad")?.toIntOrNull() ?: 0
+            val fecha = backStackEntry.arguments?.getString("fecha") ?: ""
+
+            CronometroScreen(folio, cantidad, fecha)
+        }
     }
 }
