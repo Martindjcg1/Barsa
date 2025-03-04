@@ -12,7 +12,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -40,7 +43,11 @@ fun LoginScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
+    // Detectar orientación
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
     val primaryBrown = Color(0xFF8B4513) // Marrón oscuro
     val lightBrown = Color(0xFFDEB887)   // Marrón claro
@@ -52,7 +59,7 @@ fun LoginScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(lightBrown, primaryBrown),
-                    tileMode = androidx.compose.ui.graphics.TileMode.Clamp
+                    tileMode = TileMode.Clamp
                 )
             )
     ) {
@@ -67,7 +74,7 @@ fun LoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp)
+                .padding(if (isLandscape) 16.dp else 32.dp)
                 .align(Alignment.Center)
                 .shadow(
                     elevation = 8.dp,
@@ -76,80 +83,173 @@ fun LoginScreen(
                 )
                 .clip(RoundedCornerShape(16.dp))
                 .background(Color.White)
-                .padding(24.dp)
+                .padding(if (isLandscape) 16.dp else 24.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                // Logo
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "Barsa Muebles Logo",
-                    modifier = Modifier
-                        .size(250.dp)
-                        .padding(bottom = 16.dp)
-                )
-
-                // Username TextField
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Usuario") },
-                    singleLine = true,
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        focusedBorderColor = accentBrown,
-                        unfocusedBorderColor = lightBrown
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Password TextField
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Contraseña") },
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        focusedBorderColor = accentBrown,
-                        unfocusedBorderColor = lightBrown
-                    ),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (passwordVisible) {
-                                        R.drawable.ic_visibility
-                                    } else {
-                                        R.drawable.ic_visibility_off
-                                    }
-                                ),
-                                contentDescription = if (passwordVisible) {
-                                    "Ocultar contraseña"
-                                } else {
-                                    "Mostrar contraseña"
-                                }
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Login Button
-                Button(
-                    onClick = { onLoginClick(username, password) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = accentBrown
-                    ),
+            if (isLandscape) {
+                // Diseño horizontal
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .verticalScroll(scrollState),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Entrar",
-                        fontSize = 18.sp
+                    // Logo
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Barsa Muebles Logo",
+                        modifier = Modifier
+                            .weight(1f)
+                            .size(150.dp)
+                            .padding(end = 16.dp)
                     )
+
+                    // Campos de entrada
+                    Column(
+                        modifier = Modifier
+                            .weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Username TextField
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            label = { Text("Usuario") },
+                            singleLine = true,
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                focusedBorderColor = accentBrown,
+                                unfocusedBorderColor = lightBrown
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Password TextField
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Contraseña") },
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                focusedBorderColor = accentBrown,
+                                unfocusedBorderColor = lightBrown
+                            ),
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (passwordVisible) {
+                                                R.drawable.ic_visibility
+                                            } else {
+                                                R.drawable.ic_visibility_off
+                                            }
+                                        ),
+                                        contentDescription = if (passwordVisible) {
+                                            "Ocultar contraseña"
+                                        } else {
+                                            "Mostrar contraseña"
+                                        }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Login Button
+                        Button(
+                            onClick = { onLoginClick(username, password) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = accentBrown
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            Text(
+                                "Entrar",
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Diseño vertical
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Logo
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "Barsa Muebles Logo",
+                        modifier = Modifier
+                            .size(250.dp)
+                            .padding(bottom = 16.dp)
+                    )
+
+                    // Username TextField
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text("Usuario") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = accentBrown,
+                            unfocusedBorderColor = lightBrown
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Password TextField
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Contraseña") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = accentBrown,
+                            unfocusedBorderColor = lightBrown
+                        ),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (passwordVisible) {
+                                            R.drawable.ic_visibility
+                                        } else {
+                                            R.drawable.ic_visibility_off
+                                        }
+                                    ),
+                                    contentDescription = if (passwordVisible) {
+                                        "Ocultar contraseña"
+                                    } else {
+                                        "Mostrar contraseña"
+                                    }
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Login Button
+                    Button(
+                        onClick = { onLoginClick(username, password) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accentBrown
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                    ) {
+                        Text(
+                            "Entrar",
+                            fontSize = 18.sp
+                        )
+                    }
                 }
             }
         }

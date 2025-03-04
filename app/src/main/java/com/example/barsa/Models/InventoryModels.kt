@@ -1,5 +1,7 @@
 package com.example.barsa.Models
 
+
+
 data class InventoryCategory(
     val id: Int,
     val name: String,
@@ -8,10 +10,17 @@ data class InventoryCategory(
 )
 
 data class InventoryItem(
-    val id: Int,
-    val description: String,
-    val entries: Int,
-    val exits: Int,
-    val stock: Int,
-    val imageUrl: String? = null // Solo para aranceles
+    val codigoMat: String,
+    val descripcion: String,
+    val unidad: String,
+    val pCompra: Double,
+    val existencia: Double,
+    val max: Int,
+    val min: Int,
+    val inventarioInicial: Double,
+    val unidadEntrada: String,
+    val cantXUnidad: Int,
+    val proceso: String,
+    val borrado: Boolean,
+    val imagenUrl: String? = null
 )

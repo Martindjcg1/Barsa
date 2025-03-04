@@ -1,6 +1,5 @@
-package com.example.barsa.Inventarios
+package com.example.barsa.Body.Inventory
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,7 +9,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,26 +17,57 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.barsa.Models.InventoryCategory
 import com.example.barsa.Models.InventoryItem
 import androidx.compose.ui.res.painterResource
 import com.example.barsa.R
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+
+// Función para categorizar materiales basado en su descripción
+private fun categorizarMaterial(descripcion: String): String {
+    val desc = descripcion.lowercase()
+
+    return when {
+        desc.contains("cubeta") -> "Cubetas"
+        desc.contains("tela") -> "Telas"
+        desc.contains("casco") -> "Cascos"
+        desc.contains("llave") || desc.contains("allen") || desc.contains("hexagonal") -> "Herramientas"
+        desc.contains("bisagra") || desc.contains("herrajes") -> "Bisagras y Herrajes"
+        desc.contains("perno") || desc.contains("union") -> "Pernos y Sujetadores"
+        desc.contains("cinta") || desc.contains("adhesivo") -> "Cintas y Adhesivos"
+        desc.contains("separador") || desc.contains("cristal") -> "Separadores y Accesorios de Cristal"
+        desc.contains("cubre canto") || desc.contains("nogal") -> "Cubrecantos y Acabados"
+        desc.contains("tachuela") || desc.contains("tira") || desc.contains("banda") -> "Otros Materiales de Construcción"
+        else -> "Otros"
+    }
+}
 
 @Composable
 fun InventoryScreen(onNavigate: (String) -> Unit) {
     var selectedCategory by remember { mutableStateOf<InventoryCategory?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // Lista de todas las categorías posibles
     val categories = remember {
         listOf(
-            InventoryCategory(1, "Muebles", "Catálogo de muebles", R.drawable.ic_muebles),
-            InventoryCategory(2, "Aranceles", "Catálogo de aranceles", R.drawable.ic_aranceles),
-            InventoryCategory(3, "Pintura", "Catálogo de pinturas", R.drawable.ic_pintura),
+            InventoryCategory(1, "Cubetas", "Catálogo de cubetas", R.drawable.ic_pintura),
+            InventoryCategory(2, "Telas", "Catálogo de telas", R.drawable.ic_fabric),
+            InventoryCategory(3, "Cascos", "Catálogo de cascos", R.drawable.ic_helmet),
             InventoryCategory(4, "Herramientas", "Catálogo de herramientas", R.drawable.ic_herramientas),
-            InventoryCategory(5, "Materiales", "Catálogo de materiales", R.drawable.ic_materiales)
+            InventoryCategory(5, "Bisagras y Herrajes", "Catálogo de bisagras y herrajes", R.drawable.ic_hinge),
+            InventoryCategory(6, "Pernos y Sujetadores", "Catálogo de pernos y sujetadores", R.drawable.ic_bolt),
+            InventoryCategory(7, "Cintas y Adhesivos", "Catálogo de cintas y adhesivos", R.drawable.ic_tape),
+            InventoryCategory(8, "Separadores y Accesorios de Cristal", "Catálogo de separadores", R.drawable.ic_glass),
+            InventoryCategory(9, "Cubrecantos y Acabados", "Catálogo de cubrecantos", R.drawable.ic_edge),
+            InventoryCategory(10, "Otros Materiales de Construcción", "Otros materiales de construcción", R.drawable.ic_materiales),
+            InventoryCategory(11, "Todo", "Catálogo completo", R.drawable.ic_all)
         )
     }
 
@@ -73,7 +102,18 @@ fun InventoryItemsList(
     category: InventoryCategory,
     onBackClick: () -> Unit
 ) {
-    var items by remember { mutableStateOf(getItemsForCategory(category)) }
+    // Obtener todos los items y filtrarlos según la categoría seleccionada
+    var allItems by remember { mutableStateOf(getAllInventoryItems()) }
+    var filteredItems by remember {
+        mutableStateOf(
+            if (category.name == "Todo") {
+                allItems
+            } else {
+                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
+            }
+        )
+    }
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
 
@@ -96,7 +136,22 @@ fun InventoryItemsList(
         // Barra de búsqueda
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = {
+                searchQuery = it
+                // Filtrar items basados en la búsqueda
+                filteredItems = if (category.name == "Todo") {
+                    allItems.filter { item ->
+                        item.descripcion.contains(searchQuery, ignoreCase = true) ||
+                                item.codigoMat.contains(searchQuery, ignoreCase = true)
+                    }
+                } else {
+                    allItems.filter { item ->
+                        categorizarMaterial(item.descripcion) == category.name &&
+                                (item.descripcion.contains(searchQuery, ignoreCase = true) ||
+                                        item.codigoMat.contains(searchQuery, ignoreCase = true))
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp),
@@ -111,29 +166,19 @@ fun InventoryItemsList(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val filteredItems = items.filter {
-                it.description.contains(searchQuery, ignoreCase = true) ||
-                        it.id.toString().contains(searchQuery)
-            }
-
             items(filteredItems) { item ->
                 InventoryItemCard(
                     item = item,
-                    showImage = category.name == "Aranceles",
                     onClick = { selectedItem = item }
                 )
             }
         }
 
-        // Dialog para editar item
+        // Dialog para ver detalles del item
         selectedItem?.let { item ->
-            EditItemDialog(
+            ItemDetailDialog(
                 item = item,
-                onDismiss = { selectedItem = null },
-                onSave = { updatedItem ->
-                    items = items.map { if (it.id == updatedItem.id) updatedItem else it }
-                    selectedItem = null
-                }
+                onDismiss = { selectedItem = null }
             )
         }
     }
@@ -142,9 +187,10 @@ fun InventoryItemsList(
 @Composable
 fun InventoryItemCard(
     item: InventoryItem,
-    showImage: Boolean,
     onClick: () -> Unit
 ) {
+    var showImageViewer by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,28 +200,52 @@ fun InventoryItemCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            if (showImage) {
+            // Actualizar la visualización de la imagen para hacerla interactuable
+            if (!item.imagenUrl.isNullOrEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { showImageViewer = true }
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(item.imagenUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = item.descripcion,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = item.codigoMat,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = item.unidad,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "ID: ${item.id}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Text(
-                text = item.description,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                text = item.descripcion,
+                style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
 
@@ -187,51 +257,55 @@ fun InventoryItemCard(
             ) {
                 Column {
                     Text(
-                        text = "Entradas",
+                        text = "Máximo",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.entries.toString(),
+                        text = item.max.toString(),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Column {
                     Text(
-                        text = "Salidas",
+                        text = "Mínimo",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.exits.toString(),
+                        text = item.min.toString(),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
+                        color = if (item.existencia < item.min) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Column {
                     Text(
-                        text = "Stock",
+                        text = "Cant/Unidad",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.stock.toString(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold
+                        text = item.cantXUnidad.toString(),
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
         }
     }
+
+    // Mostrar el visor de imágenes si se hace clic en la imagen
+    if (showImageViewer && !item.imagenUrl.isNullOrEmpty()) {
+        ImageViewerDialog(
+            imageUrl = item.imagenUrl,
+            onDismiss = { showImageViewer = false }
+        )
+    }
 }
 
 @Composable
-fun EditItemDialog(
+fun ItemDetailDialog(
     item: InventoryItem,
-    onDismiss: () -> Unit,
-    onSave: (InventoryItem) -> Unit
+    onDismiss: () -> Unit
 ) {
-    var entries by remember { mutableStateOf(item.entries.toString()) }
-    var exits by remember { mutableStateOf(item.exits.toString()) }
-    var isError by remember { mutableStateOf(false) }
+    var showImageViewer by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -243,88 +317,96 @@ fun EditItemDialog(
             Column(
                 modifier = Modifier
                     .padding(16.dp)
-                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
-                Text(
-                    text = "Editar ${item.description}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = entries,
-                    onValueChange = {
-                        entries = it
-                        isError = false
-                    },
-                    label = { Text("Entradas") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    isError = isError
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = exits,
-                    onValueChange = {
-                        exits = it
-                        isError = false
-                    },
-                    label = { Text("Salidas") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = isError
-                )
-
-                if (isError) {
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "Por favor, ingrese números válidos",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
+                        text = "Detalles del Producto",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    }
+                }
+
+                // Actualizar la visualización de la imagen en el diálogo para hacerla interactuable
+                if (!item.imagenUrl.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { showImageViewer = true }
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(item.imagenUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = item.descripcion,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Cancelar")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            try {
-                                val newEntries = entries.toInt()
-                                val newExits = exits.toInt()
-                                val newStock = newEntries - newExits
-
-                                if (newStock >= 0) {
-                                    onSave(item.copy(
-                                        entries = newEntries,
-                                        exits = newExits,
-                                        stock = newStock
-                                    ))
-                                } else {
-                                    isError = true
-                                }
-                            } catch (e: NumberFormatException) {
-                                isError = true
-                            }
-                        }
-                    ) {
-                        Text("Guardar")
-                    }
+                DetailItem("Código", item.codigoMat)
+                DetailItem("Descripción", item.descripcion)
+                DetailItem("Unidad", item.unidad)
+                DetailItem("Precio Compra", "%.2f".format(item.pCompra))
+                DetailItem("Existencia", "%.2f".format(item.existencia))
+                DetailItem("Máximo", item.max.toString())
+                DetailItem("Mínimo", item.min.toString())
+                DetailItem("Inventario Inicial", "%.2f".format(item.inventarioInicial))
+                DetailItem("Unidad Entrada", item.unidadEntrada)
+                DetailItem("Cantidad por Unidad", item.cantXUnidad.toString())
+                DetailItem("Proceso", item.proceso)
+                DetailItem("Estado", if (item.borrado) "Borrado" else "Activo")
+                if (!item.imagenUrl.isNullOrEmpty()) {
+                    DetailItem("URL de Imagen", item.imagenUrl)
                 }
             }
         }
     }
+
+    // Mostrar el visor de imágenes si se hace clic en la imagen
+    if (showImageViewer && !item.imagenUrl.isNullOrEmpty()) {
+        ImageViewerDialog(
+            imageUrl = item.imagenUrl,
+            onDismiss = { showImageViewer = false }
+        )
+    }
+}
+
+@Composable
+private fun DetailItem(label: String, value: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+    Divider(modifier = Modifier.padding(vertical = 4.dp))
 }
 
 @Composable
@@ -381,34 +463,272 @@ fun CategoryCard(
     }
 }
 
-// Función auxiliar para generar datos de ejemplo
-private fun getItemsForCategory(category: InventoryCategory): List<InventoryItem> {
-    return when (category.name) {
-        "Muebles" -> listOf(
-            InventoryItem(1, "Silla de comedor", 50, 30, 20),
-            InventoryItem(2, "Mesa de centro", 30, 15, 15),
-            InventoryItem(3, "Sofá 3 plazas", 20, 10, 10)
+// Función para obtener todos los items del inventario
+private fun getAllInventoryItems(): List<InventoryItem> {
+    // Aquí se cargarían los datos desde una base de datos o API
+    // Por ahora, usamos datos de ejemplo
+    return listOf(
+        // Datos de ejemplo basados en la imagen del Excel
+        InventoryItem(
+            codigoMat = "001",
+            descripcion = "TACHUELA",
+            unidad = "PIEZAS",
+            pCompra = 1.00,
+            existencia = 0.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZ",
+            cantXUnidad = 10,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "00101024",
+            descripcion = "***CONTRAPESO",
+            unidad = "PZAS",
+            pCompra = 1.96,
+            existencia = -1474.57,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "00102014",
+            descripcion = "TIRA TROQUELADA",
+            unidad = "PZA",
+            pCompra = 3.72,
+            existencia = -1562.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = false
+        ),
+        InventoryItem(
+            codigoMat = "00146123",
+            descripcion = "LLAVE ALLEN",
+            unidad = "PZA",
+            pCompra = 0.71,
+            existencia = 4896.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = false
+        ),
+        InventoryItem(
+            codigoMat = "00150119",
+            descripcion = "BISAGRA",
+            unidad = "PZAS",
+            pCompra = 3.00,
+            existencia = 0.0,
+            max = 1000,
+            min = 200,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "00150153",
+            descripcion = "BISAGRA",
+            unidad = "PZAS",
+            pCompra = 5.88,
+            existencia = 0.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "00176035",
+            descripcion = "PERNO UNION",
+            unidad = "PZA",
+            pCompra = 0.52,
+            existencia = 9592.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "E",
+            borrado = false
+        ),
+        InventoryItem(
+            codigoMat = "00176040",
+            descripcion = "PERNO UNION",
+            unidad = "PZA",
+            pCompra = 0.69,
+            existencia = -118.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "E",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "00640013",
+            descripcion = "CUBRE CANTO",
+            unidad = "MTR",
+            pCompra = 0.00,
+            existencia = -48.3,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "MTR",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "01",
+            descripcion = "TACHUELA",
+            unidad = "PIEZAS",
+            pCompra = 0.00,
+            existencia = 0.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "100",
+            cantXUnidad = 10,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "010-0041",
+            descripcion = "SEPARADOR",
+            unidad = "PZAS",
+            pCompra = 31.97,
+            existencia = 0.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "010-0042",
+            descripcion = "SEPARADOR",
+            unidad = "PZAS",
+            pCompra = 38.36,
+            existencia = 0.0,
+            max = 0,
+            min = 0,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = true
+        ),
+        InventoryItem(
+            codigoMat = "01013011",
+            descripcion = "CINTA NEGRA",
+            unidad = "PZAS",
+            pCompra = 28.50,
+            existencia = 0.0,
+            max = 100,
+            min = 20,
+            inventarioInicial = 0.0,
+            unidadEntrada = "PZAS",
+            cantXUnidad = 1,
+            proceso = "E",
+            borrado = true
+        ),
+        // Añadir más ejemplos para cubrir todas las categorías
+        InventoryItem(
+            codigoMat = "CUB001",
+            descripcion = "CUBETA DE PINTURA 20L",
+            unidad = "PZA",
+            pCompra = 350.00,
+            existencia = 15.0,
+            max = 20,
+            min = 5,
+            inventarioInicial = 10.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = false
+        ),
+        InventoryItem(
+            codigoMat = "TEL001",
+            descripcion = "TELA PARA TAPIZADO",
+            unidad = "MTR",
+            pCompra = 120.00,
+            existencia = 45.0,
+            max = 50,
+            min = 10,
+            inventarioInicial = 30.0,
+            unidadEntrada = "MTR",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = false
+        ),
+        InventoryItem(
+            codigoMat = "CAS001",
+            descripcion = "CASCO DE MUEBLE PINO",
+            unidad = "PZA",
+            pCompra = 85.00,
+            existencia = 12.0,
+            max = 15,
+            min = 5,
+            inventarioInicial = 10.0,
+            unidadEntrada = "PZA",
+            cantXUnidad = 1,
+            proceso = "M",
+            borrado = false,
+            imagenUrl = "https://i.postimg.cc/L418PZzS/images.jpg"
         )
-        "Aranceles" -> listOf(
-            InventoryItem(1, "Arancel tipo A", 100, 50, 50, "https://i.postimg.cc/jSYP4wph/edaabf7d86eb9620917caba8023773ca.jpg"),
-            InventoryItem(2, "Arancel tipo B", 80, 30, 50, "https://postimg.cc/qzQNkRMt"),
-            InventoryItem(3, "Arancel tipo C", 60, 20, 40, "url_imagen_3")
-        )
-        "Pintura" -> listOf(
-            InventoryItem(1, "Pintura blanca", 200, 150, 50),
-            InventoryItem(2, "Barniz", 150, 100, 50),
-            InventoryItem(3, "Laca", 100, 60, 40)
-        )
-        "Herramientas" -> listOf(
-            InventoryItem(1, "Martillo", 30, 10, 20),
-            InventoryItem(2, "Destornillador", 50, 20, 30),
-            InventoryItem(3, "Sierra", 25, 15, 10)
-        )
-        "Materiales" -> listOf(
-            InventoryItem(1, "Madera de pino", 1000, 800, 200),
-            InventoryItem(2, "Clavos", 5000, 3000, 2000),
-            InventoryItem(3, "Tornillos", 4000, 2500, 1500)
-        )
-        else -> emptyList()
+    )
+}
+
+@Composable
+fun ImageViewerDialog(imageUrl: String, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Imagen Ampliada",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onDismiss) {
+                    Text("Cerrar")
+                }
+            }
+        }
     }
 }
+

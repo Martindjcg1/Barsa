@@ -10,7 +10,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.barsa.Inventarios.InventoryScreen
+import com.example.barsa.Body.Inventory.InventoryScreen
+
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
