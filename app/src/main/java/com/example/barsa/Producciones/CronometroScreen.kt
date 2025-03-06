@@ -10,15 +10,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.barsa.data.TiemposViewModel
+import com.example.barsa.data.local.Tiempo
 import kotlinx.coroutines.delay
 
+
 @Composable
-fun CronometroScreen(folio: String, cantidad: Int, fecha: String) {
+fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, tiemposViewModel: TiemposViewModel) {
     var time by rememberSaveable { mutableStateOf(0) } // Tiempo en segundos
     var isRunning by rememberSaveable { mutableStateOf(false) }
     var showDialog by rememberSaveable { mutableStateOf(false) }
+    val tiempo by tiemposViewModel.tiempo.collectAsState()
     //var currentProcess by rememberSaveable { mutableStateOf(1) }
     //val maxProcesses = 4
+
+    LaunchedEffect(Unit) {
+        tiemposViewModel.fetchTiempo(Folio)
+    }
+
+    LaunchedEffect(tiempo) {
+        tiempo?.let {
+            time = it.tiempo ?: 0
+        }
+    }
 
     LaunchedEffect(isRunning) {
         while (isRunning) {
@@ -51,66 +66,70 @@ fun CronometroScreen(folio: String, cantidad: Int, fecha: String) {
     }
 }*/
 
-Column(
-    modifier = Modifier.fillMaxSize().background(Color.White),
-    verticalArrangement = Arrangement.Center,
-    horizontalAlignment = Alignment.CenterHorizontally
-) {
-    Text(
-        text = formatTime(time),
-        style = MaterialTheme.typography.headlineLarge
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Row {
-        Button(onClick = { isRunning = !isRunning }) {
-            Text(if (isRunning) "Pausar" else "Iniciar")
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Button(onClick = { showDialog = true }, enabled = time != 0) {
-            Text("Reiniciar")
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Button(onClick = {
-            /*if (currentProcess < maxProcesses) {
-                isRunning = false
-                time = 0
-                currentProcess++
-            }*/
-
-        }) {
-            Text("Terminar")
-        }
-    }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Confirmación") },
-            text = { Text("¿Estás seguro que quieres reiniciar?") },
-            confirmButton = {
-                Button(onClick = {
-                    isRunning = false
-                    time = 0
-                    showDialog = false
-                }) {
-                    Text("Sí")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showDialog = false }) {
-                    Text("No")
-                }
-            }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = formatTime(time),
+            style = MaterialTheme.typography.headlineLarge
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row {
+            Button(onClick = {
+                isRunning = !isRunning
+                if (!isRunning) {
+                    val tiempo = Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = time)
+                    tiemposViewModel.upsertTiempo(tiempo)
+                }
+            }) {
+                Text(if (isRunning) "Pausar" else "Iniciar")
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(onClick = { showDialog = true }, enabled = time != 0) {
+                Text("Reiniciar")
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(onClick = {
+                isRunning = false
+                val tiempo = Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = time)
+                tiemposViewModel.upsertTiempo(tiempo)
+            }) {
+                Text("Terminar")
+            }
+        }
+
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text("Confirmación") },
+                text = { Text("¿Estás seguro que quieres reiniciar?") },
+                confirmButton = {
+                    Button(onClick = {
+                        isRunning = false
+                        time = 0
+                        showDialog = false
+                    }) {
+                        Text("Sí")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { showDialog = false }) {
+                        Text("No")
+                    }
+                }
+            )
+        }
     }
 }
-}
+
 
 @SuppressLint("DefaultLocale")
 fun formatTime(seconds: Int): String {

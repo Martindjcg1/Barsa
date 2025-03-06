@@ -22,9 +22,8 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class OfflineTiemposRepository @Inject constructor(private val tiempoDao: TiempoDao) : TiemposRepository {
-    override suspend fun insertTiempo(tiempo: Tiempo) = tiempoDao.insert(tiempo)
-    override suspend fun updateTiempo(tiempo: Tiempo) = tiempoDao.update(tiempo)
+    override suspend fun upsertTiempo(tiempo: Tiempo) = tiempoDao.upsert(tiempo)
     override suspend fun deleteTiempo(tiempo: Tiempo) = tiempoDao.delete(tiempo)
     override fun getAllStream(): Flow<List<Tiempo>> = tiempoDao.getAll()
-    override fun getOneStream(folio: String): Flow<Tiempo?> = tiempoDao.getOne(folio)
+    override fun getOneStream(folio: Int): Flow<Tiempo?> = tiempoDao.getOne(folio)
 }

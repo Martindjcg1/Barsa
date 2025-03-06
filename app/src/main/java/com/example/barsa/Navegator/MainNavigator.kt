@@ -19,9 +19,10 @@ import com.example.barsa.Login.LoginScreen
 import com.example.barsa.Header.Notification
 import com.example.barsa.Header.NotificationBox
 import com.example.barsa.Producciones.CronometroScreen
+import com.example.barsa.data.TiemposViewModel
 
 @Composable
-fun MainNavigator() {
+fun MainNavigator(tiemposViewModel: TiemposViewModel) {
     val navController = rememberNavController()
     var currentRoute by remember { mutableStateOf("inventario") }
     var showNotifications by remember { mutableStateOf(false) }
@@ -75,7 +76,8 @@ fun MainNavigator() {
                     onNavigate = { route ->
                         currentRoute = route
                     },
-                    modifier = Modifier.padding(paddingValues)
+                    modifier = Modifier.padding(paddingValues),
+                    tiemposViewModel
                 )
 
                 if (showNotifications) {
@@ -93,13 +95,14 @@ fun MainNavigator() {
         // Agregando ruta de la vista de cronometro
         //composable("cronometro") { CronometroScreen() }
         composable(
-            "cronometro/{folio}/{cantidad}/{fecha}"
+            "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}"
         ) { backStackEntry ->
-            val folio = backStackEntry.arguments?.getString("folio") ?: ""
-            val cantidad = backStackEntry.arguments?.getString("cantidad")?.toIntOrNull() ?: 0
-            val fecha = backStackEntry.arguments?.getString("fecha") ?: ""
+            val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
+            val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
+            val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
+            val Status = backStackEntry.arguments?.getString("Status") ?: ""
 
-            CronometroScreen(folio, cantidad, fecha)
+            CronometroScreen(TipoId, Folio, Fecha, Status, tiemposViewModel)
         }
     }
 }

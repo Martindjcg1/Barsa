@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 /**
  * Database class with a singleton Instance object.
  */
-@Database(entities = [Tiempo::class], version = 1, exportSchema = false)
+@Database(entities = [Tiempo::class], version = 1, exportSchema = true)
 abstract class TiempoDatabase : RoomDatabase() {
 
     abstract fun tiempoDao(): TiempoDao

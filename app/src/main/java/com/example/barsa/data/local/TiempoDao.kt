@@ -6,21 +6,19 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TiempoDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(tiempo: Tiempo)
-
-    @Update
-    suspend fun update(tiempo: Tiempo)
+    @Upsert
+    suspend fun upsert(tiempo: Tiempo)
 
     @Delete
     suspend fun delete(tiempo: Tiempo)
 
     @Query("SELECT * from tiempos WHERE folio = :folio")
-    fun getOne(folio: String): Flow<Tiempo>
+    fun getOne(folio: Int): Flow<Tiempo>
 
     @Query("SELECT * from tiempos ORDER BY fecha ASC")
     fun getAll(): Flow<List<Tiempo>>

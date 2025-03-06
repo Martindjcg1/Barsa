@@ -5,9 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "tiempos")
 data class Tiempo (
+    val tipoId: String,
     @PrimaryKey
-    val folio: String,
-    val cantidad: Int,
+    val folio: Int,
     val fecha: String,
-    val tiempo: String
+    val status: String,
+    val tiempo: Int
     )

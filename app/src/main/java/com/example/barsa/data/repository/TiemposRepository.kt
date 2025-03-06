@@ -22,14 +22,9 @@ import kotlinx.coroutines.flow.Flow
 interface TiemposRepository {
 
     /**
-     * Insert tiempo in the data source
+     * Upsert tiempo in the data source
      */
-    suspend fun insertTiempo(tiempo: Tiempo)
-
-    /**
-     * Update tiempo in the data source
-     */
-    suspend fun updateTiempo(tiempo: Tiempo)
+    suspend fun upsertTiempo(tiempo: Tiempo)
 
     /**
      * Delete from the data source
@@ -44,5 +39,5 @@ interface TiemposRepository {
     /**
      * Retrieve one from the given data source that matches with the [folio].
      */
-    fun getOneStream(folio: String): Flow<Tiempo?>
+    fun getOneStream(folio: Int): Flow<Tiempo?>
 }

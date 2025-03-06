@@ -1,5 +1,8 @@
 package com.example.barsa.Models
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
 // Pendiente modificar de acuerdo a la API
 data class Produccion(
     val folio: String,
@@ -24,4 +27,11 @@ data class Data(
     val ObservacionGeneral: String
 )
 
+data class TiempoDC (
+    val tipoId: String,
+    val folio: Int,
+    val fecha: String,
+    val status: String,
+    val tiempo: Int
+)
 

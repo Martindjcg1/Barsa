@@ -15,12 +15,14 @@ import com.example.barsa.Body.Inventory.InventoryScreen
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
+import com.example.barsa.data.TiemposViewModel
 
 @Composable
 fun MainBody(
     currentRoute: String,
     onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tiemposViewModel: TiemposViewModel
 ) {
     Box(
         modifier = modifier.fillMaxSize()
@@ -72,11 +74,12 @@ fun MainBody(
                 else -> {
                    if(currentRoute.startsWith("cronometro/")) {
                         val parts = currentRoute.removePrefix("cronometro/").split("°")
-                        if (parts.size == 3) {
-                            val folio = parts[0]
-                            val cantidad = parts[1].toIntOrNull() ?: 0
-                            val fecha = parts[2]
-                            CronometroScreen(folio, cantidad, fecha)
+                        if (parts.size == 4) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            CronometroScreen(TipoId, Folio, Fecha, Status, tiemposViewModel)
                         } else {
                             Text("Error: Datos incompletos para el cronómetro")
                         }
