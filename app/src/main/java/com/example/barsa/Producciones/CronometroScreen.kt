@@ -18,21 +18,18 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, tiemposViewModel: TiemposViewModel) {
-    var time by rememberSaveable { mutableStateOf(0) } // Tiempo en segundos
+    var time by rememberSaveable { mutableStateOf(0) }
     var isRunning by rememberSaveable { mutableStateOf(false) }
     var showDialog by rememberSaveable { mutableStateOf(false) }
-    val tiempo by tiemposViewModel.tiempo.collectAsState()
-    //var currentProcess by rememberSaveable { mutableStateOf(1) }
-    //val maxProcesses = 4
+    val tiempos by tiemposViewModel.tiempos.collectAsState()
+    val tiempo = tiempos[Folio]
 
     LaunchedEffect(Unit) {
         tiemposViewModel.fetchTiempo(Folio)
     }
 
     LaunchedEffect(tiempo) {
-        tiempo?.let {
-            time = it.tiempo ?: 0
-        }
+        time = tiempo?.tiempo ?: 0
     }
 
     LaunchedEffect(isRunning) {
@@ -41,30 +38,6 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
             time++
         }
     }
-
-/*Column(
-    modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 16.dp),
-    horizontalAlignment = Alignment.Start
-)
-{
-    when (cuentProcess) {
-        1 -> {
-            Text(text = "Madera", style = MaterialTheme.typography.headlineLarge)
-        }
-
-        2 -> {
-            Text(text = "Pintura", style = MaterialTheme.typography.headlineLarge)
-        }
-
-        3 -> {
-            Text(text = "Tapicería", style = MaterialTheme.typography.headlineLarge)
-        }
-
-        4 -> {
-            Text(text = "Empaque", style = MaterialTheme.typography.headlineLarge)
-        }
-    }
-}*/
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -114,6 +87,7 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                 confirmButton = {
                     Button(onClick = {
                         isRunning = false
+                        tiemposViewModel.deleteTiempo(Folio)
                         time = 0
                         showDialog = false
                     }) {
@@ -129,6 +103,7 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
         }
     }
 }
+
 
 
 @SuppressLint("DefaultLocale")

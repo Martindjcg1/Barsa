@@ -18,24 +18,31 @@ class TiemposViewModel @Inject constructor(
     private val tiemposRepository: TiemposRepository
 ) : ViewModel() {
 
-    init {
-        Log.d("TiemposViewModel", "TiemposRepository injected: $tiemposRepository")
-    }
-
-    private val _tiempo = MutableStateFlow<Tiempo?>(null)
-    val tiempo: StateFlow<Tiempo?> = _tiempo.asStateFlow()
+    private val _tiempos = MutableStateFlow<Map<Int, Tiempo>>(emptyMap())
+    val tiempos: StateFlow<Map<Int, Tiempo>> = _tiempos.asStateFlow()
 
     fun upsertTiempo(tiempo: Tiempo) {
         viewModelScope.launch {
             tiemposRepository.upsertTiempo(tiempo)
-            _tiempo.value = tiempo
+            fetchTiempo(tiempo.folio) // Actualiza solo el tiempo del folio
         }
     }
 
     fun fetchTiempo(folio: Int) {
         viewModelScope.launch {
             tiemposRepository.getOneStream(folio).collect { result ->
-                _tiempo.value = result
+                _tiempos.value = _tiempos.value.toMutableMap().apply {
+                    result?.let { put(folio, it) }
+                }
+            }
+        }
+    }
+
+    fun deleteTiempo(folio: Int) {
+        viewModelScope.launch {
+            tiemposRepository.deleteTiempo(Tiempo(tipoId = "", folio = folio, fecha = "", status = "", tiempo = 0))
+            _tiempos.value = _tiempos.value.toMutableMap().apply {
+                remove(folio)
             }
         }
     }
