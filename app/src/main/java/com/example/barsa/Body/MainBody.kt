@@ -11,10 +11,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.barsa.Body.Inventory.InventoryScreen
+import com.example.barsa.Body.Usuario.UsuarioBody
 
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
+
 import com.example.barsa.data.TiemposViewModel
 
 @Composable
@@ -59,15 +61,7 @@ fun MainBody(
                     ProduccionesScreen(onNavigate)
                 }
                 "usuario" -> {
-                    Text(
-                        text = "Ventana de Usuario",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Bienvenido a tu perfil de usuario",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    UsuarioBody(onNavigate)
                 }
                 // Agregar la vista al mainbody
                 //"cronometro" -> { CronometroScreen(folio, cantidad, fecha)

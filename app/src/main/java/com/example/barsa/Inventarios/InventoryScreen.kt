@@ -463,6 +463,8 @@ fun CategoryCard(
     }
 }
 
+
+
 // Función para obtener todos los items del inventario
 private fun getAllInventoryItems(): List<InventoryItem> {
     // Aquí se cargarían los datos desde una base de datos o API

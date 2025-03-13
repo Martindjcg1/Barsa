@@ -1,6 +1,6 @@
 package com.example.barsa.Models
 
-
+import java.util.Date
 
 data class InventoryCategory(
     val id: Int,
@@ -24,3 +24,48 @@ data class InventoryItem(
     val borrado: Boolean,
     val imagenUrl: String? = null
 )
+
+data class InventoryEntry(
+    val id: String,
+    val fecha: Date,
+    val proveedor: String,
+    val items: List<InventoryEntryItem>,
+    val observaciones: String,
+    val registradoPor: String
+)
+
+data class InventoryEntryItem(
+    val item: InventoryItem,
+    val cantidad: Double,
+    val precioUnitario: Double
+)
+
+data class InventoryExit(
+    val id: String,
+    val fecha: Date,
+    val motivo: String,
+    val items: List<InventoryExitItem>,
+    val observaciones: String,
+    val registradoPor: String
+)
+
+data class InventoryExitItem(
+    val item: InventoryItem,
+    val cantidad: Double
+)
+
+data class InventoryChange(
+    val id: String,
+    val fecha: Date,
+    val tipoOperacion: TipoOperacion,
+    val descripcion: String,
+    val itemsAfectados: List<String>, // Códigos de los items afectados
+    val registradoPor: String
+)
+
+enum class TipoOperacion {
+    ENTRADA,
+    SALIDA,
+    MODIFICACION,
+    ELIMINACION
+}
