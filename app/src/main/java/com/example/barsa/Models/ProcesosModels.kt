@@ -10,6 +10,14 @@ data class Produccion(
     val fecha: String
 )
 
+data class TiempoDC (
+    val tipoId: String,
+    val folio: Int,
+    val fecha: String,
+    val status: String,
+    val tiempo: Int
+)
+
 // Informacion DE Papeletas
 data class PapeletaModels(
     val totalItems: Int,
@@ -27,11 +35,16 @@ data class Data(
     val ObservacionGeneral: String
 )
 
-data class TiempoDC (
-    val tipoId: String,
-    val folio: Int,
-    val fecha: String,
-    val status: String,
-    val tiempo: Int
+data class DetallePapeleta (
+    // En una papeleta se producen "N" cantidad de un producto "X". Puede que se produzcan 10 para un cliente y 20 para otro cliente en la misma papeleta
+    val codigo: String, // Codigo del producto "ABD110"
+    val descripcion: String, // Nombre del producto "ARMARIO BARSA MOD. DAVOZ 110!
+    val color: String, // "NEGRO", "NOGAL", "TABACO" ETC
+    val Tipold: String, // Correspondiente a la papeleta (Relaciona la Papeleta con DetallePapeleta)
+    val Folio: Int, // Correspondiente a la papeleta (Relaciona la Papeleta con DetallePapeleta)
+    val Fecha: String, // Correspondiente a la papeleta
+    val Status: String, // Correspondiente a la papeleta
+    val cantidad: Int, // Cantidad
+    val cliente: String
 )
 

@@ -23,8 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.barsa.Models.Data
+import com.example.barsa.Models.DetallePapeleta
 import com.example.barsa.Models.PapeletaModels
 import com.example.barsa.Models.Produccion
 import com.example.barsa.R
@@ -193,6 +195,27 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
         )
     }
 
+    val productos = listOf("ABD110", "BCD220", "CDE330", "DEF440")
+    val colores = listOf("NEGRO", "NOGAL", "TABACO", "Avellana")
+    val descripcion = listOf("ARMARIO BARSA MOD. DAVOZ 110", "ALACENA BARSA MOD. DAVOZ 60CM 4/P", "ANTECOMEDOR BARSA VENECIA 4/SILLAS", "ARMARIO BARSA MOD. SMART 2020")
+    val clientes = listOf("Cliente A", "Cliente B", "Cliente C", "Cliente D")
+
+    val detallesPapeletas = remember {
+        papeletas.data.map { papeleta ->
+            DetallePapeleta(
+                codigo = productos.random(),
+                descripcion = descripcion.random(),
+                color = colores.random(),
+                Tipold = papeleta.Tipold,
+                Folio = papeleta.Folio,
+                Fecha = papeleta.Fecha,
+                Status = papeleta.Status,
+                cantidad = (1..100).random(),
+                cliente = clientes.random()
+            )
+        }
+    }
+
     val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
     val filteredPapeletas by remember(query, selectedTipo, selectedOrden, papeletas) {
@@ -249,7 +272,8 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
                 items = filteredPapeletas,
                 key = { it.Folio }
             ) { papeleta ->
-                PapeletaCard(papeleta, onNavigate)
+                val detalle = detallesPapeletas.find { it.Folio == papeleta.Folio }
+                PapeletaCard(papeleta, detalle, onNavigate)
             }
 
             if (filteredPapeletas.isEmpty()) {
@@ -272,8 +296,9 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
 
 
 @Composable
-fun PapeletaCard(papeleta: Data, onNavigate: (String) -> Unit) {
+fun PapeletaCard(papeleta: Data, detalle: DetallePapeleta?, onNavigate: (String) -> Unit) {
     val accentBrown = Color(0xFF654321)
+    var showDialog by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,21 +347,105 @@ fun PapeletaCard(papeleta: Data, onNavigate: (String) -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                IconButton(
-                    onClick = {
-                        val route = "cronometro/${papeleta.Tipold}°${papeleta.Folio}°${papeleta.Fecha}°${papeleta.Status}"
-                        onNavigate(route)
-                    },
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos"
-                    )
+                Row {
+                    IconButton(
+                        onClick = {
+                            showDialog = true
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.detalles),
+                            contentDescription = "Detalle"
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            val route =
+                                "cronometro/${papeleta.Tipold}°${papeleta.Folio}°${papeleta.Fecha}°${papeleta.Status}"
+                            onNavigate(route)
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.cronometro),
+                            contentDescription = "Tiempos"
+                        )
+                    }
                 }
             }
         }
     }
+    if (showDialog && detalle != null) {
+        DetallePapeletaDialog(detalle) { showDialog = false }
+    }
 }
+
+@Composable
+fun DetallePapeletaDialog(
+    detalle: DetallePapeleta,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Detalle de Papeleta",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                DetalleItem("Código del Producto", detalle.codigo)
+                DetalleItem("Descripción", detalle.descripcion)
+                DetalleItem("Color", detalle.color)
+                DetalleItem("Tipold", detalle.Tipold)
+                DetalleItem("Folio", detalle.Folio.toString())
+                DetalleItem("Fecha", detalle.Fecha)
+                DetalleItem("Status", detalle.Status)
+                DetalleItem("Cantidad", detalle.cantidad.toString())
+                DetalleItem("Cliente", detalle.cliente)
+            }
+        }
+    }
+}
+
+@Composable
+fun DetalleItem(label: String, value: String) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+    Divider(modifier = Modifier.padding(vertical = 4.dp))
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
