@@ -24,14 +24,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-//import com.example.barsa.Usuario.AddUserSection
+import com.example.barsa.Usuario.AddUserSection
 import com.example.barsa.Usuario.AdminPanelSection
 import com.example.barsa.Usuario.ChangePasswordSection
-//import com.example.barsa.Usuario.DeleteUserSection
+import com.example.barsa.Usuario.DeleteUserSection
 import com.example.barsa.Usuario.EditProfileSection
 import com.example.barsa.Usuario.PersonalInfoSection
 import com.example.barsa.Usuario.UserDetailsSection
-//import com.example.barsa.Usuario.UserListSection
+import com.example.barsa.Usuario.UserListSection
 import com.example.barsa.Usuario.UserOptionsSection
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -229,7 +229,7 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                         navigationIconContentColor = Color.White
                     )
                 )
-/*
+
                 // Contenido de la sección
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (showSection) {
@@ -243,7 +243,7 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                         "Eliminar Usuario" -> DeleteUserSection(accentBrown, goldAccent)
                         "Detalles de Usuario" -> UserDetailsSection(accentBrown, goldAccent)
                     }
-                }*/
+                }
             }
         }
     }
