@@ -9,6 +9,7 @@ data class UserProfile(
     val username: String? = null,
     val email: String? = null,
     val date_joined: String? = null,
-    val role: String? = null
+    val role: String? = null,
+    val active: Boolean = true // Nuevo campo para indicar si el usuario está activo
 )
 

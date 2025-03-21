@@ -252,19 +252,20 @@ fun AddUserSection(primaryColor: Color, accentColor: Color) {
     }
 }
 
+// Actualizar la lista de usuarios para incluir el estado de activación
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListSection(primaryColor: Color, accentColor: Color, onUserClick: (UserProfile) -> Unit) {
     // Lista de usuarios de ejemplo
     val users = remember {
         listOf(
-            UserProfile("Juan", "Pérez", "juanperez", "juan@example.com", "15/01/2023", "Inventarios"),
-            UserProfile("Ana", "García", "anagarcia", "ana@example.com", "20/02/2023", "Producción"),
-            UserProfile("Carlos", "López", "carloslopez", "carlos@example.com", "10/03/2023", "Administrador"),
-            UserProfile("Laura", "Martínez", "lauramartinez", "laura@example.com", "05/04/2023", "Inventarios"),
-            UserProfile("Roberto", "Fernández", "robertof", "roberto@example.com", "12/05/2023", "Producción"),
-            UserProfile("María", "Rodríguez", "mariar", "maria@example.com", "18/06/2023", "Inventarios"),
-            UserProfile("Pedro", "Sánchez", "pedros", "pedro@example.com", "22/07/2023", "Administrador")
+            UserProfile("Juan", "Pérez", "juanperez", "juan@example.com", "15/01/2023", "Inventarios", true),
+            UserProfile("Ana", "García", "anagarcia", "ana@example.com", "20/02/2023", "Producción", true),
+            UserProfile("Carlos", "López", "carloslopez", "carlos@example.com", "10/03/2023", "Administrador", true),
+            UserProfile("Laura", "Martínez", "lauramartinez", "laura@example.com", "05/04/2023", "Inventarios", false),
+            UserProfile("Roberto", "Fernández", "robertof", "roberto@example.com", "12/05/2023", "Producción", true),
+            UserProfile("María", "Rodríguez", "mariar", "maria@example.com", "18/06/2023", "Inventarios", true),
+            UserProfile("Pedro", "Sánchez", "pedros", "pedro@example.com", "22/07/2023", "Administrador", false)
         )
     }
 
@@ -330,6 +331,7 @@ fun UserListSection(primaryColor: Color, accentColor: Color, onUserClick: (UserP
     }
 }
 
+// Actualizar la clase UserCard para mostrar el estado de activación
 @Composable
 fun UserCard(
     user: UserProfile,
@@ -341,7 +343,10 @@ fun UserCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (user.active) Color.White else Color.LightGray.copy(alpha = 0.3f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -355,8 +360,9 @@ fun UserCard(
                     .size(50.dp)
                     .clip(CircleShape)
                     .background(
-                        when (user.role) {
-                            "Administrador" -> accentColor.copy(alpha = 0.2f)
+                        when {
+                            !user.active -> Color.Gray.copy(alpha = 0.2f)
+                            user.role == "Administrador" -> accentColor.copy(alpha = 0.2f)
                             else -> primaryColor.copy(alpha = 0.2f)
                         }
                     ),
@@ -365,8 +371,9 @@ fun UserCard(
                 Text(
                     text = user.first_name?.firstOrNull()?.toString() ?: "?",
                     style = MaterialTheme.typography.titleLarge,
-                    color = when (user.role) {
-                        "Administrador" -> accentColor
+                    color = when {
+                        !user.active -> Color.Gray
+                        user.role == "Administrador" -> accentColor
                         else -> primaryColor
                     }
                 )
@@ -376,29 +383,52 @@ fun UserCard(
 
             // Información del usuario
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${user.first_name} ${user.last_name}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${user.first_name} ${user.last_name}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!user.active) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.Red.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Inactivo",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Red,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
                 Text(
                     text = "@${user.username}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Icon(
                         imageVector = when (user.role) {
-                            "Administrador" -> Icons.Default.AccountBox
+                            "Administrador" -> Icons.Default.Person
                             "Producción" -> Icons.Default.Build
-                            else -> Icons.Default.Edit
+                            else -> Icons.Default.List
                         },
                         contentDescription = null,
-                        tint = when (user.role) {
-                            "Administrador" -> accentColor
+                        tint = when {
+                            !user.active -> Color.Gray
+                            user.role == "Administrador" -> accentColor
                             else -> primaryColor
                         },
                         modifier = Modifier.size(16.dp)
@@ -407,8 +437,9 @@ fun UserCard(
                     Text(
                         text = user.role ?: "Sin rol",
                         style = MaterialTheme.typography.bodySmall,
-                        color = when (user.role) {
-                            "Administrador" -> accentColor
+                        color = when {
+                            !user.active -> Color.Gray
+                            user.role == "Administrador" -> accentColor
                             else -> primaryColor
                         }
                     )
@@ -417,215 +448,10 @@ fun UserCard(
 
             // Icono para ver detalles
             Icon(
-                imageVector = Icons.Default.Info,
+                imageVector = Icons.Default.KeyboardArrowRight,
                 contentDescription = "Ver detalles",
                 tint = Color.Gray
             )
         }
     }
 }
-
-@Composable
-fun DeleteUserSection(primaryColor: Color, accentColor: Color) {
-    // Lista de usuarios de ejemplo
-    val users = remember {
-        mutableStateListOf(
-            UserProfile("Juan", "Pérez", "juanperez", "juan@example.com", "15/01/2023", "Inventarios"),
-            UserProfile("Ana", "García", "anagarcia", "ana@example.com", "20/02/2023", "Producción"),
-            UserProfile("Carlos", "López", "carloslopez", "carlos@example.com", "10/03/2023", "Administrador"),
-            UserProfile("Laura", "Martínez", "lauramartinez", "laura@example.com", "05/04/2023", "Inventarios")
-        )
-    }
-
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var userToDelete by remember { mutableStateOf<UserProfile?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Text(
-            text = "Eliminar Usuario",
-            style = MaterialTheme.typography.headlineMedium,
-            color = primaryColor
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Selecciona un usuario para eliminarlo del sistema.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.Gray
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        successMessage?.let {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Green.copy(alpha = 0.1f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = Color.Green
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = it,
-                        color = Color.Green
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Lista de usuarios
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            items(users) { user ->
-                DeleteUserListItem(
-                    user = user,
-                    onClick = {
-                        userToDelete = user
-                        showDeleteDialog = true
-                    },
-                    primaryColor = primaryColor,
-                    accentColor = accentColor
-                )
-            }
-        }
-    }
-
-    // Diálogo de confirmación para eliminar usuario
-    if (showDeleteDialog && userToDelete != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showDeleteDialog = false
-                userToDelete = null
-            },
-            title = { Text("Eliminar Usuario") },
-            text = {
-                Text("¿Estás seguro que deseas eliminar al usuario ${userToDelete?.first_name} ${userToDelete?.last_name}?")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        // Eliminar usuario
-                        userToDelete?.let { user ->
-                            users.remove(user)
-                            successMessage = "Usuario eliminado correctamente"
-                        }
-                        showDeleteDialog = false
-                        userToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red
-                    )
-                ) {
-                    Text("Eliminar")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        userToDelete = null
-                    }
-                ) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun DeleteUserListItem(
-    user: UserProfile,
-    onClick: () -> Unit,
-    primaryColor: Color,
-    accentColor: Color
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Avatar del usuario
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(primaryColor.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = user.first_name?.firstOrNull()?.toString() ?: "?",
-                    color = primaryColor,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Información del usuario
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "${user.first_name} ${user.last_name}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "@${user.username}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-                Text(
-                    text = "Rol: ${user.role}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when(user.role) {
-                        "Administrador" -> accentColor
-                        else -> primaryColor
-                    }
-                )
-            }
-
-            IconButton(
-                onClick = onClick,
-                colors = IconButtonDefaults.iconButtonColors(
-                    contentColor = Color.Red
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Eliminar"
-                )
-            }
-        }
-    }
-}
-

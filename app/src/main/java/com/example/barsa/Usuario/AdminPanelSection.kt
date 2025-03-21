@@ -40,7 +40,7 @@ fun AdminPanelSection(
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = Icons.Default.AccountBox,
                     contentDescription = null,
                     tint = goldAccent,
                     modifier = Modifier.size(28.dp)
@@ -59,7 +59,7 @@ fun AdminPanelSection(
 
             // Opciones de administrador
             AdminOptionCard(
-                icon = Icons.Default.Add,
+                icon = Icons.Default.Person,
                 text = "Agregar Usuario",
                 description = "Crear nuevas cuentas de usuario",
                 onClick = { onOptionSelected("Agregar Usuario") },
@@ -77,10 +77,10 @@ fun AdminPanelSection(
             )
 
             AdminOptionCard(
-                icon = Icons.Default.Delete,
-                text = "Eliminar Usuario",
-                description = "Eliminar cuentas de usuario",
-                onClick = { onOptionSelected("Eliminar Usuario") },
+                icon = Icons.Default.Settings,
+                text = "Gestionar Usuarios",
+                description = "Activar o desactivar cuentas de usuario",
+                onClick = { onOptionSelected("Gestionar Usuarios") },
                 accentColor = goldAccent,
                 primaryColor = accentBrown
             )
@@ -133,7 +133,7 @@ fun AdminOptionCard(
                 )
             }
             Icon(
-                imageVector = Icons.Default.ArrowForward,
+                imageVector = Icons.Default.ArrowBack,
                 contentDescription = "Ir a",
                 tint = accentColor
             )

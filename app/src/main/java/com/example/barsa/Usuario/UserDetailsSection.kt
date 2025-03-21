@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -33,7 +34,8 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
             username = "carloslopez",
             email = "carlos@example.com",
             date_joined = "10/03/2023",
-            role = "Administrador"
+            role = "Administrador",
+            active = true
         )
     }
 
@@ -42,12 +44,14 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
     var usuario by remember { mutableStateOf(user.username ?: "") }
     var email by remember { mutableStateOf(user.email ?: "") }
     var selectedRole by remember { mutableStateOf(user.role ?: "Inventarios") }
+    var isActive by remember { mutableStateOf(user.active) }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
     var showRoleDropdown by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf<String?>(null) }
+    var showActivationDialog by remember { mutableStateOf(false) }
 
     val roles = listOf("Inventarios", "Producción", "Administrador")
 
@@ -70,8 +74,9 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
                     .size(80.dp)
                     .clip(CircleShape)
                     .background(
-                        when (user.role) {
-                            "Administrador" -> accentColor.copy(alpha = 0.2f)
+                        when {
+                            !isActive -> Color.Gray.copy(alpha = 0.2f)
+                            user.role == "Administrador" -> accentColor.copy(alpha = 0.2f)
                             else -> primaryColor.copy(alpha = 0.2f)
                         }
                     ),
@@ -80,8 +85,9 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
                 Text(
                     text = user.first_name?.firstOrNull()?.toString() ?: "?",
                     style = MaterialTheme.typography.headlineLarge,
-                    color = when (user.role) {
-                        "Administrador" -> accentColor
+                    color = when {
+                        !isActive -> Color.Gray
+                        user.role == "Administrador" -> accentColor
                         else -> primaryColor
                     }
                 )
@@ -90,11 +96,31 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
             Spacer(modifier = Modifier.width(16.dp))
 
             Column {
-                Text(
-                    text = "Detalles del Usuario",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Detalles del Usuario",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!isActive) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.Red.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Inactivo",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Red,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = "Información completa y edición",
                     style = MaterialTheme.typography.bodyMedium,
@@ -103,20 +129,41 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
             }
         }
 
-        // Botón para alternar modo edición
-        Button(
-            onClick = { isEditing = !isEditing },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isEditing) Color.Gray else primaryColor
-            ),
-            modifier = Modifier.align(Alignment.End)
+        // Botones de acción
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
         ) {
-            Icon(
-                imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,
-                contentDescription = if (isEditing) "Cancelar edición" else "Editar usuario"
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(if (isEditing) "Cancelar" else "Editar")
+            // Botón para activar/desactivar
+            Button(
+                onClick = { showActivationDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isActive) Color.Red else Color.Green
+                ),
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(
+                    imageVector = if (isActive) Icons.Default.Warning else Icons.Default.CheckCircle,
+                    contentDescription = if (isActive) "Desactivar usuario" else "Activar usuario"
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (isActive) "Desactivar" else "Activar")
+            }
+
+            // Botón para alternar modo edición
+            Button(
+                onClick = { isEditing = !isEditing },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isEditing) Color.Gray else primaryColor
+                )
+            ) {
+                Icon(
+                    imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,
+                    contentDescription = if (isEditing) "Cancelar edición" else "Editar usuario"
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (isEditing) "Cancelar" else "Editar")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -327,7 +374,7 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = Icons.Default.Done,
+                    imageVector = Icons.Default.ThumbUp,
                     contentDescription = "Guardar cambios"
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -341,49 +388,50 @@ fun UserDetailsSection(primaryColor: Color, accentColor: Color) {
             InfoField("Correo electrónico", email, primaryColor)
             InfoField("Rol", selectedRole, primaryColor)
             InfoField("Fecha de registro", user.date_joined ?: "N/A", primaryColor)
+            InfoField("Estado", if (isActive) "Activo" else "Inactivo", primaryColor)
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
 
-            // Opciones adicionales
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Opciones adicionales",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
+    // Diálogo de confirmación para activar/desactivar usuario
+    if (showActivationDialog) {
+        AlertDialog(
+            onDismissRequest = { showActivationDialog = false },
+            title = { Text(if (isActive) "Desactivar Usuario" else "Activar Usuario") },
+            text = {
+                Text(
+                    if (isActive)
+                        "¿Estás seguro que deseas desactivar al usuario ${nombre} ${apellido}? El usuario no podrá acceder al sistema mientras esté desactivado."
+                    else
+                        "¿Estás seguro que deseas activar al usuario ${nombre} ${apellido}? El usuario podrá acceder al sistema nuevamente."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isActive = !isActive
+                        successMessage = if (isActive)
+                            "Usuario activado correctamente"
+                        else
+                            "Usuario desactivado correctamente"
+                        showActivationDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isActive) Color.Red else Color.Green
                     )
-
-                    // Opción para desactivar cuenta
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { /* Acción para desactivar cuenta */ }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = Color.Red
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Desactivar cuenta",
-                            color = Color.Red
-                        )
-                    }
+                ) {
+                    Text(if (isActive) "Desactivar" else "Activar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showActivationDialog = false }
+                ) {
+                    Text("Cancelar")
                 }
             }
-        }
+        )
     }
 }
 

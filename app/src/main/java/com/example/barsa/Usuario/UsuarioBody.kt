@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -27,8 +28,9 @@ import androidx.compose.ui.unit.sp
 import com.example.barsa.Usuario.AddUserSection
 import com.example.barsa.Usuario.AdminPanelSection
 import com.example.barsa.Usuario.ChangePasswordSection
-import com.example.barsa.Usuario.DeleteUserSection
+
 import com.example.barsa.Usuario.EditProfileSection
+import com.example.barsa.Usuario.ManageUsersSection
 import com.example.barsa.Usuario.PersonalInfoSection
 import com.example.barsa.Usuario.UserDetailsSection
 import com.example.barsa.Usuario.UserListSection
@@ -194,7 +196,7 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.Default.ExitToApp,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -240,8 +242,9 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                         "Lista de Usuarios" -> UserListSection(accentBrown, goldAccent) { user ->
                             showSection = "Detalles de Usuario"
                         }
-                        "Eliminar Usuario" -> DeleteUserSection(accentBrown, goldAccent)
+
                         "Detalles de Usuario" -> UserDetailsSection(accentBrown, goldAccent)
+                        "Gestionar Usuarios" -> ManageUsersSection(accentBrown, goldAccent)
                     }
                 }
             }
