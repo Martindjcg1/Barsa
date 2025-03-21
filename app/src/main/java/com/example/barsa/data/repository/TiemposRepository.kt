@@ -20,24 +20,8 @@ import com.example.barsa.data.local.Tiempo
 import kotlinx.coroutines.flow.Flow
 
 interface TiemposRepository {
-
-    /**
-     * Upsert tiempo in the data source
-     */
     suspend fun upsertTiempo(tiempo: Tiempo)
-
-    /**
-     * Delete from the data source
-     */
     suspend fun deleteTiempo(tiempo: Tiempo)
-
-    /**
-     * Retrieve all from the the given data source.
-     */
     fun getAllStream(): Flow<List<Tiempo>>
-
-    /**
-     * Retrieve one from the given data source that matches with the [folio].
-     */
     fun getOneStream(folio: Int): Flow<Tiempo?>
 }
