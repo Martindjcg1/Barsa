@@ -22,7 +22,8 @@ data class InventoryItem(
     val cantXUnidad: Int,
     val proceso: String,
     val borrado: Boolean,
-    val imagenUrl: String? = null
+    val imagenUrl: String? = null,
+    val imagenesUrls: List<String> = emptyList()
 )
 
 data class InventoryEntry(
