@@ -25,10 +25,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
-import com.example.barsa.Models.Data
+import com.example.barsa.Models.CantidadDetalle
+import com.example.barsa.Models.Cliente
+import com.example.barsa.Models.ClienteDetalle
+//import com.example.barsa.Models.Data
 import com.example.barsa.Models.DetallePapeleta
+import com.example.barsa.Models.Papeleta
 import com.example.barsa.Models.PapeletaModels
 import com.example.barsa.Models.Produccion
+import com.example.barsa.Models.Producto
+import com.example.barsa.Models.ProductoDetalle
+import com.example.barsa.Models.color
 import com.example.barsa.R
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -169,6 +176,8 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
     var selectedOrden by remember { mutableStateOf("Recientes") }
     val listState = rememberLazyListState()
 
+    /*
+    Llenado de datos con antiguo data class
     // 150 datos simulados
     val statusValues = listOf("S", "P", "A", "B")
     val papeletas = remember {
@@ -214,19 +223,147 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
                 cliente = clientes.random()
             )
         }
+    }*/
+
+    /*
+    val statusValues = listOf("S", "P", "A", "B")
+    val productos = listOf("ABD110", "BCD220", "CDE330", "DEF440")
+    val colores = listOf("NEGRO", "NOGAL", "TABACO", "Avellana")
+    val descripcion = listOf(
+        "ARMARIO BARSA MOD. DAVOZ 110",
+        "ALACENA BARSA MOD. DAVOZ 60CM 4/P",
+        "ANTECOMEDOR BARSA VENECIA 4/SILLAS",
+        "ARMARIO BARSA MOD. SMART 2020"
+    )
+    val clientes = listOf("Cliente A", "Cliente B", "Cliente C", "Cliente D")
+
+    val papeletas = remember {
+        List(150) { index ->
+            val tipoId = when {
+                index < 50 -> "A"
+                index < 100 -> "B"
+                else -> "C"
+            }
+            val status = statusValues[index % statusValues.size]
+
+            val detalles = List((1..5).random()) { // Generar entre 1 y 5 detalles por papeleta
+                DetallePapeleta(
+                    codigo = productos.random(),
+                    descripcion = descripcion.random(),
+                    color = colores.random(),
+                    Tipold = tipoId,
+                    Folio = index + 1000,
+                    Fecha = "${(index % 28 + 1).toString().padStart(2, '0')}-${(index % 12 + 1).toString().padStart(2, '0')}-2025",
+                    Status = status,
+                    cantidad = (1..100).random(),
+                    cliente = clientes.random()
+                )
+            }
+
+            Data(
+                Tipold = tipoId,
+                Folio = index + 1000,
+                Fecha = "${(index % 28 + 1).toString().padStart(2, '0')}-${(index % 12 + 1).toString().padStart(2, '0')}-2025",
+                Status = status,
+                ObservacionGeneral = "loremipsum${index + 1}",
+                detallePapeleta = detalles // Asignar los detalles directamente a la papeleta
+            )
+        }
+    }*/
+
+    val statusValues = listOf("S", "P", "A", "B")
+
+// Generación de valores de ejemplo para productos, colores y clientes
+    val productos = listOf(
+        Producto(codigo = "ABD110", descripcion = "ARMARIO BARSA MOD. DAVOZ 110"),
+        Producto(codigo = "BCD220", descripcion = "ALACENA BARSA MOD. DAVOZ 60CM 4/P"),
+        Producto(codigo = "CDE330", descripcion = "ANTECOMEDOR BARSA VENECIA 4/SILLAS"),
+        Producto(codigo = "DEF440", descripcion = "ARMARIO BARSA MOD. SMART 2020")
+    )
+
+    val colores = listOf(
+        color(id = 1, nombre = "NEGRO"),
+        color(id = 2, nombre = "NOGAL"),
+        color(id = 3, nombre = "TABACO"),
+        color(id = 4, nombre = "Avellana")
+    )
+
+    val clientes = listOf(
+        Cliente(id = 1, nombre = "Cliente A"),
+        Cliente(id = 2, nombre = "Cliente B"),
+        Cliente(id = 3, nombre = "Cliente C"),
+        Cliente(id = 4, nombre = "Cliente D")
+    )
+
+// Lista de observaciones asociadas a productos
+    val observaciones = listOf(
+        "TELA DUBLIN BEIGE",
+        "TELA TERCIOPELO",
+        "MELAMINA MONARCA",
+        "TELA OSLO"
+    )
+
+    val papeletas = remember {
+        List(150) { index ->
+            val tipoId = when {
+                index < 50 -> "A"
+                index < 100 -> "B"
+                else -> "C"
+            }
+
+            val status = statusValues[index % statusValues.size]
+
+            // Generar los detalles de una papeleta
+            val detalles = List((1..5).random()) { // Cada papeleta tiene de 1 a 5 detalles
+                val detalleProductos = productos.shuffled().mapIndexed { idx, producto ->
+                    ProductoDetalle(
+                        producto = producto,
+                        color = colores.shuffled().first(), // Seleccionar un único color para el producto
+                        observaciones = listOf(observaciones[idx % observaciones.size]) // Solo una observación por producto
+                    )
+                }
+                val detalleClientes = clientes.shuffled().map { cliente ->
+                    ClienteDetalle(
+                        cliente = cliente,
+                        cantidades = List((1..3).random()) { // Generar de 1 a 3 cantidades por cliente
+                            CantidadDetalle(
+                                cantidad = (1..100).random(),
+                                surtida = (0..1).random(),
+                                backOrder = (1000..9999).random()
+                            )
+                        }
+                    )
+                }
+
+                DetallePapeleta(
+                    productos = detalleProductos,
+                    clientes = detalleClientes
+                )
+            }
+
+            Papeleta(
+                Tipold = tipoId,
+                Folio = index + 1000,
+                Fecha = "${(index % 28 + 1).toString().padStart(2, '0')}-${(index % 12 + 1).toString().padStart(2, '0')}-2025",
+                Status = status,
+                ObservacionGeneral = "Observación General ${index + 1}",
+                detalles = detalles
+            )
+        }
     }
 
     val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
     val filteredPapeletas by remember(query, selectedTipo, selectedOrden, papeletas) {
         derivedStateOf {
-            papeletas.data
-                .filter {
-                    it.Folio.toString().contains(query, ignoreCase = true) &&
-                            (selectedTipo == "Todos" || it.Tipold == selectedTipo)
+            papeletas
+                .filter { papeleta ->
+                    // Filtrar por Folio y TipoId
+                    papeleta.Folio.toString().contains(query, ignoreCase = true) &&
+                            (selectedTipo == "Todos" || papeleta.Tipold == selectedTipo)
                 }
-                .sortedBy { LocalDate.parse(it.Fecha, dateFormatter) }
-                .let { if (selectedOrden == "Recientes") it.reversed() else it }
+                .sortedBy { LocalDate.parse(it.Fecha, dateFormatter) } // Ordenar por fecha
+                .let { if (selectedOrden == "Recientes") it.reversed() else it } // Invertir si es reciente
         }
     }
 
@@ -272,8 +409,8 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
                 items = filteredPapeletas,
                 key = { it.Folio }
             ) { papeleta ->
-                val detalle = detallesPapeletas.find { it.Folio == papeleta.Folio }
-                PapeletaCard(papeleta, detalle, onNavigate)
+                // Pasar la lista completa de detalles (papeleta.detalles)
+                PapeletaCard(papeleta, papeleta.detalles, onNavigate)
             }
 
             if (filteredPapeletas.isEmpty()) {
@@ -296,9 +433,15 @@ fun ProduccionesScreen(onNavigate: (String) -> Unit) {
 
 
 @Composable
-fun PapeletaCard(papeleta: Data, detalle: DetallePapeleta?, onNavigate: (String) -> Unit) {
+fun PapeletaCard(
+    papeleta: Papeleta,
+    detalles: List<DetallePapeleta>,
+    onNavigate: (String) -> Unit
+) {
     val accentBrown = Color(0xFF654321)
     var showDialog by remember { mutableStateOf(false) }
+    var selectedDetalle by remember { mutableStateOf<DetallePapeleta?>(null) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -311,6 +454,7 @@ fun PapeletaCard(papeleta: Data, detalle: DetallePapeleta?, onNavigate: (String)
                 .padding(12.dp)
                 .fillMaxWidth()
         ) {
+            // Información general de la papeleta
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -350,6 +494,8 @@ fun PapeletaCard(papeleta: Data, detalle: DetallePapeleta?, onNavigate: (String)
                 Row {
                     IconButton(
                         onClick = {
+                            // Seleccionar el primer detalle para mostrar en el diálogo
+                            selectedDetalle = detalles.firstOrNull()
                             showDialog = true
                         },
                         colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
@@ -376,8 +522,8 @@ fun PapeletaCard(papeleta: Data, detalle: DetallePapeleta?, onNavigate: (String)
             }
         }
     }
-    if (showDialog && detalle != null) {
-        DetallePapeletaDialog(detalle) { showDialog = false }
+    if (showDialog && selectedDetalle != null) {
+        DetallePapeletaDialog(selectedDetalle!!) { showDialog = false }
     }
 }
 
@@ -398,6 +544,7 @@ fun DetallePapeletaDialog(
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState())
             ) {
+                // Encabezado del diálogo
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -415,15 +562,52 @@ fun DetallePapeletaDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                DetalleItem("Código del Producto", detalle.codigo)
-                DetalleItem("Descripción", detalle.descripcion)
-                DetalleItem("Color", detalle.color)
-                DetalleItem("Tipold", detalle.Tipold)
-                DetalleItem("Folio", detalle.Folio.toString())
-                DetalleItem("Fecha", detalle.Fecha)
-                DetalleItem("Status", detalle.Status)
-                DetalleItem("Cantidad", detalle.cantidad.toString())
-                DetalleItem("Cliente", detalle.cliente)
+                // Mostrar información por producto incluyendo clientes y cantidades
+                detalle.productos.forEach { productoDetalle ->
+                    // Información del producto
+                    Text(
+                        text = "Producto: ${productoDetalle.producto.codigo}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Descripción: ${productoDetalle.producto.descripcion}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Observación: ${productoDetalle.observaciones.firstOrNull() ?: "Sin observación"}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Color: ${productoDetalle.color.nombre}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Clientes y cantidades asociadas al producto
+                    Text(
+                        text = "Clientes y Cantidades:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    detalle.clientes.forEach { clienteDetalle ->
+                        Text(
+                            text = "- Cliente: ${clienteDetalle.cliente.nombre}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        clienteDetalle.cantidades.forEach { cantidadDetalle ->
+                            Text(
+                                text = "    - Cantidad: ${cantidadDetalle.cantidad} (Surtida: ${if (cantidadDetalle.surtida == 1) "Sí" else "No"}, BackOrder: ${cantidadDetalle.backOrder})",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                }
             }
         }
     }

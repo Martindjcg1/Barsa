@@ -1,10 +1,13 @@
 package com.example.barsa.Producciones
 
 import android.annotation.SuppressLint
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.IBinder
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -138,13 +141,57 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
     val tiempos by tiemposViewModel.tiempos.collectAsState()
     val tiempo = tiempos[Folio]
 
+    val contexto = LocalContext.current
+
+    // Cambiar a "remember" para almacenar la referencia del servicio
+    var cronometroService: CronometroService? by remember { mutableStateOf(null) }
+    val serviceConnection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                cronometroService = (binder as CronometroService.CronometroBinder).getService()
+                cronometroService?.let { service ->
+                    val tiempoActual = service.getCronometroTiempo(Folio)
+
+                    if (tiempoActual > 0) {
+                        // Solo sincroniza si el servicio está corriendo
+                        tiemposViewModel.upsertTiempo(
+                            Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoActual.toInt())
+                        )
+                        time = tiempoActual.toInt()
+                        isRunning = true // Asegurar que el cronómetro sigue corriendo
+                    }
+                }
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                cronometroService = null
+            }
+        }
+    }
+
+    // Bind del servicio
+    LaunchedEffect(Unit) {
+        val intent = Intent(contexto, CronometroService::class.java)
+        contexto.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    // Unbind del servicio
+    DisposableEffect(Unit) {
+        onDispose {
+            contexto.unbindService(serviceConnection)
+        }
+    }
+
+    // Cargar el tiempo almacenado en Room
     LaunchedEffect(Unit) {
         tiemposViewModel.fetchTiempo(Folio)
     }
 
+    // Si el servicio no está corriendo, usar el tiempo guardado en Room
     LaunchedEffect(tiempo) {
-        time = tiempo?.tiempo ?: 0
-        //currentProcess = tiempo?.currentProcess ?: 1
+        if (cronometroService == null || cronometroService?.getCronometroTiempo(Folio)?.toInt() == 0) {
+            time = tiempo?.tiempo ?: 0
+        }
     }
 
     LaunchedEffect(isRunning) {
@@ -185,7 +232,25 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
 
         Row {
             // ▶⏸ Botón Iniciar/Pausar
-            Button(onClick = { isRunning = !isRunning }) {
+            Button(onClick = {
+                isRunning = !isRunning
+                if (isRunning) {
+                    val intent = Intent(contexto, CronometroService::class.java).apply {
+                        putExtra("folio", Folio)
+                        putExtra("tiempoInicial", time)
+                    }
+                    contexto.startService(intent) // Inicia el servicio
+                } else {
+                    cronometroService?.let { service ->
+                        val tiempoFinal = service.stopCronometro(Folio)
+                        tiemposViewModel.upsertTiempo(
+                            Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoFinal.toInt())
+                        )
+                        val intent = Intent(contexto, CronometroService::class.java)
+                        contexto.stopService(intent) // Detén el servicio
+                    }
+                }
+            }) {
                 Text(if (isRunning) "Pausar" else "Iniciar")
             }
 
@@ -215,9 +280,9 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                         time = 0
                         currentProcess++
                     }*/
-                    time = 0
-                    if (currentProcess < maxProcesses)
-                        currentProcess += 1
+                    //time = 0
+                    //if (currentProcess < maxProcesses)
+                      //  currentProcess += 1
                 },
                 //enabled = currentProcess <= maxProcesses
             ) {
@@ -234,9 +299,21 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                 confirmButton = {
                     Button(onClick = {
                         isRunning = false
-                        //tiemposViewModel.deleteTiempo(Folio)
+
+                        // Eliminar tiempo de Room
+                        tiemposViewModel.deleteTiempo(Folio)
+
+                        // Resetear variables locales
                         time = 0
-                        //currentProcess = 1
+                        // currentProcess = 1 // (Si usas esto, descoméntalo)
+
+                        // Detener el servicio si está en ejecución
+                        cronometroService?.let { service ->
+                            service.resetCronometro(Folio) // Reiniciar cronómetro en el servicio
+                            val intent = Intent(contexto, CronometroService::class.java)
+                            contexto.stopService(intent) // Detiene el Foreground Service
+                        }
+
                         showDialog = false
                     }) {
                         Text("Sí")
