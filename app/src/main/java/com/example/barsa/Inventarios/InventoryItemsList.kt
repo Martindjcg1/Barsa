@@ -18,7 +18,8 @@ import com.example.barsa.Models.InventoryItem
 @Composable
 fun InventoryItemsList(
     category: InventoryCategory,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onItemClick: (InventoryItem) -> Unit = {}
 ) {
     // Obtener todos los items y filtrarlos según la categoría seleccionada
     var allItems by remember { mutableStateOf(getAllInventoryItems()) }
@@ -87,7 +88,10 @@ fun InventoryItemsList(
             items(filteredItems) { item ->
                 InventoryItemCard(
                     item = item,
-                    onClick = { selectedItem = item }
+                    onClick = {
+                        selectedItem = item
+                        onItemClick(item)
+                    }
                 )
             }
         }
