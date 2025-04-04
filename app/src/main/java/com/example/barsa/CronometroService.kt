@@ -21,9 +21,12 @@ class CronometroService : Service() {
         val folio = intent?.getIntExtra("folio", -1) ?: return START_NOT_STICKY
         val tiempoInicial = intent.getLongExtra("tiempoInicial", 0L)
 
-        if (!cronometros.containsKey(folio)) {
-            cronometros[folio] = tiempoInicial
-            startTimes[folio] = System.currentTimeMillis() / 1000 // Timestamp en segundos
+        // Siempre actualiza el tiempo almacenado
+        cronometros[folio] = tiempoInicial
+
+        // Solo establece el tiempo de inicio si no está corriendo
+        if (!isRunning(folio)) {
+            startTimes[folio] = System.currentTimeMillis() / 1000
         }
 
         startForeground(1, createNotification("Cronómetros en ejecución..."))
@@ -49,12 +52,26 @@ class CronometroService : Service() {
             .build()
     }
 
+    fun isRunning(folio: Int): Boolean {
+        return startTimes.containsKey(folio)
+    }
+
     fun stopCronometro(folio: Int): Long {
         val tiempoAcumulado = calculateCurrentTime(folio)
-        cronometros[folio] = tiempoAcumulado // Actualiza el tiempo acumulado
-        startTimes.remove(folio) // Elimina el timestamp de inicio
+        cronometros[folio] = tiempoAcumulado // Guarda el tiempo acumulado
+        startTimes.remove(folio) // Elimina el tiempo de inicio (pausa el cronómetro)
+
+        // 🔥 Verificar si todos los cronómetros están pausados
+        if (startTimes.isEmpty()) {
+            stopForeground(true) // Deja de ser un Foreground Service
+            stopSelf() // Mata el servicio solo si no hay cronómetros activos
+        } else {
+            updateNotification() // Actualiza la notificación con los cronómetros restantes
+        }
+
         return tiempoAcumulado
     }
+
 
     fun resetCronometro(folio: Int): Long {
         val tiempoAcumulado = calculateCurrentTime(folio)
@@ -70,8 +87,26 @@ class CronometroService : Service() {
         return tiempoInicial + tiempoActual
     }
 
+    private fun updateNotification() {
+        val numCronometros = startTimes.size
+        val content = if (numCronometros > 0) {
+            "$numCronometros cronómetro(s) en ejecución"
+        } else {
+            "Todos los cronómetros pausados"
+        }
+
+        val notification = createNotification(content)
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(1, notification) // Actualiza la notificación sin detener el servicio
+    }
+
+
     fun getCronometroTiempo(folio: Int): Long {
         return calculateCurrentTime(folio)
+    }
+
+    fun getActiveFolios(): List<Int> {
+        return startTimes.keys.toList()
     }
 
     override fun onDestroy() {

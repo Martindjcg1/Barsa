@@ -8,6 +8,7 @@ import com.example.barsa.data.repository.OfflineTiemposRepository
 import com.example.barsa.data.repository.TiemposRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,15 @@ class TiemposViewModel @Inject constructor(
     private val _tiempos = MutableStateFlow<Map<Int, Tiempo>>(emptyMap())
     val tiempos: StateFlow<Map<Int, Tiempo>> = _tiempos.asStateFlow()
 
+    private val _isRunningMap = MutableStateFlow<Map<Int, Boolean>>(emptyMap())
+    val isRunningMap: StateFlow<Map<Int, Boolean>> = _isRunningMap.asStateFlow()
+
+    fun setIsRunning(folio: Int, isRunning: Boolean) {
+        _isRunningMap.value = _isRunningMap.value.toMutableMap().apply {
+            put(folio, isRunning)
+        }
+    }
+
     fun upsertTiempo(tiempo: Tiempo) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -32,6 +42,11 @@ class TiemposViewModel @Inject constructor(
             fetchTiempo(tiempo.folio)
         }
     }
+
+    fun getTiempoStream(folio: Int): Flow<Tiempo?> {
+        return tiemposRepository.getOneStream(folio)
+    }
+
 
     fun fetchTiempo(folio: Int) {
         viewModelScope.launch {
