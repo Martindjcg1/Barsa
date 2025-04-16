@@ -8,6 +8,7 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -128,7 +129,10 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
 @Composable
 fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, tiemposViewModel: TiemposViewModel) {
     var time by rememberSaveable { mutableStateOf(0) }
-    var isRunning by rememberSaveable { mutableStateOf(false) }
+    //var isRunning by rememberSaveable { mutableStateOf(false) }
+    val isRunningMap by tiemposViewModel.isRunningMap.collectAsState()
+    val isRunning = isRunningMap[Folio] ?: false // Obtener estado específico del folio
+
     var showDialog by rememberSaveable { mutableStateOf(false) }
     var currentProcess by rememberSaveable { mutableStateOf(1) }
     val maxProcesses = 4
@@ -152,13 +156,18 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                 cronometroService?.let { service ->
                     val tiempoActual = service.getCronometroTiempo(Folio)
 
-                    if (tiempoActual > 0) {
+                    if (cronometroService?.isRunning(Folio) == true && tiempoActual > 0) {
                         // Solo sincroniza si el servicio está corriendo
                         tiemposViewModel.upsertTiempo(
                             Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoActual.toInt())
                         )
                         time = tiempoActual.toInt()
-                        isRunning = true // Asegurar que el cronómetro sigue corriendo
+                        //isRunning = true // Asegurar que el cronómetro sigue corriendo
+                        if (service.isRunning(Folio)) {
+                            tiemposViewModel.setIsRunning(Folio, true)
+                        } else {
+                            tiemposViewModel.setIsRunning(Folio, false)
+                        }
                     }
                 }
             }
@@ -201,6 +210,8 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
         }
     }
 
+
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,23 +242,28 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
         Spacer(modifier = Modifier.height(16.dp))
 
         Row {
+            val tiempoDesdeDB by tiemposViewModel.getTiempoStream(Folio).collectAsState(initial = null)
+
             // ▶⏸ Botón Iniciar/Pausar
             Button(onClick = {
-                isRunning = !isRunning
-                if (isRunning) {
+                //isRunning = !isRunning
+                val newState = !isRunning
+                tiemposViewModel.setIsRunning(Folio, newState)
+
+                if (newState) {
+                    tiemposViewModel.fetchTiempo(Folio)
+                    val tiempoBase = tiempoDesdeDB?.tiempo ?: 0
                     val intent = Intent(contexto, CronometroService::class.java).apply {
                         putExtra("folio", Folio)
-                        putExtra("tiempoInicial", time)
+                        putExtra("tiempoInicial", tiempoBase)
                     }
                     contexto.startService(intent) // Inicia el servicio
+                    Log.d("CronometroService", "Iniciando folio $Folio desde $tiempoBase segundos")
+
                 } else {
                     cronometroService?.let { service ->
-                        val tiempoFinal = service.stopCronometro(Folio)
-                        tiemposViewModel.upsertTiempo(
-                            Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoFinal.toInt())
-                        )
-                        val intent = Intent(contexto, CronometroService::class.java)
-                        contexto.stopService(intent) // Detén el servicio
+                            val tiempoFinal = service.stopCronometro(Folio)
+                            tiemposViewModel.upsertTiempo(Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoFinal.toInt()))
                     }
                 }
             }) {
@@ -298,21 +314,25 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                 text = { Text("¿Estás seguro que quieres reiniciar?") },
                 confirmButton = {
                     Button(onClick = {
-                        isRunning = false
+                        //isRunning = false
+                        tiemposViewModel.setIsRunning(Folio, false)
 
                         // Eliminar tiempo de Room
                         tiemposViewModel.deleteTiempo(Folio)
 
+                        // Detener el cronómetro de este folio en el servicio
+                        cronometroService?.let { service ->
+                            service.resetCronometro(Folio)
+
+                            // Solo si no quedan otros cronómetros activos, detenemos el servicio
+                            if (service.getActiveFolios().isEmpty()) {
+                                val intent = Intent(contexto, CronometroService::class.java)
+                                contexto.stopService(intent)
+                            }
+                        }
+
                         // Resetear variables locales
                         time = 0
-                        // currentProcess = 1 // (Si usas esto, descoméntalo)
-
-                        // Detener el servicio si está en ejecución
-                        cronometroService?.let { service ->
-                            service.resetCronometro(Folio) // Reiniciar cronómetro en el servicio
-                            val intent = Intent(contexto, CronometroService::class.java)
-                            contexto.stopService(intent) // Detiene el Foreground Service
-                        }
 
                         showDialog = false
                     }) {
@@ -359,7 +379,8 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                     confirmButton = {
                         Button(onClick = {
                             stopDialog = false
-                            isRunning = false
+                            //isRunning = false
+                            tiemposViewModel.setIsRunning(Folio, false)
                             // Agrega tu lógica para manejar el proceso detenido
                         }) {
                             Text("Confirmar")
