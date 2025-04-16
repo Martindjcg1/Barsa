@@ -49,6 +49,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
     // Room (Base de datos local para almacenar tiempos)
     implementation("androidx.room:room-runtime:2.6.1")
+    implementation(libs.androidx.compose.material)
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     // Coroutines para manejar procesos en segundo plano

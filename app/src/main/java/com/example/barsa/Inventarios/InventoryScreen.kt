@@ -46,6 +46,8 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
     var showAdminPanel by remember { mutableStateOf(false) }
     var adminAction by remember { mutableStateOf<String?>(null) }
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var showTransactionOptions by remember { mutableStateOf(false) }
+    var transactionAction by remember { mutableStateOf<String?>(null) }
 
     // Lista de todas las categorías posibles
     val categories = remember {
@@ -68,12 +70,15 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
     val primaryBrown = MaterialTheme.colorScheme.primary
     val accentBrown = MaterialTheme.colorScheme.secondary
 
+    // Nombre del usuario actual (en una implementación real, esto vendría de un sistema de autenticación)
+    val currentUser = remember { "Martin Castañeda" }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Encabezado con título y botón de administrador
+        // Encabezado con título, botón de transacciones y botón de administrador
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -87,22 +92,56 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
                 fontWeight = FontWeight.Bold
             )
 
-            // Botón de administrador
-            IconButton(
-                onClick = { showAdminPanel = !showAdminPanel },
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = if (showAdminPanel) accentBrown else primaryBrown,
-                        shape = CircleShape
-                    )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Panel de Administrador",
-                    tint = Color.White
-                )
+                // Botón de transacciones (entradas/salidas)
+                IconButton(
+                    onClick = { showTransactionOptions = !showTransactionOptions },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (showTransactionOptions) MaterialTheme.colorScheme.tertiary else primaryBrown,
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Entradas/Salidas",
+                        tint = Color.White
+                    )
+                }
+
+                // Botón de administrador
+                IconButton(
+                    onClick = { showAdminPanel = !showAdminPanel },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (showAdminPanel) accentBrown else primaryBrown,
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Panel de Administrador",
+                        tint = Color.White
+                    )
+                }
             }
+        }
+
+        // Panel de transacciones (visible solo cuando showTransactionOptions es true)
+        AnimatedVisibility(
+            visible = showTransactionOptions,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            TransactionPanel(
+                onRegisterEntry = { transactionAction = "entry" },
+                onRegisterExit = { transactionAction = "exit" },
+                onViewHistory = { transactionAction = "history" }
+            )
         }
 
         // Panel de administrador (visible solo cuando showAdminPanel es true)
@@ -147,66 +186,185 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
         }
 
         // Contenido principal
-        if (adminAction == "add") {
-            AddInventoryScreen(
-                categories = categories,
-                onCancel = { adminAction = null },
-                onSave = { newItem ->
-                    // Aquí se guardaría el nuevo item en la base de datos
-                    // Por ahora solo cerramos la pantalla
-                    adminAction = null
-                }
-            )
-        } else if (selectedItem != null) {
-            // Pantalla de edición de item específico
-            EditItemScreen(
-                item = selectedItem!!,
-                onCancel = {
-                    selectedItem = null
-                    // Si estábamos en modo edición, volvemos a la lista de edición
-                    if (adminAction == "edit") {
-                        adminAction = "edit"
+        when {
+            // Acciones de transacción
+            transactionAction == "entry" -> {
+                InventoryEntryScreen(
+                    onCancel = { transactionAction = null },
+                    onSave = { transactionAction = null },
+                    currentUser = currentUser
+                )
+            }
+            transactionAction == "exit" -> {
+                InventoryExitScreen(
+                    onCancel = { transactionAction = null },
+                    onSave = { transactionAction = null },
+                    currentUser = currentUser
+                )
+            }
+            transactionAction == "history" -> {
+                TransactionHistoryScreen(
+                    onBack = { transactionAction = null }
+                )
+            }
+
+            // Acciones de administrador
+            adminAction == "add" -> {
+                AddInventoryScreen(
+                    categories = categories,
+                    onCancel = { adminAction = null },
+                    onSave = { newItem ->
+                        // Aquí se guardaría el nuevo item en la base de datos
+                        // Por ahora solo cerramos la pantalla
+                        adminAction = null
                     }
-                },
-                onSave = { updatedItem ->
-                    // Aquí se guardaría el item actualizado en la base de datos
-                    selectedItem = null
-                    // Si estábamos en modo edición, volvemos a la lista de edición
-                    if (adminAction == "edit") {
-                        adminAction = "edit"
+                )
+            }
+            selectedItem != null -> {
+                // Pantalla de edición de item específico
+                EditItemScreen(
+                    item = selectedItem!!,
+                    onCancel = {
+                        selectedItem = null
+                        // Si estábamos en modo edición, volvemos a la lista de edición
+                        if (adminAction == "edit") {
+                            adminAction = "edit"
+                        }
+                    },
+                    onSave = { updatedItem ->
+                        // Aquí se guardaría el item actualizado en la base de datos
+                        selectedItem = null
+                        // Si estábamos en modo edición, volvemos a la lista de edición
+                        if (adminAction == "edit") {
+                            adminAction = "edit"
+                        }
                     }
-                }
-            )
-        } else if (adminAction == "edit" && selectedCategory != null) {
-            EditInventoryScreen(
-                category = selectedCategory!!,
-                onCancel = { adminAction = null },
-                onItemSelected = { item ->
-                    selectedItem = item
-                    // No cambiamos adminAction para mantener el contexto de edición
-                }
-            )
-        } else if (adminAction == "delete" && selectedCategory != null) {
-            DeleteInventoryScreen(
-                category = selectedCategory!!,
-                onCancel = { adminAction = null }
-            )
-        } else if (selectedCategory == null) {
-            CategoryList(
-                categories = categories,
-                onCategorySelected = { selectedCategory = it }
-            )
-        } else {
-            InventoryItemsList(
-                category = selectedCategory!!,
-                onBackClick = { selectedCategory = null },
-                onItemClick = { item ->
-                    if (adminAction == "edit") {
+                )
+            }
+            adminAction == "edit" && selectedCategory != null -> {
+                EditInventoryScreen(
+                    category = selectedCategory!!,
+                    onCancel = { adminAction = null },
+                    onItemSelected = { item ->
                         selectedItem = item
+                        // No cambiamos adminAction para mantener el contexto de edición
                     }
-                }
-            )
+                )
+            }
+            adminAction == "delete" && selectedCategory != null -> {
+                DeleteInventoryScreen(
+                    category = selectedCategory!!,
+                    onCancel = { adminAction = null }
+                )
+            }
+
+            // Vista normal de inventario
+            selectedCategory == null -> {
+                CategoryList(
+                    categories = categories,
+                    onCategorySelected = { selectedCategory = it }
+                )
+            }
+            else -> {
+                InventoryItemsList(
+                    category = selectedCategory!!,
+                    onBackClick = { selectedCategory = null },
+                    onItemClick = { item ->
+                        if (adminAction == "edit") {
+                            selectedItem = item
+                        }
+                    }
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun TransactionPanel(
+    onRegisterEntry: () -> Unit,
+    onRegisterExit: () -> Unit,
+    onViewHistory: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Movimientos de Inventario",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                TransactionButton(
+                    icon = Icons.Default.AddCircle,
+                    text = "Entrada",
+                    onClick = onRegisterEntry
+                )
+
+                TransactionButton(
+                    icon = Icons.Default.ExitToApp,
+                    text = "Salida",
+                    onClick = onRegisterExit
+                )
+
+                TransactionButton(
+                    icon = Icons.Default.Email,
+                    text = "Historial",
+                    onClick = onViewHistory
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TransactionButton(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(8.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier
+                .size(32.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
+                    shape = CircleShape
+                )
+                .padding(6.dp)
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onTertiaryContainer
+        )
     }
 }
 
@@ -297,4 +455,3 @@ fun AdminButton(
         )
     }
 }
-

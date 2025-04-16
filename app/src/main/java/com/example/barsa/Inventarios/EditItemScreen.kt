@@ -314,6 +314,7 @@ fun EditItemScreen(
                     fontWeight = FontWeight.Medium
                 )
 
+                // Primera fila de radio buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -333,6 +334,28 @@ fun EditItemScreen(
                         onClick = { proceso = "E" }
                     )
                     Text("Ensamble (E)", modifier = Modifier.padding(start = 4.dp))
+                }
+
+                // Segunda fila de radio buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = proceso == "T",
+                        onClick = { proceso = "T" }
+                    )
+                    Text("Terminado (T)", modifier = Modifier.padding(start = 4.dp))
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    RadioButton(
+                        selected = proceso == "P",
+                        onClick = { proceso = "P" }
+                    )
+                    Text("Preparación (P)", modifier = Modifier.padding(start = 4.dp))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -544,4 +567,3 @@ fun EditItemScreen(
         }
     }
 }
-

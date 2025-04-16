@@ -26,13 +26,26 @@ data class InventoryItem(
     val imagenesUrls: List<String> = emptyList()
 )
 
+// Modelo para entrada de inventario
 data class InventoryEntry(
     val id: String,
-    val fecha: Date,
-    val proveedor: String,
-    val items: List<InventoryEntryItem>,
-    val observaciones: String,
-    val registradoPor: String
+    val date: Date,
+    val supplier: Supplier,
+    val items: List<InventoryTransactionItem>,
+    val totalAmount: Double,
+    val notes: String,
+    val createdBy: String  // Nombre del usuario
+)
+
+// Modelo para salida de inventario
+data class InventoryExit(
+    val id: String,
+    val date: Date,
+    val reason: String,
+    val items: List<InventoryTransactionItem>,
+    val destination: String,
+    val notes: String,
+    val createdBy: String  // Nombre del usuario
 )
 
 data class InventoryEntryItem(
@@ -41,14 +54,7 @@ data class InventoryEntryItem(
     val precioUnitario: Double
 )
 
-data class InventoryExit(
-    val id: String,
-    val fecha: Date,
-    val motivo: String,
-    val items: List<InventoryExitItem>,
-    val observaciones: String,
-    val registradoPor: String
-)
+
 
 data class InventoryExitItem(
     val item: InventoryItem,
