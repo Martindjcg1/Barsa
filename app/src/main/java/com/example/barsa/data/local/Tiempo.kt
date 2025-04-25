@@ -10,5 +10,6 @@ data class Tiempo (
     val folio: Int,
     val fecha: String,
     val status: String,
-    val tiempo: Int
+    val tiempo: Int,
+    val isRunning: Boolean
     )

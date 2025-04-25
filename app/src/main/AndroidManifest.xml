@@ -36,6 +36,7 @@
         </activity>
         <service
             android:name=".CronometroService"
+            android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"/>
     </application>

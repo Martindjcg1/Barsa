@@ -26,4 +26,9 @@ class OfflineTiemposRepository @Inject constructor(private val tiempoDao: Tiempo
     override suspend fun deleteTiempo(tiempo: Tiempo) = tiempoDao.delete(tiempo)
     override fun getAllStream(): Flow<List<Tiempo>> = tiempoDao.getAll()
     override fun getOneStream(folio: Int): Flow<Tiempo?> = tiempoDao.getOne(folio)
+    override suspend fun updateIsRunning(folio: Int, isRunning: Boolean) =
+        tiempoDao.updateIsRunning(folio, isRunning)
+    override suspend fun updateTiempo(folio: Int, nuevoTiempo: Int) =
+        tiempoDao.updateTiempo(folio, nuevoTiempo)
+    override suspend fun getIsRunning(folio: Int): Boolean = tiempoDao.getIsRunning(folio)
 }

@@ -24,4 +24,7 @@ interface TiemposRepository {
     suspend fun deleteTiempo(tiempo: Tiempo)
     fun getAllStream(): Flow<List<Tiempo>>
     fun getOneStream(folio: Int): Flow<Tiempo?>
+    suspend fun updateIsRunning(folio: Int, isRunning: Boolean)
+    suspend fun updateTiempo(folio: Int, nuevoTiempo: Int)
+    suspend fun getIsRunning(folio: Int): Boolean
 }

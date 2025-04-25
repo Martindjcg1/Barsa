@@ -22,4 +22,13 @@ interface TiempoDao {
 
     @Query("SELECT * from tiempos ORDER BY fecha ASC")
     fun getAll(): Flow<List<Tiempo>>
+
+    @Query("UPDATE tiempos SET isRunning = :isRunning WHERE folio = :folio")
+    suspend fun updateIsRunning(folio: Int, isRunning: Boolean)
+
+    @Query("UPDATE tiempos SET tiempo = :nuevoTiempo WHERE folio = :folio")
+    suspend fun updateTiempo(folio: Int, nuevoTiempo: Int)
+
+    @Query("SELECT isRunning FROM tiempos WHERE folio = :folio")
+    suspend fun getIsRunning(folio: Int): Boolean
 }

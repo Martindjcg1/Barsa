@@ -130,21 +130,25 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
 fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, tiemposViewModel: TiemposViewModel) {
     var time by rememberSaveable { mutableStateOf(0) }
     //var isRunning by rememberSaveable { mutableStateOf(false) }
-    val isRunningMap by tiemposViewModel.isRunningMap.collectAsState()
-    val isRunning = isRunningMap[Folio] ?: false // Obtener estado específico del folio
+    //val isRunningMap by tiemposViewModel.isRunningMap.collectAsState()
+    //val isRunning = isRunningMap[Folio] ?: false // Obtener estado específico del folio
+    var isRunning by rememberSaveable { mutableStateOf(false) }
 
+    // Usamos la función getIsRunning para obtener el valor de isRunning
+    LaunchedEffect(Folio) {
+        tiemposViewModel.getIsRunning(Folio) { running ->
+            isRunning = running
+        }
+    }
     var showDialog by rememberSaveable { mutableStateOf(false) }
     var currentProcess by rememberSaveable { mutableStateOf(1) }
     val maxProcesses = 4
     var stopDialog by rememberSaveable { mutableStateOf(false) }
     var reason by rememberSaveable { mutableStateOf("") }
     val currentDate = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
-
     val processNames = listOf("Madera", "Pintura", "Tapicería", "Empaque")
-
     val tiempos by tiemposViewModel.tiempos.collectAsState()
     val tiempo = tiempos[Folio]
-
     val contexto = LocalContext.current
 
     // Cambiar a "remember" para almacenar la referencia del servicio
@@ -158,15 +162,32 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
 
                     if (cronometroService?.isRunning(Folio) == true && tiempoActual > 0) {
                         // Solo sincroniza si el servicio está corriendo
-                        tiemposViewModel.upsertTiempo(
-                            Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoActual.toInt())
-                        )
-                        time = tiempoActual.toInt()
-                        //isRunning = true // Asegurar que el cronómetro sigue corriendo
-                        if (service.isRunning(Folio)) {
-                            tiemposViewModel.setIsRunning(Folio, true)
-                        } else {
-                            tiemposViewModel.setIsRunning(Folio, false)
+                        tiemposViewModel.checkIfFolioExists(Folio) { exists ->
+                            //val isRunning = tiemposViewModel.isRunningMap.value[Folio] ?: false
+                            if (exists) {
+                                // Si existe, actualizamos el tiempo
+                                tiemposViewModel.updateTiempo(Folio, tiempoActual.toInt())
+                            } else {
+                                // Si no existe, hacemos un upsert para crear un nuevo registro
+                                tiemposViewModel.upsertTiempo(
+                                    Tiempo(
+                                        tipoId = TipoId,
+                                        folio = Folio,
+                                        fecha = Fecha,
+                                        status = Status,
+                                        tiempo = tiempoActual.toInt(),
+                                        isRunning = isRunning
+                                    )
+                                )
+                            }
+                            time = tiempoActual.toInt()
+
+                            //isRunning = true // Asegurar que el cronómetro sigue corriendo
+                            if (service.isRunning(Folio)) {
+                                tiemposViewModel.updateIsRunning(Folio, true)
+                            } else {
+                                tiemposViewModel.updateIsRunning(Folio, false)
+                            }
                         }
                     }
                 }
@@ -204,23 +225,21 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
     }
 
     LaunchedEffect(isRunning) {
-        while (isRunning) {
-            delay(1000L)
-            time++
+        if(isRunning){
+            while (isRunning) {
+                delay(1000L)
+                time++
+            }
         }
+
     }
-
-
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            //.background(Color.White)
             .padding(16.dp),
-       // verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start
     ) {
-        // 🏭 Mostrar el proceso actual
         Text(
             text = processNames[currentProcess - 1],
             style = MaterialTheme.typography.headlineMedium
@@ -233,7 +252,6 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ⏳ Mostrar el tiempo
         Text(
             text = formatTime(time),
             style = MaterialTheme.typography.headlineLarge
@@ -248,22 +266,59 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
             Button(onClick = {
                 //isRunning = !isRunning
                 val newState = !isRunning
-                tiemposViewModel.setIsRunning(Folio, newState)
+                isRunning = newState
+                tiemposViewModel.updateIsRunning(Folio, newState)
 
                 if (newState) {
                     tiemposViewModel.fetchTiempo(Folio)
                     val tiempoBase = tiempoDesdeDB?.tiempo ?: 0
                     val intent = Intent(contexto, CronometroService::class.java).apply {
+                        putExtra("tipoId", TipoId)
                         putExtra("folio", Folio)
-                        putExtra("tiempoInicial", tiempoBase)
+                        putExtra("fecha", Fecha)
+                        putExtra("status", Status)
+                        putExtra("tiempoInicial", tiempoBase.toLong())
                     }
                     contexto.startService(intent) // Inicia el servicio
-                    Log.d("CronometroService", "Iniciando folio $Folio desde $tiempoBase segundos")
-
+                    Log.d("CronometroScreen", "Iniciando folio $Folio desde $tiempoBase segundos")
+                    tiemposViewModel.checkIfFolioExists(Folio) { exists ->
+                        if (!exists) {
+                            // Si no existe, hacemos un upsert para crear un nuevo registro
+                            tiemposViewModel.upsertTiempo(
+                                Tiempo(
+                                    tipoId = TipoId,
+                                    folio = Folio,
+                                    fecha = Fecha,
+                                    status = Status,
+                                    tiempo = 0,
+                                    isRunning = isRunning
+                                )
+                            )
+                        }
+                    }
                 } else {
                     cronometroService?.let { service ->
                             val tiempoFinal = service.stopCronometro(Folio)
-                            tiemposViewModel.upsertTiempo(Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoFinal.toInt()))
+                            tiemposViewModel.checkIfFolioExists(Folio) { exists ->
+                                //val isRunning = tiemposViewModel.isRunningMap.value[Folio] ?: false
+                                if (exists) {
+                                    // Si existe, actualizamos el tiempo
+                                    tiemposViewModel.updateTiempo(Folio, tiempoFinal.toInt())
+                                } else {
+                                    // Si no existe, hacemos un upsert para crear un nuevo registro
+                                    tiemposViewModel.upsertTiempo(
+                                        Tiempo(
+                                            tipoId = TipoId,
+                                            folio = Folio,
+                                            fecha = Fecha,
+                                            status = Status,
+                                            tiempo = tiempoFinal.toInt(),
+                                            isRunning = isRunning
+                                        )
+                                    )
+                                }
+                            }
+                            //tiemposViewModel.upsertTiempo(Tiempo(tipoId = TipoId, folio = Folio, fecha = Fecha, status = Status, tiempo = tiempoFinal.toInt()))
                     }
                 }
             }) {
@@ -315,7 +370,7 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                 confirmButton = {
                     Button(onClick = {
                         //isRunning = false
-                        tiemposViewModel.setIsRunning(Folio, false)
+                        tiemposViewModel.updateIsRunning(Folio, false)
 
                         // Eliminar tiempo de Room
                         tiemposViewModel.deleteTiempo(Folio)
@@ -333,7 +388,7 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
 
                         // Resetear variables locales
                         time = 0
-
+                        isRunning = false
                         showDialog = false
                     }) {
                         Text("Sí")
@@ -378,9 +433,9 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
                     },
                     confirmButton = {
                         Button(onClick = {
-                            stopDialog = false
+                            //stopDialog = false
                             //isRunning = false
-                            tiemposViewModel.setIsRunning(Folio, false)
+                            //tiemposViewModel.setIsRunning(Folio, false)
                             // Agrega tu lógica para manejar el proceso detenido
                         }) {
                             Text("Confirmar")
@@ -397,6 +452,13 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
     }
 }
 
+@SuppressLint("DefaultLocale")
+fun formatTime(seconds: Int): String {
+val hours = seconds / 3600
+val minutes = (seconds % 3600) / 60
+val remainingSeconds = seconds % 60
+return String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
+}
 
 /*
 fun Context.startCronometroService(folio: Int, tiempoInicial: Int) {
@@ -419,14 +481,3 @@ fun Context.startCronometroService(folio: Int, tiempoInicial: Int) {
     startForegroundService(intent)
 }
 */
-
-
-
-
-@SuppressLint("DefaultLocale")
-fun formatTime(seconds: Int): String {
-val hours = seconds / 3600
-val minutes = (seconds % 3600) / 60
-val remainingSeconds = seconds % 60
-return String.format("%02d:%02d:%02d", hours, minutes, remainingSeconds)
-}
