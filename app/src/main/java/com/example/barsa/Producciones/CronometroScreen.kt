@@ -11,6 +11,8 @@ import android.os.IBinder
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.barsa.CronometroService
 import com.example.barsa.MainActivity
@@ -416,37 +420,73 @@ fun CronometroScreen(TipoId: String, Folio: Int, Fecha: String, Status: String, 
             }
 
             if (stopDialog) {
+                reason = ""
                 AlertDialog(
                     onDismissRequest = { stopDialog = false },
-                    title = { Text("Detener Proceso") },
+                    title = {
+                        Text(
+                            text = "¿Deseas detener este proceso?",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    },
                     text = {
-                        Column {
-                            Text("Fecha: $currentDate")
-                            Text("Folio: $Folio")
-                            Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Esta acción detendrá el proceso en curso. Por favor, proporciona un motivo.",
+                                    fontSize = 14.sp
+                                )
+                            }
+
+                            Divider()
+
+                            Text("Fecha: $currentDate", style = MaterialTheme.typography.bodySmall)
+                            Text("Folio: $Folio", style = MaterialTheme.typography.bodySmall)
+
                             OutlinedTextField(
                                 value = reason,
                                 onValueChange = { reason = it },
-                                label = { Text("") }
+                                label = { Text("Motivo") },
+                                placeholder = { Text("Ingresa el motivo de detención") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = false,
+                                maxLines = 3
                             )
                         }
                     },
                     confirmButton = {
-                        Button(onClick = {
-                            //stopDialog = false
-                            //isRunning = false
-                            //tiemposViewModel.setIsRunning(Folio, false)
-                            // Agrega tu lógica para manejar el proceso detenido
-                        }) {
-                            Text("Confirmar")
+                        Button(
+                            onClick = {
+                                // Lógica para detener el proceso
+                                // tiemposViewModel.setIsRunning(Folio, false)
+                                // Guardar motivo si es necesario
+                                stopDialog = false
+                            },
+                            enabled = reason.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("Detener", color = Color.White)
                         }
                     },
                     dismissButton = {
-                        Button(onClick = { stopDialog = false }) {
+                        TextButton(onClick = { stopDialog = false }) {
                             Text("Cancelar")
                         }
                     }
                 )
+
+
             }
         }
     }
