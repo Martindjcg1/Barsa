@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 /**
  * Database class with a singleton Instance object.
  */
-@Database(entities = [Tiempo::class], version = 2, exportSchema = true)
+@Database(entities = [Tiempo::class], version = 5, exportSchema = false)
 abstract class TiempoDatabase : RoomDatabase() {
 
     abstract fun tiempoDao(): TiempoDao
@@ -21,6 +21,7 @@ abstract class TiempoDatabase : RoomDatabase() {
             // if the Instance is not null, return it, otherwise create a new database instance.
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(context, TiempoDatabase::class.java, "tiempo_database")
+                    .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it }
             }

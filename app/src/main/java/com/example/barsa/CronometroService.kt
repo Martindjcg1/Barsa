@@ -79,7 +79,7 @@ class CronometroService : Service() {
                     job.invokeOnCompletion {
                         if (startTimes.isEmpty()) {
                             Log.d("CronometroService", "No hay más cronómetros activos. Deteniendo servicio (post-persistencia).")
-                            stopForeground(true)
+                            stopForeground(STOP_FOREGROUND_REMOVE)
                             stopSelf()
                         }
                     }
@@ -212,10 +212,10 @@ class CronometroService : Service() {
 
         // Si no hay cronómetros activos, detener el servicio y su notificación
         if (startTimes.isEmpty()) {
-            //Log.d("CronometroService", "No hay más cronómetros activos. Deteniendo servicio.")
-            //stopForeground(true)
-            //stopSelf()
-            //Log.d("CronometroService", "Último cronómetro, tiempo acumulado ${tiempoAcumulado}")
+            Log.d("CronometroService", "No hay más cronómetros activos. Deteniendo servicio.")
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            Log.d("CronometroService", "Último cronómetro, tiempo acumulado ${tiempoAcumulado}")
             return tiempoAcumulado
         }
         return tiempoAcumulado
