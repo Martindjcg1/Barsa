@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,7 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.barsa.Models.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -40,8 +40,6 @@ fun InventoryExitScreen(
     var selectedReason by remember { mutableStateOf<ExitReason?>(null) }
     var showReasonDropdown by remember { mutableStateOf(false) }
     var otherReason by remember { mutableStateOf("") }
-
-
 
     // Fecha actual
     val currentDate = remember { Date() }
@@ -66,19 +64,23 @@ fun InventoryExitScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            IconButton(
+            // Botón de cierre con texto "X" en lugar de icono
+            Button(
                 onClick = onCancel,
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-                        shape = CircleShape
-                    )
+                    .size(48.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red
+                ),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Cancelar",
-                    tint = MaterialTheme.colorScheme.error
+                Text(
+                    text = "X",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -268,7 +270,7 @@ fun InventoryExitScreen(
                                             removeAt(index)
                                         }
                                     },
-                                    maxQuantity = item.inventoryItem.existencia
+                                    maxQuantity = item.inventoryItem.existencia.toInt()
                                 )
 
                                 if (index < selectedItems.size - 1) {
@@ -376,7 +378,7 @@ fun InventoryExitScreen(
                         )
 
                         Text(
-                            text = "${selectedItems.sumOf { it.quantity }}",
+                            text = "${selectedItems.sumOf { it.quantity.toInt() }}",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -450,12 +452,11 @@ fun InventoryExitScreen(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Icon(
-                    imageVector = Icons.Default.ExitToApp,
-                    contentDescription = "Guardar"
+                // Usamos texto en lugar de icono para el botón de registrar salida
+                Text(
+                    text = "Registrar Salida",
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Registrar Salida")
             }
         }
     }
@@ -471,7 +472,7 @@ fun InventoryExitScreen(
                 }.map {
                     InventoryTransactionItem(
                         inventoryItem = it,
-                        quantity = 1.0,
+                        quantity = 1, // Iniciar con cantidad 1 (entero)
                         unitPrice = it.pCompra
                     )
                 }
@@ -486,9 +487,9 @@ fun InventoryExitScreen(
 @Composable
 fun ExitItemRow(
     item: InventoryTransactionItem,
-    onQuantityChange: (Double) -> Unit,
+    onQuantityChange: (Int) -> Unit, // Cambiado a Int
     onRemove: () -> Unit,
-    maxQuantity: Double
+    maxQuantity: Int // Cambiado a Int
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -514,19 +515,26 @@ fun ExitItemRow(
                 )
 
                 Text(
-                    text = "Disponible: ${item.inventoryItem.existencia} ${item.inventoryItem.unidad}",
+                    text = "Disponible: ${item.inventoryItem.existencia.toInt()} ${item.inventoryItem.unidad}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (item.quantity > item.inventoryItem.existencia) MaterialTheme.colorScheme.error else Color.Gray
+                    color = if (item.quantity.toInt() > maxQuantity) MaterialTheme.colorScheme.error else Color.Gray
                 )
             }
 
-            IconButton(
-                onClick = onRemove
+            // Botón de eliminar con texto "X" en lugar de icono
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                    .clickable { onRemove() },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Eliminar",
-                    tint = MaterialTheme.colorScheme.error
+                Text(
+                    text = "X",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -538,20 +546,20 @@ fun ExitItemRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Campo de cantidad
+            // Campo de cantidad (ahora solo acepta enteros)
             OutlinedTextField(
-                value = item.quantity.toString(),
+                value = item.quantity.toInt().toString(),
                 onValueChange = {
-                    val newValue = it.toDoubleOrNull() ?: 0.0
-                    // Limitar la cantidad a la existencia disponible
-                    val limitedValue = newValue.coerceAtMost(maxQuantity)
+                    val newValue = it.toIntOrNull() ?: 1
+                    // Asegurarse de que la cantidad sea al menos 1 y no exceda el máximo
+                    val limitedValue = newValue.coerceIn(1, maxQuantity)
                     onQuantityChange(limitedValue)
                 },
                 label = { Text("Cantidad") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                isError = item.quantity > maxQuantity
+                isError = item.quantity.toInt() > maxQuantity
             )
 
             Text(
@@ -562,7 +570,7 @@ fun ExitItemRow(
         }
 
         // Mensaje de error si la cantidad excede la existencia
-        if (item.quantity > maxQuantity) {
+        if (item.quantity.toInt() > maxQuantity) {
             Text(
                 text = "La cantidad excede la existencia disponible",
                 style = MaterialTheme.typography.bodySmall,

@@ -60,10 +60,6 @@ fun TransactionHistoryScreen(
             val matchesStartDate = if (startDate != null) {
                 val entryCalendar = Calendar.getInstance()
                 entryCalendar.time = entry.date
-                entryCalendar.set(Calendar.HOUR_OF_DAY, 0)
-                entryCalendar.set(Calendar.MINUTE, 0)
-                entryCalendar.set(Calendar.SECOND, 0)
-                entryCalendar.set(Calendar.MILLISECOND, 0)
 
                 val startCalendar = Calendar.getInstance()
                 startCalendar.time = startDate!!
@@ -78,10 +74,6 @@ fun TransactionHistoryScreen(
             val matchesEndDate = if (endDate != null) {
                 val entryCalendar = Calendar.getInstance()
                 entryCalendar.time = entry.date
-                entryCalendar.set(Calendar.HOUR_OF_DAY, 23)
-                entryCalendar.set(Calendar.MINUTE, 59)
-                entryCalendar.set(Calendar.SECOND, 59)
-                entryCalendar.set(Calendar.MILLISECOND, 999)
 
                 val endCalendar = Calendar.getInstance()
                 endCalendar.time = endDate!!
@@ -107,10 +99,6 @@ fun TransactionHistoryScreen(
             val matchesStartDate = if (startDate != null) {
                 val exitCalendar = Calendar.getInstance()
                 exitCalendar.time = exit.date
-                exitCalendar.set(Calendar.HOUR_OF_DAY, 0)
-                exitCalendar.set(Calendar.MINUTE, 0)
-                exitCalendar.set(Calendar.SECOND, 0)
-                exitCalendar.set(Calendar.MILLISECOND, 0)
 
                 val startCalendar = Calendar.getInstance()
                 startCalendar.time = startDate!!
@@ -125,10 +113,6 @@ fun TransactionHistoryScreen(
             val matchesEndDate = if (endDate != null) {
                 val exitCalendar = Calendar.getInstance()
                 exitCalendar.time = exit.date
-                exitCalendar.set(Calendar.HOUR_OF_DAY, 23)
-                exitCalendar.set(Calendar.MINUTE, 59)
-                exitCalendar.set(Calendar.SECOND, 59)
-                exitCalendar.set(Calendar.MILLISECOND, 999)
 
                 val endCalendar = Calendar.getInstance()
                 endCalendar.time = endDate!!
@@ -401,10 +385,18 @@ fun TransactionHistoryScreen(
                         onClick = {
                             // Obtener la fecha seleccionada
                             datePickerState.selectedDateMillis?.let {
+                                // Crear un calendario con la zona horaria local
                                 val selectedCalendar = Calendar.getInstance()
+                                // Establecer los milisegundos seleccionados
                                 selectedCalendar.timeInMillis = it
+                                // Ajustar para compensar el offset de zona horaria
+                                selectedCalendar.add(Calendar.DATE, 1) // Añadir un día para compensar
+                                // Establecer la hora a 00:00:00
+                                selectedCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                                selectedCalendar.set(Calendar.MINUTE, 0)
+                                selectedCalendar.set(Calendar.SECOND, 0)
+                                selectedCalendar.set(Calendar.MILLISECOND, 0)
                                 startDate = selectedCalendar.time
-                                // No es necesario llamar a updateFilteredEntries() aquí porque el LaunchedEffect lo hará
                             }
                             showStartDatePicker = false
                         }
@@ -439,10 +431,18 @@ fun TransactionHistoryScreen(
                         onClick = {
                             // Obtener la fecha seleccionada
                             datePickerState.selectedDateMillis?.let {
+                                // Crear un calendario con la zona horaria local
                                 val selectedCalendar = Calendar.getInstance()
+                                // Establecer los milisegundos seleccionados
                                 selectedCalendar.timeInMillis = it
+                                // Ajustar para compensar el offset de zona horaria
+                                selectedCalendar.add(Calendar.DATE, 1) // Añadir un día para compensar
+                                // Establecer la hora a 23:59:59
+                                selectedCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                                selectedCalendar.set(Calendar.MINUTE, 59)
+                                selectedCalendar.set(Calendar.SECOND, 59)
+                                selectedCalendar.set(Calendar.MILLISECOND, 999)
                                 endDate = selectedCalendar.time
-                                // No es necesario llamar a updateFilteredEntries() aquí porque el LaunchedEffect lo hará
                             }
                             showEndDatePicker = false
                         }
@@ -899,8 +899,8 @@ private fun generateSampleEntries(): List<InventoryEntry> {
             date = calendar.time,
             supplier = suppliers[0],
             items = listOf(
-                InventoryTransactionItem(allItems[0], 10.0, 1.5),
-                InventoryTransactionItem(allItems[1], 5.0, 2.0)
+                InventoryTransactionItem(allItems[0], 10, 1.5),
+                InventoryTransactionItem(allItems[1], 5, 2.0)
             ),
             totalAmount = 25.0,
             notes = "Entrega regular mensual",
@@ -911,9 +911,9 @@ private fun generateSampleEntries(): List<InventoryEntry> {
             date = calendar.apply { add(Calendar.DAY_OF_MONTH, -2) }.time,
             supplier = suppliers[1],
             items = listOf(
-                InventoryTransactionItem(allItems[2], 20.0, 3.0),
-                InventoryTransactionItem(allItems[3], 15.0, 1.0),
-                InventoryTransactionItem(allItems[4], 8.0, 5.0)
+                InventoryTransactionItem(allItems[2], 20, 3.0),
+                InventoryTransactionItem(allItems[3], 15, 1.0),
+                InventoryTransactionItem(allItems[4], 8, 5.0)
             ),
             totalAmount = 115.0,
             notes = "Pedido especial para proyecto XYZ",
@@ -924,8 +924,8 @@ private fun generateSampleEntries(): List<InventoryEntry> {
             date = calendar.apply { add(Calendar.DAY_OF_MONTH, -7) }.time,
             supplier = suppliers[2],
             items = listOf(
-                InventoryTransactionItem(allItems[5], 30.0, 0.5),
-                InventoryTransactionItem(allItems[6], 25.0, 0.75)
+                InventoryTransactionItem(allItems[5], 30, 0.5),
+                InventoryTransactionItem(allItems[6], 25, 0.75)
             ),
             totalAmount = 33.75,
             notes = "",
@@ -944,8 +944,8 @@ private fun generateSampleExits(): List<InventoryExit> {
             date = calendar.apply { add(Calendar.DAY_OF_MONTH, -1) }.time,
             reason = ExitReason.PRODUCTION.displayName,
             items = listOf(
-                InventoryTransactionItem(allItems[0], 5.0),
-                InventoryTransactionItem(allItems[1], 3.0)
+                InventoryTransactionItem(allItems[0], 5),
+                InventoryTransactionItem(allItems[1], 3)
             ),
             destination = "Área de Producción",
             notes = "Para fabricación de muebles modelo A",
@@ -956,7 +956,7 @@ private fun generateSampleExits(): List<InventoryExit> {
             date = calendar.apply { add(Calendar.DAY_OF_MONTH, -3) }.time,
             reason = ExitReason.DAMAGE.displayName,
             items = listOf(
-                InventoryTransactionItem(allItems[2], 2.0)
+                InventoryTransactionItem(allItems[2], 2)
             ),
             destination = "",
             notes = "Material dañado durante el transporte",
@@ -967,9 +967,9 @@ private fun generateSampleExits(): List<InventoryExit> {
             date = calendar.apply { add(Calendar.DAY_OF_MONTH, -5) }.time,
             reason = ExitReason.TRANSFER.displayName,
             items = listOf(
-                InventoryTransactionItem(allItems[3], 10.0),
-                InventoryTransactionItem(allItems[4], 5.0),
-                InventoryTransactionItem(allItems[5], 8.0)
+                InventoryTransactionItem(allItems[3], 10),
+                InventoryTransactionItem(allItems[4], 5),
+                InventoryTransactionItem(allItems[5], 8)
             ),
             destination = "Sucursal Norte",
             notes = "Transferencia por falta de stock en sucursal",

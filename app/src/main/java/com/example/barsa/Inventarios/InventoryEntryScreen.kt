@@ -21,7 +21,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.barsa.Models.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -76,19 +78,23 @@ fun InventoryEntryScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            IconButton(
+            // Botón de cierre con texto "X"
+            Button(
                 onClick = onCancel,
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-                        shape = CircleShape
-                    )
+                    .size(48.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Red
+                ),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Cancelar",
-                    tint = MaterialTheme.colorScheme.error
+                Text(
+                    text = "X",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -422,7 +428,7 @@ fun InventoryEntryScreen(
                         )
 
                         Text(
-                            text = "${selectedItems.sumOf { it.quantity * it.unitPrice }.format(2)}",
+                            text = "${selectedItems.sumOf { it.quantity.toInt() * it.unitPrice }.format(2)}",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -486,7 +492,7 @@ fun InventoryEntryScreen(
                             date = currentDate,
                             supplier = supplier,
                             items = selectedItems,
-                            totalAmount = selectedItems.sumOf { it.quantity * it.unitPrice },
+                            totalAmount = selectedItems.sumOf { it.quantity.toInt() * it.unitPrice },
                             notes = notes,
                             createdBy = currentUser // Usar el nombre del usuario actual
                         )
@@ -519,7 +525,7 @@ fun InventoryEntryScreen(
                 }.map {
                     InventoryTransactionItem(
                         inventoryItem = it,
-                        quantity = 1.0,
+                        quantity = 1, // Iniciar con cantidad 1 (entero)
                         unitPrice = it.pCompra
                     )
                 }
@@ -546,7 +552,7 @@ fun InventoryEntryScreen(
 @Composable
 fun TransactionItemRow(
     item: InventoryTransactionItem,
-    onQuantityChange: (Double) -> Unit,
+    onQuantityChange: (Int) -> Unit, // Cambiado a Int
     onPriceChange: (Double) -> Unit,
     onRemove: () -> Unit
 ) {
@@ -574,13 +580,20 @@ fun TransactionItemRow(
                 )
             }
 
-            IconButton(
-                onClick = onRemove
+            // Botón de eliminar con texto "X"
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                    .clickable { onRemove() },
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Eliminar",
-                    tint = MaterialTheme.colorScheme.error
+                Text(
+                    text = "X",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -591,16 +604,18 @@ fun TransactionItemRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Campo de cantidad
+            // Campo de cantidad (ahora solo acepta enteros)
             OutlinedTextField(
-                value = item.quantity.toString(),
+                value = item.quantity.toInt().toString(),
                 onValueChange = {
-                    val newValue = it.toDoubleOrNull() ?: 0.0
-                    onQuantityChange(newValue)
+                    val newValue = it.toIntOrNull() ?: 1
+                    // Asegurarse de que la cantidad sea al menos 1
+                    val validValue = maxOf(1, newValue)
+                    onQuantityChange(validValue)
                 },
                 label = { Text("Cantidad") },
                 modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
 
@@ -623,7 +638,7 @@ fun TransactionItemRow(
 
         // Subtotal
         Text(
-            text = "Subtotal: ${(item.quantity * item.unitPrice).format(2)}",
+            text = "Subtotal: ${(item.quantity.toInt() * item.unitPrice).format(2)}",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.End)
@@ -819,5 +834,5 @@ fun SupplierSelectorDialog(
     )
 }
 
-// Función de extensión para formatear números con decimales
+
 fun Double.format(digits: Int) = "%.${digits}f".format(this)

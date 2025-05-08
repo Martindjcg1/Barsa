@@ -13,7 +13,7 @@ data class Supplier(
 // Modelo para items en transacciones (tanto entradas como salidas)
 data class InventoryTransactionItem(
     val inventoryItem: InventoryItem,
-    val quantity: Double,
+    val quantity: Int,
     val unitPrice: Double = 0.0 // Solo relevante para entradas
 )
 

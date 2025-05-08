@@ -30,8 +30,8 @@ data class InventoryItem(
 data class InventoryEntry(
     val id: String,
     val date: Date,
-    val supplier: Supplier,
-    val items: List<InventoryTransactionItem>,
+    val supplier: Supplier, //Proveedor
+    val items: List<InventoryTransactionItem>, //Lista del INV
     val totalAmount: Double,
     val notes: String,
     val createdBy: String  // Nombre del usuario
