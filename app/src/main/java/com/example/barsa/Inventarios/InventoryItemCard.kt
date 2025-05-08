@@ -1,5 +1,6 @@
 package com.example.barsa.Body.Inventory
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -24,15 +26,51 @@ fun InventoryItemCard(
 ) {
     var showImageViewer by remember { mutableStateOf(false) }
 
+    // Determinar el color basado en el nivel de stock
+    val stockColor = when {
+        item.existencia >= item.max -> Color(0xFF2196F3) // Azul - Buen stock
+        item.existencia >= item.min -> Color(0xFFFFC107) // Amarillo - Stock moderado
+        item.existencia > 0 -> Color(0xFFFF9800)         // Naranja - Poco stock
+        else -> Color(0xFFF44336)                        // Rojo - Sin stock
+    }
+
+    // Determinar el texto de estado del stock
+    val stockStatus = when {
+        item.existencia >= item.max -> "Buen stock"
+        item.existencia >= item.min -> "Stock moderado"
+        item.existencia > 0 -> "Stock bajo"
+        else -> "Sin stock"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = BorderStroke(2.dp, stockColor) // Borde con el color según nivel de stock
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Indicador de nivel de stock
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp)
+                    .background(stockColor)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = stockStatus,
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Actualizar la visualización de la imagen para hacerla interactuable
             if (!item.imagenUrl.isNullOrEmpty()) {
                 Box(
@@ -107,17 +145,36 @@ fun InventoryItemCard(
                     Text(
                         text = item.min.toString(),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (item.existencia < item.min) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        color = stockColor
                     )
                 }
                 Column {
                     Text(
-                        text = "Cant/Unidad",
+                        text = "Existencia",
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.cantXUnidad.toString(),
-                        style = MaterialTheme.typography.bodyLarge
+                        text = item.existencia.toString(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = stockColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Añadir botón de reabastecimiento si el stock está bajo o no hay stock
+            if (item.existencia < item.min) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { /* Sin funcionalidad por ahora */ },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = stockColor
+                    )
+                ) {
+                    Text(
+                        text = "Reabastecer",
+                        color = Color.White
                     )
                 }
             }
@@ -139,4 +196,3 @@ fun InventoryItemCard(
         }
     }
 }
-
