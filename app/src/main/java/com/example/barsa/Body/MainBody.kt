@@ -67,7 +67,7 @@ fun MainBody(
                         val Fecha = parts[2]
                         val Status = parts[3]
                         val Etapa = parts[4]
-                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, tiemposViewModel)
+                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate, tiemposViewModel)
                     } else {
                         Text("Error: Datos incompletos para el cronómetro")
                     }
@@ -81,7 +81,7 @@ fun MainBody(
                         val Status = parts[3]
                         EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                             onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-                        }, tiemposViewModel)
+                        }, onNavigate, tiemposViewModel)
                     } else {
                         Text("Error: Datos incompletos para el selector de etapa")
                     }

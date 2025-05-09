@@ -9,11 +9,19 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -138,6 +146,7 @@ Column(
     }
 }
 }*/
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EtapaSelector(
     TipoId: String,
@@ -145,34 +154,116 @@ fun EtapaSelector(
     Fecha: String,
     Status: String,
     onEtapaSeleccionada: (String) -> Unit,
+    onNavigate: (String) -> Unit,
     tiemposViewModel: TiemposViewModel
 ) {
     val etapaDisponible by tiemposViewModel.getEtapaDisponible(Folio).collectAsState(initial = null)
-    val etapas = listOf("Madera", "Pintura", "Tapiceria", "Empaque")
+    val todasLasEtapas = listOf("Madera", "Pintura", "Tapiceria", "Empaque")
+
+    // Etapas ya completadas (infiere a partir de la siguiente disponible)
+    val etapasFinalizadas = etapaDisponible?.let { etapaActual ->
+        todasLasEtapas.takeWhile { it != etapaActual }
+    } ?: emptyList()
+    TopAppBar(
+        title = { Text(
+            "Etapas",
+            style = MaterialTheme.typography.titleMedium,
+        ) },
+        navigationIcon = {
+            IconButton(onClick = { onNavigate("producciones") }) { // O la ruta deseada
+                Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+            }
+        }
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Selecciona la etapa disponible", style = MaterialTheme.typography.bodyLarge)
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(todasLasEtapas) { etapa ->
+                val esFinalizada = etapa in etapasFinalizadas
+                val esDisponible = etapa == etapaDisponible
 
-        LazyColumn {
-            items(etapas) { etapa ->
-                val habilitada = etapa == etapaDisponible
-                Button(
-                    onClick = { if (habilitada) onEtapaSeleccionada(etapa) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = habilitada // Solo habilita la etapa disponible
+                val icono = when (etapa) {
+                    "Madera" -> Icons.Default.PlayArrow
+                    "Pintura" -> Icons.Default.PlayArrow
+                    "Tapiceria" -> Icons.Default.PlayArrow
+                    "Empaque" -> Icons.Default.PlayArrow
+                    else -> Icons.Default.PlayArrow
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateContentSize(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    border = when {
+                        esFinalizada -> BorderStroke(2.dp, Color(0xFF4CAF50)) // Verde
+                        esDisponible -> BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                        else -> null
+                    },
+                    colors = CardDefaults.cardColors(
+                        containerColor = when {
+                            esFinalizada -> MaterialTheme.colorScheme.secondaryContainer
+                            esDisponible -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
                 ) {
-                    Text(etapa)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = esDisponible || esFinalizada) {
+                                if (esDisponible) {
+                                    onEtapaSeleccionada(etapa)
+                                } else if (esFinalizada) {
+                                    // Nueva función para ver detalle
+                                    onEtapaSeleccionada(etapa) // puedes redirigir a una pantalla de detalle también
+                                }
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = icono,
+                            contentDescription = null,
+                            tint = when {
+                                esFinalizada -> Color(0xFF4CAF50)
+                                esDisponible -> MaterialTheme.colorScheme.primary
+                                else -> Color.Gray
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Text(
+                            text = etapa,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = when {
+                                    esFinalizada -> FontWeight.Normal
+                                    esDisponible -> FontWeight.Bold
+                                    else -> FontWeight.Normal
+                                }
+                            ),
+                            color = when {
+                                esFinalizada -> MaterialTheme.colorScheme.onPrimaryContainer
+                                esDisponible -> MaterialTheme.colorScheme.onPrimaryContainer
+                                else -> Color.Gray
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CronometroScreen(
     TipoId: String,
@@ -180,6 +271,7 @@ fun CronometroScreen(
     Fecha: String,
     Status: String,
     Etapa: String,
+    onNavigate: (String) -> Unit,
     tiemposViewModel: TiemposViewModel
 ) {
 
@@ -193,7 +285,7 @@ fun CronometroScreen(
     val tiempoDesdeDB by tiemposViewModel.getTiempoStream(Folio, Etapa).collectAsState(initial = null)
     val tiempoBase = tiempoDesdeDB?.tiempo ?: 0
     var time by rememberSaveable { mutableStateOf(tiempoDesdeDB?.tiempo ?: 0) }
-
+    val isFinished = tiempoDesdeDB?.isFinished ?: false
     val tiempoId by tiemposViewModel.getTiempoId(Folio, Etapa).collectAsState(initial = null)
     val isRunningFlow = tiempoId?.let { tiemposViewModel.getIsRunning(it) } ?: flowOf(false)
     val isRunning by isRunningFlow.collectAsState(initial = false)
@@ -269,12 +361,24 @@ fun CronometroScreen(
         }
     }
 
-    Column(
+    TopAppBar(
+        title = { Text(
+            Etapa,
+            style = MaterialTheme.typography.titleMedium,
+        ) },
+        navigationIcon = {
+            IconButton(onClick = { onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}") }) { // O la ruta deseada
+                Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+            }
+        }
+    )
+
+   /* Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         horizontalAlignment = Alignment.Start
     ) {
         Text(Etapa)
-    }
+    }*/
 
     Spacer(modifier = Modifier.height(16.dp))
 
@@ -351,14 +455,14 @@ fun CronometroScreen(
                     // ✅ Cambiar el estado `isRunning`
                     tiemposViewModel.updateIsRunningByFolio(Folio, Etapa, newState)
                 }
-            }) {
+            }, enabled = !isFinished) {
                 Text(if (isRunning) "Pausar" else "Iniciar")
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
             // Mostrar dialog Reiniciar
-            Button(onClick = { showDialog = true }, enabled = time != 0) {
+            Button(onClick = { showDialog = true }, enabled = time != 0 && !isFinished) {
                 Text("Reiniciar")
             }
 
@@ -390,7 +494,7 @@ fun CronometroScreen(
                         tiemposViewModel.updateIsRunningByFolio(Folio, Etapa, false)
                     }
 
-                },
+                }, enabled = !isFinished
             ) {
                 // Logica del if
                 Text("Finalizar")
@@ -440,7 +544,7 @@ fun CronometroScreen(
             Button(
                 onClick = { stopDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                modifier = Modifier.padding(8.dp) // Espaciado opcional
+                modifier = Modifier.padding(8.dp), enabled = !isFinished // Espaciado opcional
             ) {
                 Text("Detener")
             }

@@ -104,7 +104,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
             val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, tiemposViewModel)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa,onNavigate = { route -> navController.navigate(route) } ,tiemposViewModel)
         }
 
         composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->
@@ -115,7 +115,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
 
             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                 navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-            }, tiemposViewModel)
+            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel)
         }
     }
 }
