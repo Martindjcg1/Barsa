@@ -8,111 +8,15 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.barsa.data.repository.TiemposRepository
 import com.example.barsa.di.ServiceEntryPoint
-import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.*
 import javax.inject.Inject
 
 class CronometroService : Service() {
-
-    private val cronometros = mutableMapOf<Int, Long>()
-    private val startTimes = mutableMapOf<Int, Long>()
+    private val cronometros = mutableMapOf<Pair<Int, String>, Long>()  // key: (id, etapa)
+    private val startTimes = mutableMapOf<Pair<Int, String>, Long>()   // key: (id, etapa)
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
-
     private val binder = CronometroBinder()
-
-    /*override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val tipoId = intent?.getStringExtra("tipoId")
-        val folio = intent?.getIntExtra("folio", -1) ?: return START_NOT_STICKY
-        val fecha = intent.getStringExtra("fecha")
-        val status = intent.getStringExtra("status")
-        val tiempoInicial = intent.getLongExtra("tiempoInicial", 0L)
-
-        Log.d("CronometroService", "Iniciando folio $folio con $tiempoInicial segundos")
-
-        cronometros[folio] = tiempoInicial
-
-        if (!isRunning(folio)) {
-            startTimes[folio] = System.currentTimeMillis() / 1000
-        }
-
-        // Inicia Foreground Service con una notificación general
-        if (startTimes.size == 1) { // Solo iniciar foreground si es el primer cronómetro
-            startForeground(1, createGeneralNotification())
-        }
-
-        // Crea o actualiza la notificación individual
-        updateIndividualNotification(folio)
-
-        return START_STICKY
-    }*/
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("CronometroService", "onStartCommand recibido con acción: ${intent?.action}")
-        when (intent?.action) {
-            "PAUSAR_CRONOMETRO" -> {
-                val folio = intent.getIntExtra("folio", -1)
-                Log.d("CronometroService", "Acción PAUSAR_CRONOMETRO para folio: $folio")
-                /*if (folio != -1) {
-                    val tiempoFinal = stopCronometro(folio)
-                    Log.d("CronometroService", "Entrando al serviceScope.launch para folio ${folio} con un tiempo final de ${tiempoFinal}")
-                    serviceScope.launch {
-                        Log.d("CronometroService", "Entrando a UpdateTiempo")
-                        tiemposRepository.updateTiempo(folio, tiempoFinal.toInt())
-                        Log.d("CronometroService", "Entrando a UpdateRunning")
-                        tiemposRepository.updateIsRunning(folio, false)
-                        Log.d("CronometroService", "Folio $folio pausado y guardado ($tiempoFinal s)")
-                    }
-                }*/
-                if (folio != -1) {
-                    val tiempoFinal = stopCronometro(folio)
-                    Log.d("CronometroService", "Entrando al serviceScope.launch para folio ${folio} con un tiempo final de ${tiempoFinal}")
-
-                    val job = serviceScope.launch {
-                        Log.d("CronometroService", "Entrando a UpdateTiempo")
-                        tiemposRepository.updateTiempo(folio, tiempoFinal.toInt())
-                        Log.d("CronometroService", "Entrando a UpdateRunning")
-                        tiemposRepository.updateIsRunning(folio, false)
-                        Log.d("CronometroService", "Folio $folio pausado y guardado ($tiempoFinal s)")
-                    }
-
-                    job.invokeOnCompletion {
-                        if (startTimes.isEmpty()) {
-                            Log.d("CronometroService", "No hay más cronómetros activos. Deteniendo servicio (post-persistencia).")
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            stopSelf()
-                        }
-                    }
-                }
-
-                return START_NOT_STICKY
-            }
-
-            else -> {
-                val tipoId = intent?.getStringExtra("tipoId")
-                val folio = intent?.getIntExtra("folio", -1) ?: return START_NOT_STICKY
-                val fecha = intent.getStringExtra("fecha")
-                val status = intent.getStringExtra("status")
-                val tiempoInicial = intent.getLongExtra("tiempoInicial", 0L)
-
-                cronometros[folio] = tiempoInicial
-                if (!isRunning(folio)) {
-                    startTimes[folio] = System.currentTimeMillis() / 1000
-                    Log.d("CronometroService", "StartTime registrado para folio $folio: ${startTimes[folio]}")
-                }
-
-                if (startTimes.size == 1) {
-                    startForeground(1, createGeneralNotification())
-                    Log.d("CronometroService", "Notificación general iniciada")
-                }
-
-                updateIndividualNotification(folio)
-            }
-        }
-
-        return START_STICKY
-    }
-
 
     private val tiemposRepository by lazy {
         EntryPointAccessors.fromApplication(
@@ -123,12 +27,72 @@ class CronometroService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d("CronometroService", "Repositorio cargado: $tiemposRepository")
+        Log.d("CronometroService", "Servicio creado")
     }
 
-    override fun onBind(intent: Intent?): IBinder {
-        return binder
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            "PAUSAR_CRONOMETRO" -> {
+                val id = intent.getIntExtra("id", -1)
+                val folio = intent.getIntExtra("folio", -1)
+                val etapa = intent.getStringExtra("etapa") ?: return START_NOT_STICKY
+                Log.d("CronometroService", "Accion pausar cronometro para id=$id, folio=$folio, etapa=$etapa")
+
+                if (id != -1) {
+                    val tiempoFinal = stopCronometro(id, etapa)
+                    serviceScope.launch {
+                        tiemposRepository.updateTiempo(id, etapa, tiempoFinal.toInt())
+                        tiemposRepository.updateIsRunning(id, false)
+                        Log.d("CronometroService", "Guardado: id=$id, folio=$folio, etapa=$etapa, tiempo=$tiempoFinal s")
+                    }.invokeOnCompletion {
+                        if (startTimes.isEmpty()) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                            Log.d("CronometroService", "No hay mas cronometros activos, finalizar Foreground Servide")
+                        }
+                    }
+                }
+                return START_NOT_STICKY
+            }
+
+            else -> {
+                val intent = intent ?: return START_NOT_STICKY
+
+                val id = intent.getIntExtra("id", -1)
+                val folio = intent.getIntExtra("folio", -1)
+                val etapa = intent.getStringExtra("etapa") ?: return START_NOT_STICKY
+                val tiempoInicial = intent.getLongExtra("tiempoInicial", 0L)
+
+                val key = id to etapa
+                cronometros[key] = tiempoInicial
+                Log.d("CronometroService", "Iniciar cronometro para id=$id, folio=$folio, etapa=$etapa, key=$key")
+                if (!isRunning(id, etapa)) {
+                    startTimes[key] = System.currentTimeMillis() / 1000
+                }
+
+                if (startTimes.size == 1) {
+                    startForeground(1, createGeneralNotification())
+                }
+
+                updateIndividualNotification(id, folio, etapa)
+            }
+        }
+
+        return START_STICKY
     }
+
+    override fun onBind(intent: Intent?): IBinder = binder
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
+    }
+
+    inner class CronometroBinder : Binder() {
+        fun getService(): CronometroService = this@CronometroService
+    }
+
+    // ------------------ Notificaciones ------------------
 
     private fun createGeneralNotification(): Notification {
         val channelId = "cronometro_channel"
@@ -139,115 +103,80 @@ class CronometroService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Cronómetros activos")
-            .setContentText("La app está registrando tiempos de producción.")
+            .setContentText("La app está registrando tiempos de producción por etapa.")
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 
-    /*private fun updateIndividualNotification(folio: Int) {
-        val tiempoActual = calculateCurrentTime(folio)
+    private fun updateIndividualNotification(id: Int, folio: Int, etapa: String) {
         val channelId = "cronometro_individual_channel"
-        val channelName = "Cronómetro por folio"
-
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
-        notificationManager.createNotificationChannel(channel)
-
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Folio $folio")
-            .setContentText("Cronómetro en ejecución")
-            .setSmallIcon(android.R.drawable.ic_popup_sync)
-            .setOnlyAlertOnce(true)
-            .setOngoing(true)
-            .build()
-
-        notificationManager.notify(folio, notification)
-    }*/
-
-    private fun updateIndividualNotification(folio: Int) {
-        Log.d("CronometroService", "Actualizando notificación individual para folio $folio")
-        val channelId = "cronometro_individual_channel"
-        val channelName = "Cronómetro por folio"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT)
+        val channel = NotificationChannel(channelId, "Cronómetro por etapa", NotificationManager.IMPORTANCE_DEFAULT)
         notificationManager.createNotificationChannel(channel)
 
         val pauseIntent = Intent(this, CronometroService::class.java).apply {
             action = "PAUSAR_CRONOMETRO"
+            putExtra("id", id)
             putExtra("folio", folio)
+            putExtra("etapa", etapa)
         }
+
+        val requestCode = (id.toString() + etapa).hashCode()
+        Log.d("CronometroService", "updateIndividualNotification hashCode $requestCode")
         val pausePendingIntent = PendingIntent.getService(
-            this, folio, pauseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this, requestCode, pauseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Folio $folio")
+            .setContentTitle("Folio $folio - $etapa")
             .setContentText("Cronómetro en ejecución")
             .setSmallIcon(android.R.drawable.ic_popup_sync)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .addAction(android.R.drawable.ic_media_pause, "Pausar", pausePendingIntent)
             .build()
 
-        notificationManager.notify(folio, notification)
-        Log.d("CronometroService", "Notificación individual mostrada para folio $folio")
+        notificationManager.notify(requestCode, notification)
     }
 
+    // ------------------ Cronómetro ------------------
 
-    fun isRunning(folio: Int): Boolean = startTimes.containsKey(folio)
+    fun isRunning(id: Int, etapa: String): Boolean = startTimes.containsKey(id to etapa)
 
-    fun stopCronometro(folio: Int): Long {
-        val tiempoAcumulado = calculateCurrentTime(folio)
-        cronometros[folio] = tiempoAcumulado
-        startTimes.remove(folio)
+    fun stopCronometro(id: Int, etapa: String): Long {
+        val key = id to etapa
+        val tiempoAcumulado = calculateCurrentTime(key)
+        cronometros[key] = tiempoAcumulado
+        Log.d("CronometroService", "StopCronometro id=$id, etapa=$etapa, key=$key")
+        startTimes.remove(key)
 
-        Log.d("CronometroService", "Cronómetro detenido para folio $folio. Tiempo acumulado: $tiempoAcumulado")
-
-        // Cancelar notificación individual
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(folio)
-
-        // Si no hay cronómetros activos, detener el servicio y su notificación
-        if (startTimes.isEmpty()) {
-            Log.d("CronometroService", "No hay más cronómetros activos. Deteniendo servicio.")
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-            Log.d("CronometroService", "Último cronómetro, tiempo acumulado ${tiempoAcumulado}")
-            return tiempoAcumulado
-        }
+        val notificationId = (id.toString() + etapa).hashCode()
+        Log.d("CronometroService", "StopCronometro hashCode $notificationId")
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
         return tiempoAcumulado
     }
 
-    fun resetCronometro(folio: Int): Long {
-        cronometros[folio] = 0L
-        startTimes.remove(folio)
+    fun resetCronometro(id: Int, etapa: String): Long {
+        val key = id to etapa
+        cronometros[key] = 0L
+        startTimes.remove(key)
 
-        // Cancelar la notificación individual también
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(folio)
-
+        val notificationId = (id.toString() + etapa).hashCode()
+        Log.d("CronometroService", "ResetCronometro hashCode $notificationId")
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
         return 0L
     }
 
-    private fun calculateCurrentTime(folio: Int): Long {
-        val tiempoInicial = cronometros[folio] ?: 0L
-        val startTime = startTimes[folio] ?: return tiempoInicial
+    private fun calculateCurrentTime(key: Pair<Int, String>): Long {
+        val tiempoInicial = cronometros[key] ?: 0L
+        val startTime = startTimes[key] ?: return tiempoInicial
         val tiempoActual = (System.currentTimeMillis() / 1000) - startTime
         return tiempoInicial + tiempoActual
     }
 
-    fun getCronometroTiempo(folio: Int): Long = calculateCurrentTime(folio)
+    fun getCronometroTiempo(id: Int, etapa: String): Long = calculateCurrentTime(id to etapa)
 
-    fun getActiveFolios(): List<Int> = startTimes.keys.toList()
-
-    override fun onDestroy() {
-        serviceScope.cancel()
-        super.onDestroy()
-    }
-
-    inner class CronometroBinder : Binder() {
-        fun getService(): CronometroService = this@CronometroService
-    }
+    fun getActiveEtapas(): List<Pair<Int, String>> = startTimes.keys.toList()
 }

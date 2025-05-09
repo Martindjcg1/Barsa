@@ -16,19 +16,41 @@
 
 package com.example.barsa.data.repository
 
+import com.example.barsa.data.local.Detencion
+import com.example.barsa.data.local.DetencionDao
+import com.example.barsa.data.local.Proceso
+import com.example.barsa.data.local.ProcesoDao
 import com.example.barsa.data.local.Tiempo
 import com.example.barsa.data.local.TiempoDao
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
-class OfflineTiemposRepository @Inject constructor(private val tiempoDao: TiempoDao) : TiemposRepository {
+class OfflineTiemposRepository @Inject constructor(
+    private val procesoDao: ProcesoDao,
+    private val tiempoDao: TiempoDao,
+    private val detencionDao: DetencionDao
+) : TiemposRepository {
+
+    // Métodos para procesos
+    override suspend fun upsertProceso(proceso: Proceso) = procesoDao.upsert(proceso)
+
+    // Métodos para tiempos
     override suspend fun upsertTiempo(tiempo: Tiempo) = tiempoDao.upsert(tiempo)
     override suspend fun deleteTiempo(tiempo: Tiempo) = tiempoDao.delete(tiempo)
-    override fun getAllStream(): Flow<List<Tiempo>> = tiempoDao.getAll()
-    override fun getOneStream(folio: Int): Flow<Tiempo?> = tiempoDao.getOne(folio)
-    override suspend fun updateIsRunning(folio: Int, isRunning: Boolean) =
-        tiempoDao.updateIsRunning(folio, isRunning)
-    override suspend fun updateTiempo(folio: Int, nuevoTiempo: Int) =
-        tiempoDao.updateTiempo(folio, nuevoTiempo)
-    override suspend fun getIsRunning(folio: Int): Boolean = tiempoDao.getIsRunning(folio)
+    override suspend fun deleteTiempoByFolioEtapa(id: Int, folio: Int, etapa: String) = tiempoDao.deleteTiempoByFolioEtapa(id, folio, etapa)
+    override fun getAllTiempoStream(procesoFolio: Int): Flow<List<Tiempo>> = tiempoDao.getAllTiempo(procesoFolio)
+    override fun getOneTiempoStream(procesoFolio: Int, etapa: String): Flow<Tiempo?> = tiempoDao.getOneTiempo(procesoFolio, etapa)
+    override suspend fun updateIsRunning(id: Int, isRunning: Boolean) = tiempoDao.updateIsRunning(id, isRunning)
+    override suspend fun updateTiempo(id: Int, etapa: String, nuevoTiempo: Int) = tiempoDao.updateTiempo(id, etapa, nuevoTiempo)
+    override suspend fun finalizarTiempo(id: Int, isFinished: Boolean, fechaFin: Long) = tiempoDao.finalizarTiempo(id, isFinished, fechaFin)
+    override fun getIsRunningStream(id: Int): Flow<Boolean> = tiempoDao.getIsRunning(id)
+    override fun getIsFinishedStream(id: Int): Flow<Boolean> = tiempoDao.getIsFinished(id)
+
+    // Métodos para detenciones
+    override suspend fun upsertDetencion(detencion: Detencion) = detencionDao.upsert(detencion)
+    override suspend fun deleteDetencion(detencion: Detencion) = detencionDao.delete(detencion)
+    override fun getOneDetencionStream(id: Int): Flow<Detencion> = detencionDao.getOne(id)
+    override fun getAllDetencionesStream(): Flow<List<Detencion>> = detencionDao.getAll()
+    override suspend fun setActiva(id: Int, activa: Boolean) = detencionDao.setActiva(id, activa)
+    override fun getActivaStream(id: Int): Flow<Boolean> = detencionDao.getActiva(id)
 }

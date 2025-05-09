@@ -121,7 +121,7 @@ fun PapeletaCard(
                     IconButton(
                         onClick = {
                             val route =
-                                "cronometro/${papeleta.Tipold}°${papeleta.Folio}°${papeleta.Fecha}°${papeleta.Status}"
+                                "selector/${papeleta.Tipold}°${papeleta.Folio}°${papeleta.Fecha}°${papeleta.Status}"
                             onNavigate(route)
                         },
                         colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)

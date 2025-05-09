@@ -3,6 +3,8 @@ package com.example.barsa.di
 import android.app.Application
 import android.content.Context
 import androidx.room.Room
+import com.example.barsa.data.local.DetencionDao
+import com.example.barsa.data.local.ProcesoDao
 import dagger.Module
 import com.example.barsa.data.local.TiempoDao
 import com.example.barsa.data.local.TiempoDatabase
@@ -14,13 +16,20 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+
     @Provides
     fun provideTiempoDatabase(application: Application): TiempoDatabase {
-        return Room.databaseBuilder(application.baseContext, TiempoDatabase::class.java, "tiempo_database")
+        return Room.databaseBuilder(application, TiempoDatabase::class.java, "tiempo_database")
             .fallbackToDestructiveMigration()
             .build()
     }
 
     @Provides
+    fun provideProcesoDao(database: TiempoDatabase): ProcesoDao = database.procesoDao()
+
+    @Provides
     fun provideTiempoDao(database: TiempoDatabase): TiempoDao = database.tiempoDao()
+
+    @Provides
+    fun provideDetencionDao(database: TiempoDatabase): DetencionDao = database.detencionDao()
 }

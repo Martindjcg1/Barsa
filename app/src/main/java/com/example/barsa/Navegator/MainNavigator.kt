@@ -19,6 +19,7 @@ import com.example.barsa.Login.LoginScreen
 import com.example.barsa.Header.Notification
 import com.example.barsa.Header.NotificationBox
 import com.example.barsa.Producciones.CronometroScreen
+import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.data.TiemposViewModel
 
 @Composable
@@ -95,14 +96,26 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
         // Agregando ruta de la vista de cronometro
         //composable("cronometro") { CronometroScreen() }
         composable(
-            "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}"
+            "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
         ) { backStackEntry ->
             val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
             val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
             val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
+            val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, tiemposViewModel)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, tiemposViewModel)
+        }
+
+        composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->
+            val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
+            val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
+            val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
+            val Status = backStackEntry.arguments?.getString("Status") ?: ""
+
+            EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
+                navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+            }, tiemposViewModel)
         }
     }
 }

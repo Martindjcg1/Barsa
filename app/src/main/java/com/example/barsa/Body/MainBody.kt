@@ -14,6 +14,7 @@ import com.example.barsa.Body.Inventory.InventoryScreen
 import com.example.barsa.Body.Usuario.UsuarioBody
 
 import com.example.barsa.Producciones.CronometroScreen
+import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
 
@@ -48,35 +49,41 @@ fun MainBody(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            when (currentRoute) {
-                "inventario" -> {
+            when {
+                currentRoute == "inventario" -> {
                     InventoryScreen(onNavigate)
                 }
-                "producciones" -> {
-                    /*Text(
-                        text = "Pantalla de Producciones",
-                        style = MaterialTheme.typography.headlineMedium
-                    )*/
-                    // Pasar onNavigate para cambiar de ruta en la navegación
+                currentRoute == "producciones" -> {
                     ProduccionesScreen(onNavigate)
                 }
-                "usuario" -> {
+                currentRoute == "usuario" -> {
                     UsuarioBody(onNavigate)
                 }
-                // Agregar la vista al mainbody
-                //"cronometro" -> { CronometroScreen(folio, cantidad, fecha)
-                else -> {
-                   if(currentRoute.startsWith("cronometro/")) {
-                        val parts = currentRoute.removePrefix("cronometro/").split("°")
-                        if (parts.size == 4) {
-                            val TipoId = parts[0]
-                            val Folio = parts[1].toIntOrNull() ?: 0
-                            val Fecha = parts[2]
-                            val Status = parts[3]
-                            CronometroScreen(TipoId, Folio, Fecha, Status, tiemposViewModel)
-                        } else {
-                            Text("Error: Datos incompletos para el cronómetro")
-                        }
+                currentRoute.startsWith("cronometro/") -> {
+                    val parts = currentRoute.removePrefix("cronometro/").split("°")
+                    if (parts.size == 5) {
+                        val TipoId = parts[0]
+                        val Folio = parts[1].toIntOrNull() ?: 0
+                        val Fecha = parts[2]
+                        val Status = parts[3]
+                        val Etapa = parts[4]
+                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, tiemposViewModel)
+                    } else {
+                        Text("Error: Datos incompletos para el cronómetro")
+                    }
+                }
+                currentRoute.startsWith("selector/") -> {
+                    val parts = currentRoute.removePrefix("selector/").split("°")
+                    if (parts.size == 4) {
+                        val TipoId = parts[0]
+                        val Folio = parts[1].toIntOrNull() ?: 0
+                        val Fecha = parts[2]
+                        val Status = parts[3]
+                        EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
+                            onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                        }, tiemposViewModel)
+                    } else {
+                        Text("Error: Datos incompletos para el selector de etapa")
                     }
                 }
             }

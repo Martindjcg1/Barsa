@@ -16,15 +16,32 @@
 
 package com.example.barsa.data.repository
 
+import com.example.barsa.data.local.Detencion
+import com.example.barsa.data.local.Proceso
 import com.example.barsa.data.local.Tiempo
 import kotlinx.coroutines.flow.Flow
 
 interface TiemposRepository {
+    // Métodos para procesos
+    suspend fun upsertProceso(proceso: Proceso)
+
+    // Métodos para tiempos
     suspend fun upsertTiempo(tiempo: Tiempo)
     suspend fun deleteTiempo(tiempo: Tiempo)
-    fun getAllStream(): Flow<List<Tiempo>>
-    fun getOneStream(folio: Int): Flow<Tiempo?>
-    suspend fun updateIsRunning(folio: Int, isRunning: Boolean)
-    suspend fun updateTiempo(folio: Int, nuevoTiempo: Int)
-    suspend fun getIsRunning(folio: Int): Boolean
+    suspend fun deleteTiempoByFolioEtapa(id: Int, folio: Int, etapa: String)
+    fun getAllTiempoStream(procesoFolio: Int): Flow<List<Tiempo>>
+    fun getOneTiempoStream(procesoFolio: Int, etapa: String): Flow<Tiempo?>
+    suspend fun updateIsRunning(id: Int, isRunning: Boolean)
+    suspend fun updateTiempo(id: Int, etapa: String, nuevoTiempo: Int)
+    suspend fun finalizarTiempo(id: Int, isFinished: Boolean, fechaFin: Long)
+    fun getIsRunningStream(id: Int): Flow<Boolean>
+    fun getIsFinishedStream(id: Int): Flow<Boolean>
+
+    // Métodos para detenciones
+    suspend fun upsertDetencion(detencion: Detencion)
+    suspend fun deleteDetencion(detencion: Detencion)
+    fun getOneDetencionStream(id: Int): Flow<Detencion>
+    fun getAllDetencionesStream(): Flow<List<Detencion>>
+    suspend fun setActiva(id: Int, activa: Boolean)
+    fun getActivaStream(id: Int): Flow<Boolean>
 }
