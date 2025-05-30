@@ -59,6 +59,8 @@ dependencies {
     ksp("com.google.dagger:hilt-compiler:2.51.1")
     //coil
     implementation ("io.coil-kt:coil-compose:2.4.0")
+    //datastore preferences
+    implementation("androidx.datastore:datastore-preferences:1.1.6")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -1,25 +1,23 @@
-package com.example.barsa.data
+package com.example.barsa.data.room
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.barsa.data.local.Proceso
-import com.example.barsa.data.local.Tiempo
-import com.example.barsa.data.repository.OfflineTiemposRepository
-import com.example.barsa.data.repository.TiemposRepository
+import com.example.barsa.data.room.local.Detencion
+import com.example.barsa.data.room.local.Proceso
+import com.example.barsa.data.room.local.Tiempo
+import com.example.barsa.data.room.repository.TiemposRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -73,21 +71,38 @@ class TiemposViewModel @Inject constructor(
         }
     }
 
-    fun getEtapaDisponible(folio: Int): Flow<String?> {
-        //Log.d("getEtapaDisponible", "Consultando próxima etapa disponible para folio=$folio")
-        return tiemposRepository.getAllTiempoStream(folio)
+    fun getEtapaDisponible(folio: Int): Flow<List<String>> =
+        tiemposRepository.getAllTiempoStream(folio)
             .map { tiempos ->
-                val todasLasEtapas = listOf("Madera", "Pintura", "Tapiceria", "Empaque")
                 val etapasFinalizadas = tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
-                val siguienteEtapa = todasLasEtapas.firstOrNull { it !in etapasFinalizadas }
-                //Log.d("getEtapaDisponible", "Etapas finalizadas: $etapasFinalizadas, siguiente: $siguienteEtapa")
-                siguienteEtapa
+                val maderaFinalizada = "Madera" in etapasFinalizadas
+                val produccionFinalizada = "Producción" in etapasFinalizadas
+
+                val etapasDisponibles = mutableListOf<String>()
+                if (!maderaFinalizada) etapasDisponibles.add("Madera")
+                if (!produccionFinalizada) etapasDisponibles.add("Producción")
+                if (etapasDisponibles.isEmpty()) {
+                    val flujoRestante = listOf("Pintura", "Tapiceria", "Empaque")
+                    flujoRestante.firstOrNull { it !in etapasFinalizadas }?.let { etapasDisponibles.add(it) }
+                }
+
+                etapasDisponibles
             }
             .catch { e ->
-                Log.e("getEtapaDisponible", "Error al obtener etapa para folio=$folio", e)
-                emit(null)
+                Log.e("getEtapaDisponible", "Error...", e)
             }
-    }
+
+
+    fun getEtapasFinalizadas(folio: Int): Flow<Set<String>> =
+        tiemposRepository.getAllTiempoStream(folio)
+            .map { tiempos ->
+                tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
+            }
+            .catch { e ->
+                Log.e("getEtapasFinalizadas", "Error...", e)
+                emit(emptySet())
+            }
+
 
     fun getIsRunning(folio: Int): Flow<Boolean> {
         //Log.d("getIsRunning", "Consultando isRunning para folio=$folio")
@@ -206,6 +221,71 @@ class TiemposViewModel @Inject constructor(
             }
         }
     }
+
+    fun getDetencionId(folioTiempo: Int, etapa: String): Flow<Int?> {
+        //Log.d("getDetencionId", "Obteniendo ID para id=$id")
+        return tiemposRepository.getOneDetencionStream(folioTiempo, etapa)
+            .map {
+                //Log.d("getDetencionId", "Detencion encontrado: $it")
+                it?.id
+            }
+            .catch { e ->
+                Log.e("getDetencionId", "Error al obtener ID de detencion", e)
+                emit(null)
+            }
+    }
+
+    fun upsertDetencion(detencion: Detencion) {
+        //Log.d("upsertDetencion", "Insertando detencion: $detencion")
+        viewModelScope.launch {
+            try {
+                tiemposRepository.upsertDetencion(detencion)
+                //Log.d("upsertDetencion", "Detencion insertado correctamente")
+            } catch (e: Exception) {
+                Log.e("upsertDetencion", "Error al insertar detencion", e)
+            }
+        }
+    }
+
+    fun getIsDetencionActiva(id: Int): Flow<Boolean> {
+        //Log.d("getIsDetencionActiva", "Consultando DetencionActiva para id=$id")
+        return tiemposRepository.getActivaStream(id)
+            .catch { e ->
+                Log.e("getIsDetencionActiva", "Error en DetencionActiva para id=$id", e)
+                emit(false)
+            }
+    }
+
+    fun updateIsDetencionActiva(folioTiempo: Int, etapa: String, isActiva: Boolean) {
+        //Log.d("updateIsDetencionActiva", "Actualizando isActiva=$isActiva para id=$id")
+        viewModelScope.launch {
+            val detencionId = getDetencionId(folioTiempo, etapa).firstOrNull()
+            //Log.d("updateIsActiva", "ID encontrado: $id")
+            if (detencionId != null) {
+                tiemposRepository.setActiva(detencionId, isActiva)
+                //Log.d("updateIsDetencionActiva", "isActiva actualizada en base de datos")
+            } else {
+                //Log.e("updateIsDetencionActiva", "Detencion no encontrada")
+            }
+        }
+    }
+
+    fun ultimaDetencionActiva(folioPapeleta: Int): Flow<Detencion?> {
+        return tiemposRepository.getUltimaDetencionActiva(folioPapeleta)
+            .catch { e ->
+                Log.e("observarUltimaDetencionActiva", "Error al observar última detención activa", e)
+                emit(null)
+            }
+    }
+
+    fun setDetencionActiva(id: Int, isActiva: Boolean) {
+        //Log.d("updateIsDetencionActiva", "Actualizando isActiva=$isActiva para id=$id")
+        viewModelScope.launch {
+            Log.d("updateIsActiva", "ID encontrado: $id, isActiva: $isActiva")
+            tiemposRepository.setActiva(id, isActiva)
+        }
+    }
+
 }
 
     /*

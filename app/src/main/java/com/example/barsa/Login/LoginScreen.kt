@@ -34,10 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lint.kotlin.metadata.Visibility
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
+    userViewModel: UserViewModel,
     onLoginClick: (String, String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }

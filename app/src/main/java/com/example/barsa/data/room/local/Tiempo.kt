@@ -1,4 +1,4 @@
-package com.example.barsa.data.local
+package com.example.barsa.data.room.local
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -26,14 +26,15 @@ data class Proceso(
 )
 data class Tiempo(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-    val procesoFolio: Int, // Clave foránea
-    val etapa: String, // Etapas: "Madera", "Pintura", "Tapicería", "Empaque"
-    val tiempo: Int, // Tiempo en segundos
+// Tiempo
+    val id: Int = 0, // Clave primaria
+    val procesoFolio: Int, // Clave foránea a Papeleta
+    val etapa: String,
+    val tiempo: Int,
     val fechaInicio: Long,
     val fechaFin: Long,
-    val isRunning: Boolean = false, // Indica si esta etapa está en curso
-    val isFinished: Boolean = false // Saber si la etapa finalizo
+    val isRunning: Boolean = false,
+    val isFinished: Boolean = false
 )
 @Entity(
     tableName = "detenciones",
@@ -49,10 +50,12 @@ data class Tiempo(
 )
 data class Detencion(
     @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-    val tiempoId: Int,       // FK al tiempo específico
-    val etapa: String,       // Etapa en la que ocurrió la detención
-    val motivo: String,      // Motivo de la detención
-    val fecha: Long,      // Fecha y hora en formato timestamp
+// Detencion
+    val id: Int = 0, // Clave primaria
+    val tiempoId: Int,       // Clave foranea a Tiempo (id)
+    val folioPapeleta: Int,
+    val etapa: String,
+    val motivo: String,
+    val fecha: Long,
     val activa: Boolean = false
 )

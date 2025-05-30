@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package com.example.barsa.data.repository
+package com.example.barsa.data.room.repository
 
-import com.example.barsa.data.local.Detencion
-import com.example.barsa.data.local.DetencionDao
-import com.example.barsa.data.local.Proceso
-import com.example.barsa.data.local.ProcesoDao
-import com.example.barsa.data.local.Tiempo
-import com.example.barsa.data.local.TiempoDao
+import com.example.barsa.data.room.local.Detencion
+import com.example.barsa.data.room.local.DetencionDao
+import com.example.barsa.data.room.local.Proceso
+import com.example.barsa.data.room.local.ProcesoDao
+import com.example.barsa.data.room.local.Tiempo
+import com.example.barsa.data.room.local.TiempoDao
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -49,8 +49,11 @@ class OfflineTiemposRepository @Inject constructor(
     // Métodos para detenciones
     override suspend fun upsertDetencion(detencion: Detencion) = detencionDao.upsert(detencion)
     override suspend fun deleteDetencion(detencion: Detencion) = detencionDao.delete(detencion)
-    override fun getOneDetencionStream(id: Int): Flow<Detencion> = detencionDao.getOne(id)
+    override fun getOneDetencionStream(tiempoId: Int, etapa: String): Flow<Detencion> = detencionDao.getOne(tiempoId, etapa)
     override fun getAllDetencionesStream(): Flow<List<Detencion>> = detencionDao.getAll()
     override suspend fun setActiva(id: Int, activa: Boolean) = detencionDao.setActiva(id, activa)
     override fun getActivaStream(id: Int): Flow<Boolean> = detencionDao.getActiva(id)
+    override fun getUltimaDetencionActiva(folioPapeleta: Int): Flow<Detencion?> =
+        detencionDao.getUltimaDetencionActiva(folioPapeleta)
+
 }

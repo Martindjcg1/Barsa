@@ -1,6 +1,6 @@
-package com.example.barsa.di
+package com.example.barsa.data.room.di
 
-import com.example.barsa.data.repository.TiemposRepository
+import com.example.barsa.data.room.repository.TiemposRepository
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent

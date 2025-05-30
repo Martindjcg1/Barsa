@@ -1,4 +1,4 @@
-package com.example.barsa.data.local
+package com.example.barsa.data.room.local
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -64,8 +64,8 @@ interface DetencionDao {
     suspend fun delete(detencion: Detencion)
 
     // Obtener una única detención por ID (flujo reactivo)
-    @Query("SELECT * FROM detenciones WHERE id = :id LIMIT 1")
-    fun getOne(id: Int): Flow<Detencion>
+    @Query("SELECT * FROM detenciones WHERE tiempoId = :tiempoId AND etapa = :etapa LIMIT 1")
+    fun getOne(tiempoId: Int, etapa: String): Flow<Detencion>
 
     // Obtener todas las detenciones ordenadas por fecha
     @Query("SELECT * FROM detenciones ORDER BY fecha ASC")
@@ -79,4 +79,12 @@ interface DetencionDao {
     // Obtener el estado "activa" de una detención específica (flujo reactivo)
     @Query("SELECT activa FROM detenciones WHERE id = :id")
     fun getActiva(id: Int): Flow<Boolean>
+
+    @Query("""
+    SELECT * FROM detenciones 
+    WHERE folioPapeleta = :folioPapeleta AND activa = 1
+    ORDER BY fecha DESC 
+    LIMIT 1
+""")
+    fun getUltimaDetencionActiva(folioPapeleta: Int): Flow<Detencion?>
 }

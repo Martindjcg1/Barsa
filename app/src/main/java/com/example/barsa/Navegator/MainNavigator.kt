@@ -1,14 +1,19 @@
 package com.example.barsa.Navegator
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -20,10 +25,12 @@ import com.example.barsa.Header.Notification
 import com.example.barsa.Header.NotificationBox
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
-import com.example.barsa.data.TiemposViewModel
+import com.example.barsa.data.retrofit.ui.PapeletaViewModel
+import com.example.barsa.data.retrofit.ui.UserViewModel
+import com.example.barsa.data.room.TiemposViewModel
 
 @Composable
-fun MainNavigator(tiemposViewModel: TiemposViewModel) {
+fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewModel, papeletaViewModel: PapeletaViewModel) {
     val navController = rememberNavController()
     var currentRoute by remember { mutableStateOf("inventario") }
     var showNotifications by remember { mutableStateOf(false) }
@@ -44,8 +51,9 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
         navController = navController,
         startDestination = "login"
     ) {
+        /*
         composable("login") {
-            LoginScreen(
+            LoginScreen(userViewModel,
                 onLoginClick = { username, password ->
                     // Aquí puedes agregar la lógica de autenticación
                     navController.navigate("main") {
@@ -53,6 +61,38 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
                     }
                 }
             )
+        }
+
+         */
+
+        composable("login") {
+
+            LoginScreen(userViewModel, onLoginClick = { username, password ->
+                Log.d("LoginScreen", "${username}, ${password}")
+                userViewModel.login(username, password)
+            })
+
+            // Escuchar el resultado del login
+            val loginResult by userViewModel.loginState.collectAsState()
+            val context = LocalContext.current
+
+            LaunchedEffect(loginResult) {
+                when (loginResult) {
+                    is UserViewModel.LoginState.Success -> {
+                        navController.navigate("main") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+
+                    is UserViewModel.LoginState.Error -> {
+                        val message = (loginResult as UserViewModel.LoginState.Error).message
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+
+                    else -> {}
+                }
+            }
+
         }
 
         composable("main") {
@@ -78,7 +118,8 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
                         currentRoute = route
                     },
                     modifier = Modifier.padding(paddingValues),
-                    tiemposViewModel
+                    tiemposViewModel,
+                    papeletaViewModel
                 )
 
                 if (showNotifications) {
@@ -104,7 +145,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
             val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa,onNavigate = { route -> navController.navigate(route) } ,tiemposViewModel)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa,onNavigate = { route -> navController.navigate(route) } ,tiemposViewModel, papeletaViewModel)
         }
 
         composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->
@@ -115,7 +156,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel) {
 
             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                 navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel)
+            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel, papeletaViewModel)
         }
     }
 }

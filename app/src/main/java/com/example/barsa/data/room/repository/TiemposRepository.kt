@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.example.barsa.data.repository
+package com.example.barsa.data.room.repository
 
-import com.example.barsa.data.local.Detencion
-import com.example.barsa.data.local.Proceso
-import com.example.barsa.data.local.Tiempo
+import com.example.barsa.data.room.local.Detencion
+import com.example.barsa.data.room.local.Proceso
+import com.example.barsa.data.room.local.Tiempo
 import kotlinx.coroutines.flow.Flow
 
 interface TiemposRepository {
@@ -40,8 +40,9 @@ interface TiemposRepository {
     // Métodos para detenciones
     suspend fun upsertDetencion(detencion: Detencion)
     suspend fun deleteDetencion(detencion: Detencion)
-    fun getOneDetencionStream(id: Int): Flow<Detencion>
+    fun getOneDetencionStream(tiempoId: Int, etapa: String): Flow<Detencion>
     fun getAllDetencionesStream(): Flow<List<Detencion>>
     suspend fun setActiva(id: Int, activa: Boolean)
     fun getActivaStream(id: Int): Flow<Boolean>
+    fun getUltimaDetencionActiva(folioPapeleta: Int): Flow<Detencion?>
 }

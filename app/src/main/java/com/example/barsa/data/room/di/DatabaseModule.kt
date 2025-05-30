@@ -1,16 +1,14 @@
-package com.example.barsa.di
+package com.example.barsa.data.room.di
 
 import android.app.Application
-import android.content.Context
 import androidx.room.Room
-import com.example.barsa.data.local.DetencionDao
-import com.example.barsa.data.local.ProcesoDao
+import com.example.barsa.data.room.local.DetencionDao
+import com.example.barsa.data.room.local.ProcesoDao
 import dagger.Module
-import com.example.barsa.data.local.TiempoDao
-import com.example.barsa.data.local.TiempoDatabase
+import com.example.barsa.data.room.local.TiempoDao
+import com.example.barsa.data.room.local.TiempoDatabase
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 
 @Module

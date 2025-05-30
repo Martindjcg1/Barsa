@@ -1,4 +1,4 @@
-package com.example.barsa.data.local
+package com.example.barsa.data.room.local
 
 import android.content.Context
 import androidx.room.Database
@@ -10,7 +10,7 @@ import androidx.room.RoomDatabase
  */
 @Database(
     entities = [Proceso::class, Tiempo::class, Detencion::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class TiempoDatabase : RoomDatabase() {

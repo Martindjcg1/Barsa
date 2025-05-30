@@ -17,15 +17,17 @@ import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 
-import com.example.barsa.data.TiemposViewModel
+import com.example.barsa.data.room.TiemposViewModel
 
 @Composable
 fun MainBody(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
-    tiemposViewModel: TiemposViewModel
+    tiemposViewModel: TiemposViewModel,
+    papeletaViewModel: PapeletaViewModel
 ) {
     Box(
         modifier = modifier.fillMaxSize()
@@ -54,7 +56,7 @@ fun MainBody(
                     InventoryScreen(onNavigate)
                 }
                 currentRoute == "producciones" -> {
-                    ProduccionesScreen(onNavigate)
+                    ProduccionesScreen(onNavigate, papeletaViewModel)
                 }
                 currentRoute == "usuario" -> {
                     UsuarioBody(onNavigate)
@@ -67,7 +69,7 @@ fun MainBody(
                         val Fecha = parts[2]
                         val Status = parts[3]
                         val Etapa = parts[4]
-                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate, tiemposViewModel)
+                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate, tiemposViewModel, papeletaViewModel)
                     } else {
                         Text("Error: Datos incompletos para el cronómetro")
                     }
@@ -81,7 +83,7 @@ fun MainBody(
                         val Status = parts[3]
                         EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                             onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-                        }, onNavigate, tiemposViewModel)
+                        }, onNavigate, tiemposViewModel, papeletaViewModel)
                     } else {
                         Text("Error: Datos incompletos para el selector de etapa")
                     }

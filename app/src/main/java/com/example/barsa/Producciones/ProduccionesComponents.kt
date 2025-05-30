@@ -41,10 +41,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import com.example.barsa.Models.DetallePapeleta
-import com.example.barsa.Models.Papeleta
+//import com.example.barsa.Models.DetallePapeleta
+//import com.example.barsa.Models.Papeleta
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.models.DetallePapeleta
+import com.example.barsa.data.retrofit.models.Papeleta
 
+/*
 @Composable
 fun PapeletaCard(
     papeleta: Papeleta,
@@ -289,6 +292,209 @@ fun FiltroDropdown(
                     }
                 )
             }
+        }
+    }
+}*/
+@Composable
+fun PapeletaCard(
+    papeleta: Papeleta,
+    detalles: List<DetallePapeleta>,
+    onNavigate: (String) -> Unit
+) {
+    val accentBrown = Color(0xFF654321)
+    var showDialog by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Folio: ${papeleta.folio}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = try { papeleta.fecha.substring(0, 10) } catch (e: Exception) { "Fecha inválida" },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(text = "Tipo: ${papeleta.tipoId}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Status: ${papeleta.status}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = "Obs: ${papeleta.observacionGeneral ?: "Sin observaciones"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row {
+                    IconButton(
+                        onClick = { showDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
+                    }
+                    IconButton(
+                        onClick = {
+                            val route =
+                                "selector/${papeleta.tipoId}°${papeleta.folio}°${papeleta.fecha}°${papeleta.status}"
+                            onNavigate(route)
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos")
+                    }
+                }
+            }
+        }
+    }
+    if (showDialog) {
+        DetallePapeletaDialog(detalles) { showDialog = false }
+    }
+}
+
+@Composable
+fun DetallePapeletaDialog(
+    detalles: List<DetallePapeleta>,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Detalles de Papeleta",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                detalles.forEach { detalle ->
+                    Text(
+                        text = "Código: ${detalle.codigo}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(text = "Producto: ${detalle.descripcionProducto}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Cantidad: ${detalle.cantidad}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Color: ${detalle.nombreColor}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Cliente: ${detalle.nombreCliente}", style = MaterialTheme.typography.bodySmall)
+                    Text(text = "Observación: ${detalle.observacion}", style = MaterialTheme.typography.bodySmall)
+
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun FiltroDropdown(
+    onTipoSelected: (String) -> Unit,
+    onOrdenSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = !expanded }) { // Alternar en lugar de solo abrir
+            Icon(painter = painterResource(id = R.drawable.filtrar), contentDescription = "Filtrar")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            Text("Filtrar por Tipo", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+            listOf("Todos", "A", "B").forEach { tipo ->
+                DropdownMenuItem(
+                    text = { Text(tipo) },
+                    onClick = {
+                        onTipoSelected(tipo)
+                        expanded = false // Asegurar que se cierre correctamente
+                    }
+                )
+            }
+            Divider()
+            Text("Ordenar por Fecha", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+            listOf("Recientes", "Antiguas").forEach { orden ->
+                DropdownMenuItem(
+                    text = { Text(orden) },
+                    onClick = {
+                        onOrdenSelected(orden)
+                        expanded = false // Asegurar que se cierre correctamente
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
+    val lightBrown = Color(0xFFDEB887)
+    val accentBrown = Color(0xFF654321)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .weight(1f)
+                .height(55.dp),
+            placeholder = { Text("Buscar por Folio") },
+            singleLine = true,
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                focusedBorderColor = accentBrown,
+                unfocusedBorderColor = lightBrown,
+                focusedTextColor = Color.Black
+            )
+        )
+        IconButton(
+            onClick = { onQueryChange(query) }, // Puede forzar la búsqueda manual
+            modifier = Modifier.padding(start = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = "Buscar",
+                tint = accentBrown
+            )
         }
     }
 }

@@ -6,11 +6,11 @@ import android.content.Intent
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.example.barsa.data.repository.TiemposRepository
-import com.example.barsa.di.ServiceEntryPoint
+import com.example.barsa.data.room.di.ServiceEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.*
-import javax.inject.Inject
+import kotlinx.coroutines.flow.first
+
 
 class CronometroService : Service() {
     private val cronometros = mutableMapOf<Pair<Int, String>, Long>()  // key: (id, etapa)
@@ -157,6 +157,37 @@ class CronometroService : Service() {
         (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
         return tiempoAcumulado
     }
+
+    suspend fun stopCronometrosPorFolio(procesoFolio: Int) {
+        val tiempos = tiemposRepository.getAllTiempoStream(procesoFolio).first() // ✅ solo obtiene una vez
+
+        for (tiempo in tiempos) {
+            val key = tiempo.id to tiempo.etapa
+
+            if (key in cronometros) {
+                val tiempoAcumulado = calculateCurrentTime(key)
+                Log.d("CronometroService", "Start time de $key: ${startTimes[key]}")
+                tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, tiempoAcumulado.toInt())
+                tiemposRepository.updateIsRunning(tiempo.id, false)
+
+                cronometros[key] = 0L
+                startTimes.remove(key)
+                Log.d("CronometroService", "StartTimes después de remover: $startTimes")
+
+                val notificationId = (tiempo.id.toString() + tiempo.etapa).hashCode()
+                (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
+
+                Log.d("CronometroService", "StopCronometro id=${tiempo.id}, etapa=${tiempo.etapa}, tiempo=$tiempoAcumulado")
+            }
+        }
+
+        if (getActiveEtapas().isEmpty()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            Log.d("CronometroService", "Servicio detenido porque no hay cronómetros activos")
+        }
+    }
+
 
     fun resetCronometro(id: Int, etapa: String): Long {
         val key = id to etapa

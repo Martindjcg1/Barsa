@@ -1,10 +1,10 @@
-package com.example.barsa.di
+package com.example.barsa.data.room.di
 
-import com.example.barsa.data.local.DetencionDao
-import com.example.barsa.data.local.ProcesoDao
-import com.example.barsa.data.local.TiempoDao
-import com.example.barsa.data.repository.OfflineTiemposRepository
-import com.example.barsa.data.repository.TiemposRepository
+import com.example.barsa.data.room.local.DetencionDao
+import com.example.barsa.data.room.local.ProcesoDao
+import com.example.barsa.data.room.local.TiempoDao
+import com.example.barsa.data.room.repository.OfflineTiemposRepository
+import com.example.barsa.data.room.repository.TiemposRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
