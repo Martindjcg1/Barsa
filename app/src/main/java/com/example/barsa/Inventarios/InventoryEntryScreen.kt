@@ -24,815 +24,1131 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.barsa.Models.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InventoryEntryScreen(
-    onCancel: () -> Unit,
-    onSave: (InventoryEntry) -> Unit,
-    currentUser: String // Parámetro para el nombre del usuario actual
+fun InventoryEntriesScreen(
+    onBackClick: () -> Unit
 ) {
-    var selectedItems by remember { mutableStateOf<List<InventoryTransactionItem>>(emptyList()) }
-    var showItemSelector by remember { mutableStateOf(false) }
-    var supplierName by remember { mutableStateOf("") }
-    var supplierContact by remember { mutableStateOf("") }
-    var supplierAddress by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var showSupplierSelector by remember { mutableStateOf(false) }
+    var showAddEntryDialog by remember { mutableStateOf(false) }
+    var showEditEntryDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var entryToEdit by remember { mutableStateOf<MovimientosMateria?>(null) }
+    var entryToDelete by remember { mutableStateOf<MovimientosMateria?>(null) }
 
-    // Lista de proveedores de ejemplo
-    val suppliers = remember {
-        listOf(
-            Supplier("1", "Ferretería El Martillo", "555-1234", "Calle Principal #123"),
-            Supplier("2", "Materiales Constructores", "555-5678", "Av. Central #456"),
-            Supplier("3", "Distribuidora Industrial", "555-9012", "Blvd. Norte #789")
-        )
+    // Lista de entradas (en una aplicación real, esto vendría de una base de datos)
+    val entries = remember { mutableStateListOf<MovimientosMateria>() }
+    val entryDetails = remember { mutableStateMapOf<Int, List<DetalleMovimientoMateria>>() }
+
+    // Filtrar solo los movimientos que aumentan stock (entradas)
+    val tiposMovimientoEntrada = remember {
+        getMovimientosInventario().filter { it.aumenta }.map { it.movId }
     }
-
-    // Proveedor seleccionado
-    var selectedSupplier by remember { mutableStateOf<Supplier?>(null) }
-
-    // Fecha actual
-    val currentDate = remember { Date() }
-    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Encabezado
+        // Barra superior con botón de regreso y título
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+            }
+            Text(
+                text = "Registro de Entradas",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        }
+
+        // Barra de búsqueda y botón para agregar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Registrar Entrada de Inventario",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Buscar entradas...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
             )
 
-            // Botón de cierre con texto "X"
+            Spacer(modifier = Modifier.width(16.dp))
+
             Button(
-                onClick = onCancel,
-                modifier = Modifier
-                    .size(48.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Red
-                ),
-                contentPadding = PaddingValues(0.dp)
+                onClick = { showAddEntryDialog = true },
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "X",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Nueva Entrada")
             }
         }
 
-        // Contenido principal
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Sección de fecha
-            Card(
+        // Lista de entradas
+        if (entries.isEmpty()) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Fecha de Entrada",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Default.MailOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     )
-
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No hay entradas registradas",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Haz clic en 'Nueva Entrada' para registrar una entrada de inventario",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(entries.filter {
+                    (it.folio.contains(searchQuery, ignoreCase = true) ||
+                            it.fecha.contains(searchQuery, ignoreCase = true) ||
+                            it.usuario.contains(searchQuery, ignoreCase = true)) &&
+                            tiposMovimientoEntrada.contains(it.movId)
+                }) { entry ->
+                    EntryCard(
+                        entry = entry,
+                        details = entryDetails[entry.consecutivo] ?: emptyList(),
+                        onValidateEntry = { entryToValidate ->
+                            // Actualizar el estado de procesada a true
+                            val index = entries.indexOfFirst { it.consecutivo == entryToValidate.consecutivo }
+                            if (index != -1) {
+                                entries[index] = entryToValidate.copy(procesada = true)
+                                // También actualizar los detalles
+                                entryDetails[entryToValidate.consecutivo] =
+                                    entryDetails[entryToValidate.consecutivo]?.map {
+                                        it.copy(procesada = true)
+                                    } ?: emptyList()
+                            }
+                        },
+                        onEditEntry = { entryToEditParam ->
+                            entryToEdit = entryToEditParam
+                            showEditEntryDialog = true
+                        },
+                        onDeleteEntry = { entryToDeleteParam ->
+                            entryToDelete = entryToDeleteParam
+                            showDeleteConfirmDialog = true
+                        }
+                    )
+                }
+            }
+        }
+    }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+    // Diálogo para agregar una nueva entrada
+    if (showAddEntryDialog) {
+        AddEntryDialog(
+            onDismiss = { showAddEntryDialog = false },
+            onEntryAdded = { entry, details ->
+                entries.add(entry)
+                entryDetails[entry.consecutivo] = details
+                showAddEntryDialog = false
+            },
+            tiposMovimiento = tiposMovimientoEntrada.map { movId ->
+                getMovimientosInventario().find { it.movId == movId }!!
+            }
+        )
+    }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+    // Diálogo para editar entrada
+    if (showEditEntryDialog && entryToEdit != null) {
+        EditEntryDialog(
+            entry = entryToEdit!!,
+            details = entryDetails[entryToEdit!!.consecutivo] ?: emptyList(),
+            onDismiss = {
+                showEditEntryDialog = false
+                entryToEdit = null
+            },
+            onEntryUpdated = { updatedEntry, updatedDetails ->
+                val index = entries.indexOfFirst { it.consecutivo == updatedEntry.consecutivo }
+                if (index != -1) {
+                    entries[index] = updatedEntry
+                    entryDetails[updatedEntry.consecutivo] = updatedDetails
+                }
+                showEditEntryDialog = false
+                entryToEdit = null
+            },
+            tiposMovimiento = tiposMovimientoEntrada.map { movId ->
+                getMovimientosInventario().find { it.movId == movId }!!
+            }
+        )
+    }
 
-                        Text(
-                            text = dateFormatter.format(currentDate),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
+    // Diálogo de confirmación para eliminar
+    if (showDeleteConfirmDialog && entryToDelete != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteConfirmDialog = false
+                entryToDelete = null
+            },
+            title = { Text("Confirmar eliminación") },
+            text = {
+                Text("¿Estás seguro de que deseas eliminar la entrada #${entryToDelete!!.consecutivo}? Esta acción no se puede deshacer.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        entries.removeIf { it.consecutivo == entryToDelete!!.consecutivo }
+                        entryDetails.remove(entryToDelete!!.consecutivo)
+                        showDeleteConfirmDialog = false
+                        entryToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteConfirmDialog = false
+                    entryToDelete = null
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun EntryCard(
+    entry: MovimientosMateria,
+    details: List<DetalleMovimientoMateria>,
+    onValidateEntry: (MovimientosMateria) -> Unit,
+    onEditEntry: (MovimientosMateria) -> Unit,
+    onDeleteEntry: (MovimientosMateria) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Entrada #${entry.consecutivo}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = entry.fecha,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Tipo: ${getDescripcionMovimiento(entry.movId)}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Folio: ${entry.folio}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Registrado por: ${entry.usuario}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Productos: ${details.size}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Mostrar menos" else "Mostrar más"
+                    )
                 }
             }
 
-            // Sección de proveedor
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            if (expanded && details.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                details.forEach { detail ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = detail.codigoMat,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(0.3f)
+                        )
+                        Text(
+                            text = "Cant: ${detail.cantidad}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(0.3f)
+                        )
+                        Text(
+                            text = "$${detail.pCosto}",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(0.3f),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+            }
+
+            if (entry.observacion.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Observaciones: ${entry.observacion}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+
+            // Estado de procesamiento y botones de acción
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Proveedor",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = if (entry.procesada) Icons.Default.CheckCircle else Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = if (entry.procesada) Color.Green else Color.Yellow,
+                        modifier = Modifier.size(16.dp)
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (entry.procesada) "Procesada" else "Pendiente",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (entry.procesada) Color.Green else Color.Yellow
+                    )
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (selectedSupplier == null) {
-                        // Formulario para nuevo proveedor
-                        OutlinedTextField(
-                            value = supplierName,
-                            onValueChange = { supplierName = it },
-                            label = { Text("Nombre del Proveedor *") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = supplierContact,
-                            onValueChange = { supplierContact = it },
-                            label = { Text("Contacto") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        OutlinedTextField(
-                            value = supplierAddress,
-                            onValueChange = { supplierAddress = it },
-                            label = { Text("Dirección") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Botón para seleccionar proveedor existente
-                        TextButton(
-                            onClick = { showSupplierSelector = true },
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.List,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Seleccionar Proveedor Existente")
-                        }
-                    } else {
-                        // Mostrar proveedor seleccionado
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(16.dp)
-                        ) {
-                            Text(
-                                text = selectedSupplier!!.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = "Contacto: ${selectedSupplier!!.contactInfo}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = "Dirección: ${selectedSupplier!!.address}",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Botón para cambiar proveedor
-                        TextButton(
-                            onClick = { selectedSupplier = null },
-                            modifier = Modifier.align(Alignment.End)
+                // Botones de acción (solo si está pendiente)
+                if (!entry.procesada) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Botón Editar
+                        IconButton(
+                            onClick = { onEditEntry(entry) },
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = null
+                                contentDescription = "Editar",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Botón Eliminar
+                        IconButton(
+                            onClick = { onDeleteEntry(entry) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Eliminar",
+                                tint = Color.Red,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Botón Validar
+                        Button(
+                            onClick = { onValidateEntry(entry) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Green
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Cambiar Proveedor")
-                        }
-                    }
-                }
-            }
-
-            // Sección de productos
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Productos",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (selectedItems.isEmpty()) {
-                        // Mensaje cuando no hay productos seleccionados
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(100.dp)
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
                             Text(
-                                text = "No hay productos seleccionados",
-                                color = Color.Gray
+                                text = "Validar",
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
-                    } else {
-                        // Lista de productos seleccionados
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(16.dp)
-                        ) {
-                            selectedItems.forEachIndexed { index, item ->
-                                TransactionItemRow(
-                                    item = item,
-                                    onQuantityChange = { newQuantity ->
-                                        selectedItems = selectedItems.toMutableList().apply {
-                                            this[index] = item.copy(quantity = newQuantity)
-                                        }
-                                    },
-                                    onPriceChange = { newPrice ->
-                                        selectedItems = selectedItems.toMutableList().apply {
-                                            this[index] = item.copy(unitPrice = newPrice)
-                                        }
-                                    },
-                                    onRemove = {
-                                        selectedItems = selectedItems.toMutableList().apply {
-                                            removeAt(index)
-                                        }
-                                    }
-                                )
-
-                                if (index < selectedItems.size - 1) {
-                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Botón para agregar productos
-                    Button(
-                        onClick = { showItemSelector = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Agregar Productos")
-                    }
-                }
-            }
-
-            // Sección de notas
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Notas Adicionales",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Notas") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        maxLines = 5
-                    )
-                }
-            }
-
-            // Resumen de la entrada
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Resumen de Entrada",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Total de Productos:",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        Text(
-                            text = "${selectedItems.size}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Monto Total:",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        Text(
-                            text = "${selectedItems.sumOf { it.quantity.toInt() * it.unitPrice }.format(2)}",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-
-                    // Mostrar el usuario que está realizando la entrada
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Registrado por:",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        Text(
-                            text = currentUser,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botones de acción
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = onCancel
-            ) {
-                Text("Cancelar")
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = {
-                    // Validar campos obligatorios
-                    if ((selectedSupplier != null || supplierName.isNotBlank()) && selectedItems.isNotEmpty()) {
-                        // Crear proveedor si no se seleccionó uno existente
-                        val supplier = selectedSupplier ?: Supplier(
-                            id = UUID.randomUUID().toString(),
-                            name = supplierName,
-                            contactInfo = supplierContact,
-                            address = supplierAddress
-                        )
-
-                        // Crear entrada de inventario
-                        val entry = InventoryEntry(
-                            id = UUID.randomUUID().toString(),
-                            date = currentDate,
-                            supplier = supplier,
-                            items = selectedItems,
-                            totalAmount = selectedItems.sumOf { it.quantity.toInt() * it.unitPrice },
-                            notes = notes,
-                            createdBy = currentUser // Usar el nombre del usuario actual
-                        )
-
-                        onSave(entry)
-                    } else {
-                        // En una implementación real, mostrar mensaje de error
-                        println("Por favor complete todos los campos obligatorios")
-                    }
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Guardar"
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Registrar Entrada")
-            }
-        }
-    }
-
-    // Diálogo para seleccionar productos
-    if (showItemSelector) {
-        ItemSelectorDialog(
-            onDismiss = { showItemSelector = false },
-            onItemsSelected = { items ->
-                // Agregar solo los items que no están ya en la lista
-                val newItems = items.filter { newItem ->
-                    selectedItems.none { it.inventoryItem.codigoMat == newItem.codigoMat }
-                }.map {
-                    InventoryTransactionItem(
-                        inventoryItem = it,
-                        quantity = 1, // Iniciar con cantidad 1 (entero)
-                        unitPrice = it.pCompra
-                    )
-                }
-
-                selectedItems = selectedItems + newItems
-                showItemSelector = false
-            }
-        )
-    }
-
-    // Diálogo para seleccionar proveedor
-    if (showSupplierSelector) {
-        SupplierSelectorDialog(
-            suppliers = suppliers,
-            onDismiss = { showSupplierSelector = false },
-            onSupplierSelected = { supplier ->
-                selectedSupplier = supplier
-                showSupplierSelector = false
-            }
-        )
     }
 }
 
-@Composable
-fun TransactionItemRow(
-    item: InventoryTransactionItem,
-    onQuantityChange: (Int) -> Unit, // Cambiado a Int
-    onPriceChange: (Double) -> Unit,
-    onRemove: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = item.inventoryItem.descripcion,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = "Código: ${item.inventoryItem.codigoMat}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
-                )
-            }
-
-            // Botón de eliminar con texto "X"
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
-                    .clickable { onRemove() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "X",
-                    color = MaterialTheme.colorScheme.error,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Campo de cantidad (ahora solo acepta enteros)
-            OutlinedTextField(
-                value = item.quantity.toInt().toString(),
-                onValueChange = {
-                    val newValue = it.toIntOrNull() ?: 1
-                    // Asegurarse de que la cantidad sea al menos 1
-                    val validValue = maxOf(1, newValue)
-                    onQuantityChange(validValue)
-                },
-                label = { Text("Cantidad") },
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true
-            )
-
-            // Campo de precio unitario
-            OutlinedTextField(
-                value = item.unitPrice.toString(),
-                onValueChange = {
-                    val newValue = it.toDoubleOrNull() ?: 0.0
-                    onPriceChange(newValue)
-                },
-                label = { Text("Precio Unitario") },
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                prefix = { Text("$") }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Subtotal
-        Text(
-            text = "Subtotal: ${(item.quantity.toInt() * item.unitPrice).format(2)}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.align(Alignment.End)
-        )
-    }
-}
+// Resto del código permanece igual (AddEntryDialog, AddItemToEntryDialog)...
+// Pero agregamos el nuevo EditEntryDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ItemSelectorDialog(
+fun EditEntryDialog(
+    entry: MovimientosMateria,
+    details: List<DetalleMovimientoMateria>,
     onDismiss: () -> Unit,
-    onItemsSelected: (List<InventoryItem>) -> Unit
+    onEntryUpdated: (MovimientosMateria, List<DetalleMovimientoMateria>) -> Unit,
+    tiposMovimiento: List<MovimientoInventario>
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    val allItems = remember { getAllInventoryItems() }
-    var filteredItems by remember { mutableStateOf(allItems) }
-    var selectedItems by remember { mutableStateOf<List<InventoryItem>>(emptyList()) }
+    var folio by remember { mutableStateOf(entry.folio) }
+    var observaciones by remember { mutableStateOf(entry.observacion) }
+    var selectedItems by remember {
+        mutableStateOf(
+            details.map { detail ->
+                val item = getAllInventoryItems().find { it.codigoMat == detail.codigoMat }
+                if (item != null) {
+                    InventoryItemSelection(
+                        item = item,
+                        cantidad = detail.cantidad,
+                        pCosto = detail.pCosto
+                    )
+                } else null
+            }.filterNotNull()
+        )
+    }
+    var showAddItemDialog by remember { mutableStateOf(false) }
+    var selectedTipoMovimiento by remember {
+        mutableStateOf(tiposMovimiento.find { it.movId == entry.movId })
+    }
+    var showTipoMovimientoDropdown by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Seleccionar Productos") },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
             Column(
                 modifier = Modifier
+                    .padding(16.dp)
                     .fillMaxWidth()
-                    .height(400.dp)
             ) {
-                // Barra de búsqueda
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { query ->
-                        searchQuery = query
-                        filteredItems = if (query.isEmpty()) {
-                            allItems
-                        } else {
-                            allItems.filter { item ->
-                                item.descripcion.contains(query, ignoreCase = true) ||
-                                        item.codigoMat.contains(query, ignoreCase = true)
-                            }
-                        }
-                    },
-                    placeholder = { Text("Buscar productos...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    singleLine = true
-                )
-
-                // Lista de productos
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(filteredItems) { item ->
-                        val isSelected = selectedItems.contains(item)
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedItems = if (isSelected) {
-                                        selectedItems - item
-                                    } else {
-                                        selectedItems + item
-                                    }
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { checked ->
-                                    selectedItems = if (checked) {
-                                        selectedItems + item
-                                    } else {
-                                        selectedItems - item
-                                    }
-                                }
-                            )
-
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 8.dp)
-                            ) {
-                                Text(
-                                    text = item.descripcion,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Text(
-                                    text = "Código: ${item.codigoMat} | Unidad: ${item.unidad}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
-
-                            Text(
-                                text = "${item.pCompra}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Divider()
+                    Text(
+                        text = "Editar Entrada #${entry.consecutivo}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
                     }
                 }
 
-                // Contador de seleccionados
-                Text(
-                    text = "${selectedItems.size} productos seleccionados",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.align(Alignment.End)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Fecha (solo lectura)
+                OutlinedTextField(
+                    value = entry.fecha,
+                    onValueChange = { },
+                    label = { Text("Fecha") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onItemsSelected(selectedItems) }
-            ) {
-                Text("Seleccionar")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("Cancelar")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tipo de Movimiento
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = selectedTipoMovimiento?.descripcion ?: "Seleccione un tipo",
+                        onValueChange = { },
+                        label = { Text("Tipo de Movimiento") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showTipoMovimientoDropdown = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Seleccionar tipo"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                    )
+
+                    DropdownMenu(
+                        expanded = showTipoMovimientoDropdown,
+                        onDismissRequest = { showTipoMovimientoDropdown = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        tiposMovimiento.forEach { tipo ->
+                            DropdownMenuItem(
+                                text = { Text(tipo.descripcion) },
+                                onClick = {
+                                    selectedTipoMovimiento = tipo
+                                    showTipoMovimientoDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Folio
+                OutlinedTextField(
+                    value = folio,
+                    onValueChange = { folio = it },
+                    label = { Text("Folio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Lista de productos seleccionados
+                Text(
+                    text = "Productos",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (selectedItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay productos seleccionados",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    ) {
+                        items(selectedItems) { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.item.descripcion,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Código: ${item.item.codigoMat}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Cantidad: ${item.cantidad} ${item.item.unidad}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Precio: $${item.pCosto}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        selectedItems = selectedItems.filter { it != item }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            Divider()
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showAddItemDialog = true },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Agregar Producto")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Observaciones
+                OutlinedTextField(
+                    value = observaciones,
+                    onValueChange = { observaciones = it },
+                    label = { Text("Observaciones") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Botones
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            // Actualizar la entrada
+                            val updatedEntry = entry.copy(
+                                movId = selectedTipoMovimiento?.movId ?: entry.movId,
+                                folio = folio,
+                                observacion = observaciones
+                            )
+
+                            // Actualizar los detalles
+                            val updatedDetails = selectedItems.mapIndexed { index, item ->
+                                DetalleMovimientoMateria(
+                                    id = index + 1,
+                                    consecutivo = entry.consecutivo,
+                                    codigoMat = item.item.codigoMat,
+                                    cantidad = item.cantidad,
+                                    existenciaAnt = item.item.existencia,
+                                    pCosto = item.pCosto,
+                                    procesada = false
+                                )
+                            }
+
+                            onEntryUpdated(updatedEntry, updatedDetails)
+                        },
+                        enabled = folio.isNotEmpty() && selectedItems.isNotEmpty() && selectedTipoMovimiento != null
+                    ) {
+                        Text("Actualizar")
+                    }
+                }
             }
         }
-    )
+    }
+
+    // Diálogo para agregar un producto
+    if (showAddItemDialog) {
+        AddItemToEntryDialog(
+            onDismiss = { showAddItemDialog = false },
+            onItemAdded = { item ->
+                selectedItems = selectedItems + item
+                showAddItemDialog = false
+            },
+            availableItems = getAllInventoryItems()
+        )
+    }
+}
+
+// Las funciones AddEntryDialog y AddItemToEntryDialog permanecen iguales...
+// (Copio el código anterior aquí para completar el archivo)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddEntryDialog(
+    onDismiss: () -> Unit,
+    onEntryAdded: (MovimientosMateria, List<DetalleMovimientoMateria>) -> Unit,
+    tiposMovimiento: List<MovimientoInventario>
+) {
+    var folio by remember { mutableStateOf("") }
+    var observaciones by remember { mutableStateOf("") }
+    var selectedItems by remember { mutableStateOf<List<InventoryItemSelection>>(emptyList()) }
+    var showAddItemDialog by remember { mutableStateOf(false) }
+    var selectedTipoMovimiento by remember { mutableStateOf(tiposMovimiento.firstOrNull()) }
+    var showTipoMovimientoDropdown by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Nueva Entrada",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Fecha (automática)
+                val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                val currentDate = dateFormat.format(Date())
+
+                OutlinedTextField(
+                    value = currentDate,
+                    onValueChange = { },
+                    label = { Text("Fecha") },
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tipo de Movimiento
+                Box(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = selectedTipoMovimiento?.descripcion ?: "Seleccione un tipo",
+                        onValueChange = { },
+                        label = { Text("Tipo de Movimiento") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showTipoMovimientoDropdown = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Seleccionar tipo"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                    )
+
+                    DropdownMenu(
+                        expanded = showTipoMovimientoDropdown,
+                        onDismissRequest = { showTipoMovimientoDropdown = false },
+                        modifier = Modifier.fillMaxWidth(0.9f)
+                    ) {
+                        tiposMovimiento.forEach { tipo ->
+                            DropdownMenuItem(
+                                text = { Text(tipo.descripcion) },
+                                onClick = {
+                                    selectedTipoMovimiento = tipo
+                                    showTipoMovimientoDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Folio
+                OutlinedTextField(
+                    value = folio,
+                    onValueChange = { folio = it },
+                    label = { Text("Folio") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Lista de productos seleccionados
+                Text(
+                    text = "Productos",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (selectedItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay productos seleccionados",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    ) {
+                        items(selectedItems) { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.item.descripcion,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Código: ${item.item.codigoMat}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Cantidad: ${item.cantidad} ${item.item.unidad}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Precio: $${item.pCosto}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        selectedItems = selectedItems.filter { it != item }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            Divider()
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showAddItemDialog = true },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Agregar Producto")
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Observaciones
+                OutlinedTextField(
+                    value = observaciones,
+                    onValueChange = { observaciones = it },
+                    label = { Text("Observaciones") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Botones
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            // Generar un consecutivo único (en una app real vendría de la base de datos)
+                            val consecutivo = (1..10000).random()
+
+                            // Crear la entrada - CORREGIDO: procesada = false por defecto
+                            val entry = MovimientosMateria(
+                                consecutivo = consecutivo,
+                                movId = selectedTipoMovimiento?.movId ?: 4,
+                                fecha = currentDate,
+                                folio = folio,
+                                usuario = "Martin",
+                                procesada = false, // CAMBIO PRINCIPAL: Ahora queda pendiente
+                                observacion = observaciones
+                            )
+
+                            // Crear los detalles - CORREGIDO: procesada = false por defecto
+                            val details = selectedItems.mapIndexed { index, item ->
+                                DetalleMovimientoMateria(
+                                    id = index + 1,
+                                    consecutivo = consecutivo,
+                                    codigoMat = item.item.codigoMat,
+                                    cantidad = item.cantidad,
+                                    existenciaAnt = item.item.existencia,
+                                    pCosto = item.pCosto,
+                                    procesada = false // CAMBIO PRINCIPAL: Ahora queda pendiente
+                                )
+                            }
+
+                            onEntryAdded(entry, details)
+                        },
+                        enabled = folio.isNotEmpty() && selectedItems.isNotEmpty() && selectedTipoMovimiento != null
+                    ) {
+                        Text("Guardar")
+                    }
+                }
+            }
+        }
+    }
+
+    // Diálogo para agregar un producto
+    if (showAddItemDialog) {
+        AddItemToEntryDialog(
+            onDismiss = { showAddItemDialog = false },
+            onItemAdded = { item ->
+                selectedItems = selectedItems + item
+                showAddItemDialog = false
+            },
+            availableItems = getAllInventoryItems()
+        )
+    }
 }
 
 @Composable
-fun SupplierSelectorDialog(
-    suppliers: List<Supplier>,
+fun AddItemToEntryDialog(
     onDismiss: () -> Unit,
-    onSupplierSelected: (Supplier) -> Unit
+    onItemAdded: (InventoryItemSelection) -> Unit,
+    availableItems: List<InventoryItem>
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Seleccionar Proveedor") },
-        text = {
+    var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var cantidad by remember { mutableStateOf("1.0") }
+    var precioUnitario by remember { mutableStateOf("0.0") }
+    var searchQuery by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
             Column(
                 modifier = Modifier
+                    .padding(16.dp)
                     .fillMaxWidth()
-                    .height(300.dp)
             ) {
+                Text(
+                    text = "Agregar Producto",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Buscador de productos
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Buscar producto") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Lista de productos filtrados
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
                 ) {
-                    items(suppliers) { supplier ->
-                        Column(
+                    items(availableItems.filter {
+                        it.descripcion.contains(searchQuery, ignoreCase = true) ||
+                                it.codigoMat.contains(searchQuery, ignoreCase = true)
+                    }) { item ->
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSupplierSelected(supplier) }
-                                .padding(vertical = 12.dp, horizontal = 4.dp)
+                                .padding(8.dp)
+                                .clickable {
+                                    selectedItem = item
+                                    precioUnitario = item.pCompra.toString()
+                                },
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = supplier.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
+                            RadioButton(
+                                selected = selectedItem == item,
+                                onClick = {
+                                    selectedItem = item
+                                    precioUnitario = item.pCompra.toString()
+                                }
                             )
-
-                            Text(
-                                text = "Contacto: ${supplier.contactInfo}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-
-                            Text(
-                                text = "Dirección: ${supplier.address}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
+                            Column(modifier = Modifier.padding(start = 8.dp)) {
+                                Text(
+                                    text = item.descripcion,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Código: ${item.codigoMat} | Unidad: ${item.unidad}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
-
                         Divider()
                     }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text("Cancelar")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Cantidad y precio
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = cantidad,
+                        onValueChange = { cantidad = it },
+                        label = { Text("Cantidad") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    OutlinedTextField(
+                        value = precioUnitario,
+                        onValueChange = { precioUnitario = it },
+                        label = { Text("Precio Unitario") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        prefix = { Text("$") }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Botones
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            selectedItem?.let { item ->
+                                val cantidadDouble = cantidad.toDoubleOrNull() ?: 1.0
+                                val precioDouble = precioUnitario.toDoubleOrNull() ?: 0.0
+
+                                val itemSelection = InventoryItemSelection(
+                                    item = item,
+                                    cantidad = cantidadDouble,
+                                    pCosto = precioDouble
+                                )
+
+                                onItemAdded(itemSelection)
+                            }
+                        },
+                        enabled = selectedItem != null &&
+                                cantidad.toDoubleOrNull() != null &&
+                                precioUnitario.toDoubleOrNull() != null
+                    ) {
+                        Text("Agregar")
+                    }
+                }
             }
         }
-    )
+    }
 }
-
-
-fun Double.format(digits: Int) = "%.${digits}f".format(this)

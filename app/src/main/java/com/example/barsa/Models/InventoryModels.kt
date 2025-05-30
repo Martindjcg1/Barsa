@@ -2,13 +2,9 @@ package com.example.barsa.Models
 
 import java.util.Date
 
-data class InventoryCategory(
-    val id: Int,
-    val name: String,
-    val description: String,
-    val iconResId: Int
-)
 
+
+// Modelo para los items de inventario
 data class InventoryItem(
     val codigoMat: String,
     val descripcion: String,
@@ -24,55 +20,82 @@ data class InventoryItem(
     val borrado: Boolean,
     val imagenUrl: String? = null,
     val imagenesUrls: List<String> = emptyList()
+
 )
 
-// Modelo para entrada de inventario
-data class InventoryEntry(
-    val id: String,
-    val date: Date,
-    val supplier: Supplier, //Proveedor
-    val items: List<InventoryTransactionItem>, //Lista del INV
-    val totalAmount: Double,
-    val notes: String,
-    val createdBy: String  // Nombre del usuario
+// Modelo para categorías de inventario
+data class InventoryCategory(
+    val id: Int,
+    val name: String,
+    val description: String,
+    val iconResId: Int
 )
 
-// Modelo para salida de inventario
-data class InventoryExit(
-    val id: String,
-    val date: Date,
-    val reason: String,
-    val items: List<InventoryTransactionItem>,
-    val destination: String,
-    val notes: String,
-    val createdBy: String  // Nombre del usuario
+// Nuevo modelo para tipos de movimientos de inventario
+data class MovimientoInventario(
+    val movId: Int,
+    val descripcion: String,
+    val aumenta: Boolean,
+    val borrado: Boolean = false
 )
 
-data class InventoryEntryItem(
+// Nuevo modelo para cabecera de movimientos (entradas y salidas)
+data class MovimientosMateria(
+    val consecutivo: Int,
+    val movId: Int, // Referencia a MovimientoInventario.movId
+    val fecha: String,
+    val folio: String,
+    val usuario: String,
+    val procesada: Boolean,
+    val observacion: String,
+    val autoriza: String = "" // Mayormente estará vacío
+)
+
+// Nuevo modelo para detalles de movimientos
+data class DetalleMovimientoMateria(
+    val id: Int,
+    val consecutivo: Int, // Relacionado con MovimientosMateria
+    val codigoMat: String,
+    val cantidad: Double,
+    val existenciaAnt: Double,
+    val pCosto: Double,
+    val procesada: Boolean
+)
+
+// Modelo para mostrar un item en la lista de selección
+data class InventoryItemSelection(
     val item: InventoryItem,
     val cantidad: Double,
-    val precioUnitario: Double
+    val pCosto: Double
 )
 
+// Función para obtener los tipos de movimientos de inventario
+fun getMovimientosInventario(): List<MovimientoInventario> {
+    return listOf(
+        MovimientoInventario(1, "DEVOLUCION DE CLIENTE", true),        // Aumenta stock
+        MovimientoInventario(2, "DEVOLUCION A PROVEEDOR", false),      // Disminuye stock
+        MovimientoInventario(3, "DEVOLUCION A ALMACEN", true),         // Aumenta stock
+        MovimientoInventario(4, "ENTRADA A ALMACEN", true),            // Aumenta stock
+        MovimientoInventario(5, "SALIDA DE ALMACEN", false)            // Disminuye stock
+    )
+}
 
+// Función para verificar si un movimiento aumenta el stock
+fun movimientoAumentaStock(movId: Int): Boolean {
+    return getMovimientosInventario().find { it.movId == movId }?.aumenta ?: false
+}
 
-data class InventoryExitItem(
-    val item: InventoryItem,
-    val cantidad: Double
-)
+// Función para verificar si un movimiento disminuye el stock
+fun movimientoDisminuyeStock(movId: Int): Boolean {
+    return !movimientoAumentaStock(movId)
+}
 
-data class InventoryChange(
-    val id: String,
-    val fecha: Date,
-    val tipoOperacion: TipoOperacion,
-    val descripcion: String,
-    val itemsAfectados: List<String>, // Códigos de los items afectados
-    val registradoPor: String
-)
+// Función para obtener la descripción de un movimiento
+fun getDescripcionMovimiento(movId: Int): String {
+    return getMovimientosInventario().find { it.movId == movId }?.descripcion ?: "Desconocido"
+}
 
-enum class TipoOperacion {
-    ENTRADA,
-    SALIDA,
-    MODIFICACION,
-    ELIMINACION
+// Función para obtener el efecto en el stock de un movimiento
+fun getEfectoEnStock(movId: Int): String {
+    return if (movimientoAumentaStock(movId)) "Aumenta" else "Disminuye"
 }

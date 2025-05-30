@@ -37,7 +37,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-
+import com.example.barsa.Inventarios.InventoryChangesScreen
 
 
 @Composable
@@ -189,22 +189,18 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
         when {
             // Acciones de transacción
             transactionAction == "entry" -> {
-                InventoryEntryScreen(
-                    onCancel = { transactionAction = null },
-                    onSave = { transactionAction = null },
-                    currentUser = currentUser
+                InventoryEntriesScreen(
+                    onBackClick = { transactionAction = null }
                 )
             }
             transactionAction == "exit" -> {
-                InventoryExitScreen(
-                    onCancel = { transactionAction = null },
-                    onSave = { transactionAction = null },
-                    currentUser = currentUser
+                InventoryExitsScreen(
+                    onBackClick = { transactionAction = null }
                 )
             }
             transactionAction == "history" -> {
-                TransactionHistoryScreen(
-                    onBack = { transactionAction = null }
+                InventoryChangesScreen(
+                    onBackClick = { transactionAction = null }
                 )
             }
 
