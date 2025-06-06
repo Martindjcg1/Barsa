@@ -20,7 +20,12 @@ class TokenManager @Inject constructor(
     companion object {
         val ACCESS_TOKEN = stringPreferencesKey("access_token")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        val NOMBRE = stringPreferencesKey("nombre")
+        val NOMBRE_USUARIO = stringPreferencesKey("nombreUsuario")
+        val ROL = stringPreferencesKey("rol")
     }
+
+    // TOKENS DE ACCESO
 
     val accessTokenFlow: Flow<String?> = dataStore.data
         .map { it[ACCESS_TOKEN] }
@@ -41,5 +46,33 @@ class TokenManager @Inject constructor(
             prefs.remove(REFRESH_TOKEN)
         }
     }
+
+    // STORE´s DE INFORMACION DE USUARIO
+
+    val accessNombre: Flow<String?> = dataStore.data
+        .map { it[NOMBRE] }
+
+    val accessNombreUsuario: Flow<String?> = dataStore.data
+        .map { it[NOMBRE_USUARIO] }
+
+    val accessRol: Flow<String?> = dataStore.data
+        .map { it[ROL] }
+
+    suspend fun saveUsuarioInfo(nombre: String, nombreUsuario: String, rol: String) {
+        dataStore.edit { prefs ->
+            prefs[NOMBRE] = nombre
+            prefs[NOMBRE_USUARIO] = nombreUsuario
+            prefs[ROL] = rol
+        }
+    }
+
+    suspend fun clearUsuarioInfo() {
+        dataStore.edit { prefs ->
+            prefs.remove(NOMBRE)
+            prefs.remove(NOMBRE_USUARIO)
+            prefs.remove(ROL)
+        }
+    }
+
 }
 

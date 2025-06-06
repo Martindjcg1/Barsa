@@ -4,6 +4,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,11 +29,21 @@ import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 import com.example.barsa.data.room.TiemposViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewModel, papeletaViewModel: PapeletaViewModel) {
     val navController = rememberNavController()
-    var currentRoute by remember { mutableStateOf("inventario") }
+    val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
+    var currentRoute by remember { mutableStateOf("") }
+    if (rol.equals("Administrador") || rol.equals("Inventarios"))
+    {
+        currentRoute = "inventario"
+    }
+    else if (rol.equals("Produccion"))
+    {
+        currentRoute = "producciones"
+    }
     var showNotifications by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf(
         listOf(
@@ -66,7 +77,9 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                     is UserViewModel.LoginState.Success -> {
                         navController.navigate("main") {
                             popUpTo("login") { inclusive = true }
+                            userViewModel.obtenerInfoUsuarioPersonal()
                         }
+
                     }
 
                     is UserViewModel.LoginState.Error -> {
@@ -81,6 +94,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                     }
                 }
             }
+
         }
 
         composable("main") {
@@ -96,7 +110,8 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                         currentRoute = currentRoute,
                         onNavigate = { route ->
                             currentRoute = route
-                        }
+                        },
+                        userViewModel
                     )
                 }
             ) { paddingValues ->
@@ -106,9 +121,9 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                         currentRoute = route
                     },
                     modifier = Modifier.padding(paddingValues),
-                    tiemposViewModel = tiemposViewModel,
-                    papeletaViewModel = papeletaViewModel,
-                    userViewModel = userViewModel,
+                    tiemposViewModel,
+                    papeletaViewModel,
+                    userViewModel,
                     // PASAR LA FUNCIÓN DE LOGOUT AL MAINBODY
                     onLogout = {
                         // LIMPIAR TODOS LOS ESTADOS ANTES DE NAVEGAR
@@ -133,6 +148,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
         }
 
         // Agregando ruta de la vista de cronometro
+        //composable("cronometro") { CronometroScreen() }
         composable(
             "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
         ) { backStackEntry ->
@@ -157,3 +173,17 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
         }
     }
 }
+
+/*
+        composable("login") {
+            LoginScreen(userViewModel,
+                onLoginClick = { username, password ->
+                    // Aquí puedes agregar la lógica de autenticación
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+         */

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.barsa.data.retrofit.models.DetencionRemota
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.Papeleta
+import com.example.barsa.data.retrofit.models.PausarTiempoRequest
+import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.repository.PapeletaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,53 +70,6 @@ class PapeletaViewModel @Inject constructor(
         if (currentPage > 1) getListadoPapeletas(currentPage - 1)
     }
 
-    /*private val _etapasDisponibles = MutableStateFlow<List<String>>(emptyList())
-    val etapasDisponibles: StateFlow<List<String>> = _etapasDisponibles
-
-    fun getEtapasDisponiblesPorFolio(folio: Int) {
-        viewModelScope.launch {
-            val result = papeletaRepository.getTiemposPorFolio(folio)
-            result.onSuccess { tiempos ->
-                val etapasFinalizadas = tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
-                val maderaFinalizada = "Madera" in etapasFinalizadas
-                val produccionFinalizada = "Producción" in etapasFinalizadas
-
-                val disponibles = mutableListOf<String>()
-                if (!maderaFinalizada) disponibles.add("Madera")
-                if (!produccionFinalizada) disponibles.add("Producción")
-                if (disponibles.isEmpty()) {
-                    val flujoRestante = listOf("Pintura", "Tapiceria", "Empaque")
-                    flujoRestante.firstOrNull { it !in etapasFinalizadas }?.let { disponibles.add(it) }
-                }
-
-                _etapasDisponibles.value = disponibles
-            }.onFailure { error ->
-                Log.e("getEtapasDisponibles", "Error al obtener tiempos", error)
-                _etapasDisponibles.value = emptyList()
-            }
-        }
-    }
-
-    private val _etapasFinalizadas = MutableStateFlow<Set<String>>(emptySet())
-    val etapasFinalizadas: StateFlow<Set<String>> = _etapasFinalizadas
-
-    fun getEtapasFinalizadasPorFolio(folio: Int) {
-        viewModelScope.launch {
-            try {
-                val result = papeletaRepository.getTiemposPorFolio(folio)
-                result.onSuccess { tiempos ->
-                    val finalizadas = tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
-                    _etapasFinalizadas.value = finalizadas
-                }.onFailure { e ->
-                    Log.e("getEtapasFinalizadas", "Error de servidor", e)
-                    _etapasFinalizadas.value = emptySet()
-                }
-            } catch (e: Exception) {
-                Log.e("getEtapasFinalizadas", "Error inesperado", e)
-                _etapasFinalizadas.value = emptySet()
-            }
-        }
-    }*/
     sealed class EtapasState {
         object Loading : EtapasState()
         //data class Success(val finalizadas: Set<String>, val disponibles: List<String>) : EtapasState()
@@ -171,10 +126,6 @@ class PapeletaViewModel @Inject constructor(
     private val _ultimaDetencion = MutableStateFlow<DetencionRemota?>(null)
     val ultimaDetencion: StateFlow<DetencionRemota?> = _ultimaDetencion
 
-    fun resetDesactivacionState() {
-        _desactivacionState.value = null
-    }
-
     fun cargarUltimaDetencionActiva(folio: Int) {
         viewModelScope.launch {
             try {
@@ -191,8 +142,43 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
+    private val _tiempoPorEtapa = MutableStateFlow<TiempoRemoto?>(null)
+    val tiempoPorEtapa: StateFlow<TiempoRemoto?> = _tiempoPorEtapa
+
+    private val _tiempoPorEtapaError = MutableStateFlow<String?>(null)
+    val tiempoPorEtapaError: StateFlow<String?> = _tiempoPorEtapaError
+
+    fun resetTiempoPorEtapaState() {
+        _tiempoPorEtapa.value = null
+        _tiempoPorEtapaError.value = null
+    }
+
+    fun cargarTiempoPorEtapa(folio: Int, etapa: String) {
+        viewModelScope.launch {
+            try {
+                val result = papeletaRepository.getTiempoPorEtapa(folio, etapa)
+                result.onSuccess {
+                    _tiempoPorEtapa.value = it
+                    _tiempoPorEtapaError.value = null
+                }.onFailure {
+                    _tiempoPorEtapa.value = null
+                    _tiempoPorEtapaError.value = it.message ?: "Error al obtener el tiempo"
+                }
+            } catch (e: Exception) {
+                _tiempoPorEtapa.value = null
+                _tiempoPorEtapaError.value = "Error inesperado"
+            }
+        }
+    }
+
+    // POST Y PUT
+
     private val _desactivacionState = MutableStateFlow<Result<String>?>(null)
     val desactivacionState: StateFlow<Result<String>?> = _desactivacionState
+
+    fun resetDesactivacionState() {
+        _desactivacionState.value = null
+    }
 
     fun desactivarDetencionTiempo(folio: Int, etapa: String) {
         viewModelScope.launch {
@@ -203,5 +189,156 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
+    private val _mensajeInicioTiempo = MutableStateFlow<String?>(null)
+    val mensajeInicioTiempo: StateFlow<String?> = _mensajeInicioTiempo
+
+    fun resetMensajeInicioTiempo() {
+        _mensajeInicioTiempo.value = null
+    }
+
+    fun iniciarTiempo(folio: Int, etapa: String, fechaInicio: String) {
+        Log.d("API", "iniciarTiempo Folio: $folio, Etapa: $etapa, fecha: $fechaInicio")
+        viewModelScope.launch {
+            val result = papeletaRepository.iniciarTiempo(folio, etapa, fechaInicio)
+            result.onSuccess { mensaje ->
+                _mensajeInicioTiempo.value = mensaje
+                Log.d("iniciarTiempoVM success", mensaje)
+            }.onFailure { error ->
+                _mensajeInicioTiempo.value = error.message ?: "Error al iniciar tiempo"
+                error.message?.let { Log.d("iniciarTiempoVM Error", it) }
+            }
+        }
+    }
+
+    private val _pausarTiempoResult = MutableStateFlow<Result<String>?>(null)
+    val pausarTiempoResult: StateFlow<Result<String>?> = _pausarTiempoResult
+
+    fun resetPausarTiempoResult() {
+        _pausarTiempoResult.value = null
+    }
+
+    fun pausarTiempo(request: PausarTiempoRequest) {
+        viewModelScope.launch {
+            _pausarTiempoResult.value = null
+            val result = papeletaRepository.pausarTiempo(request)
+            _pausarTiempoResult.value = result
+        }
+    }
+
+    private val _reiniciarTiempoResult = MutableStateFlow<Result<String>?>(null)
+    val reiniciarTiempoResult: StateFlow<Result<String>?> = _reiniciarTiempoResult
+
+    fun resetReiniciarTiempoResult() {
+        _pausarTiempoResult.value = null
+    }
+
+    fun reiniciarTiempo(folio: Int, etapa: String) {
+        viewModelScope.launch {
+            val result = papeletaRepository.reiniciarTiempo(folio, etapa)
+            _reiniciarTiempoResult.value = result
+
+            result.onFailure { error ->
+                Log.d("reiniciarTiempoVM Error", error.message ?: "Error al reiniciar tiempo")
+            }
+        }
+    }
+
+    private val _finalizarTiempoResult = MutableStateFlow<Result<String>?>(null)
+    val finalizarTiempoResult: StateFlow<Result<String>?> = _finalizarTiempoResult
+
+    fun resetFinalizarTiempoResult() {
+        _finalizarTiempoResult.value = null
+    }
+
+    fun finalizarTiempo(folio: Int, etapa: String, fechaFin: String, tiempo: Int) {
+        viewModelScope.launch {
+            _finalizarTiempoResult.value = null
+            val result = papeletaRepository.finalizarTiempo(folio, etapa, fechaFin, tiempo)
+            _finalizarTiempoResult.value = result
+
+            result.onFailure { error ->
+                Log.e("finalizarTiempoVM", error.message ?: "Error al finalizar tiempo")
+            }
+        }
+    }
+
+    private val _detencionTiempoResult = MutableStateFlow<Result<String>?>(null)
+    val detencionTiempoResult: StateFlow<Result<String>?> = _detencionTiempoResult
+
+    fun resetdetencionTiempoResult() {
+        _detencionTiempoResult.value = null
+    }
+
+    fun reportarDetencionTiempo(
+        tiempo: Int,
+        etapa: String,
+        folio: Int,
+        fecha: String,
+        motivo: String
+    ) {
+        viewModelScope.launch {
+            _detencionTiempoResult.value = null
+            val result = papeletaRepository.reportarDetencionTiempo(
+                tiempo = tiempo,
+                etapa = etapa,
+                folio = folio,
+                fecha = fecha,
+                motivo = motivo
+            )
+            _detencionTiempoResult.value = result
+            cargarUltimaDetencionActiva(folio)
+            result.onFailure { error ->
+                Log.e("detencionTiempoVM", error.message ?: "Error al detener tiempo")
+            }
+        }
+    }
 
 }
+
+/*private val _etapasDisponibles = MutableStateFlow<List<String>>(emptyList())
+val etapasDisponibles: StateFlow<List<String>> = _etapasDisponibles
+
+fun getEtapasDisponiblesPorFolio(folio: Int) {
+    viewModelScope.launch {
+        val result = papeletaRepository.getTiemposPorFolio(folio)
+        result.onSuccess { tiempos ->
+            val etapasFinalizadas = tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
+            val maderaFinalizada = "Madera" in etapasFinalizadas
+            val produccionFinalizada = "Producción" in etapasFinalizadas
+
+            val disponibles = mutableListOf<String>()
+            if (!maderaFinalizada) disponibles.add("Madera")
+            if (!produccionFinalizada) disponibles.add("Producción")
+            if (disponibles.isEmpty()) {
+                val flujoRestante = listOf("Pintura", "Tapiceria", "Empaque")
+                flujoRestante.firstOrNull { it !in etapasFinalizadas }?.let { disponibles.add(it) }
+            }
+
+            _etapasDisponibles.value = disponibles
+        }.onFailure { error ->
+            Log.e("getEtapasDisponibles", "Error al obtener tiempos", error)
+            _etapasDisponibles.value = emptyList()
+        }
+    }
+}
+
+private val _etapasFinalizadas = MutableStateFlow<Set<String>>(emptySet())
+val etapasFinalizadas: StateFlow<Set<String>> = _etapasFinalizadas
+
+fun getEtapasFinalizadasPorFolio(folio: Int) {
+    viewModelScope.launch {
+        try {
+            val result = papeletaRepository.getTiemposPorFolio(folio)
+            result.onSuccess { tiempos ->
+                val finalizadas = tiempos.filter { it.isFinished }.map { it.etapa }.toSet()
+                _etapasFinalizadas.value = finalizadas
+            }.onFailure { e ->
+                Log.e("getEtapasFinalizadas", "Error de servidor", e)
+                _etapasFinalizadas.value = emptySet()
+            }
+        } catch (e: Exception) {
+            Log.e("getEtapasFinalizadas", "Error inesperado", e)
+            _etapasFinalizadas.value = emptySet()
+        }
+    }
+}*/

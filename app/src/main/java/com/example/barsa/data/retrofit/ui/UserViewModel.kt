@@ -7,6 +7,7 @@ import com.example.barsa.Stores.TokenManager
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 
 import com.example.barsa.data.retrofit.models.LoginResponse
+import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
 import com.example.barsa.data.retrofit.models.LogoutResponse
 import com.example.barsa.data.retrofit.models.RefreshResponse
 import com.example.barsa.data.retrofit.models.RegisterResponse
@@ -19,8 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -107,6 +106,29 @@ class UserViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _loginState.value = LoginState.Error("Error inesperado")
+            }
+        }
+    }
+
+    private val _infoUsuarioResult = MutableStateFlow<Result<UsuarioInfoResponse>?>(null)
+    val infoUsuarioResult: StateFlow<Result<UsuarioInfoResponse>?> = _infoUsuarioResult
+
+    fun resetInfoUsuarioResult() {
+        _infoUsuarioResult.value = null
+    }
+
+    fun obtenerInfoUsuarioPersonal() {
+        viewModelScope.launch {
+            val result = userRepository.obtenerInfoUsuarioPersonal()
+            _infoUsuarioResult.value = result
+
+            result.onSuccess { response ->
+                tokenManager.saveUsuarioInfo(response.nombre, response.nombreUsuario, response.rol)
+               // Log.d("","${response.nombre}, ${response.nombreUsuario}, ${response.rol}")
+            }
+
+            result.onFailure { error ->
+                Log.d("obtenerInfoUsuarioVM Error", error.message ?: "Error al obtener info del usuario")
             }
         }
     }

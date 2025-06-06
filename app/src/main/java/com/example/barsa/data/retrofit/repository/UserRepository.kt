@@ -6,9 +6,11 @@ import com.example.barsa.data.retrofit.UserApiService
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.ErrorResponse
+import com.example.barsa.data.retrofit.models.ErrorResponseInfo
 
 import com.example.barsa.data.retrofit.models.LoginRequest
 import com.example.barsa.data.retrofit.models.LoginResponse
+import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
 import com.example.barsa.data.retrofit.models.LogoutResponse
 import com.example.barsa.data.retrofit.models.RefreshResponse
 import com.example.barsa.data.retrofit.models.RegisterRequest
@@ -41,6 +43,33 @@ class UserRepository @Inject constructor(
             Result.failure(Exception("Fallo de conexión. Verifica tu red"))
         } catch (e: Exception) {
             Log.e("UserRepository", "Login error", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
+    suspend fun obtenerInfoUsuarioPersonal(): Result<UsuarioInfoResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+
+            val response = userApiService.obtenerInfoUsuarioPersonal("Bearer $token")
+            if (response.isSuccessful) {
+                response.body()?.let {
+                    Result.success(it)
+                } ?: Result.failure(Exception("Respuesta vacía del servidor"))
+            } else {
+                val errorBody = response.errorBody()?.string()
+                val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponseInfo::class.java) }
+                Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
+            }
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponseInfo::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error de servidor"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error al obtener información del usuario", e)
             Result.failure(Exception("Error inesperado"))
         }
     }

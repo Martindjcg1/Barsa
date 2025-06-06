@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.barsa.CronometroService
 import com.example.barsa.data.retrofit.models.DetencionRemota
+import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.room.TiemposViewModel
 import com.example.barsa.data.room.local.Detencion
@@ -422,6 +423,13 @@ fun CronometroScreen(
     val isRunningFlow = tiempoId?.let { tiemposViewModel.getIsRunning(it) } ?: flowOf(false)
     val isRunning by isRunningFlow.collectAsState(initial = false)
 
+    // View Model
+    LaunchedEffect (Folio, Etapa){
+        papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
+    }
+
+    val tiempoDesdeDBA = papeletaViewModel.tiempoPorEtapa.collectAsState()
+
     // ✅ Usar `rememberCoroutineScope()` para evitar bloqueos
     val coroutineScope = rememberCoroutineScope()
 
@@ -531,37 +539,61 @@ fun CronometroScreen(
                 coroutineScope.launch {
                     // INICIAR
                     val newState = !isRunning
-
-                    // Verificar si el proceso existe antes de hacer un `upsert`
-                    val procesoExiste = tiemposViewModel.checkIfProcesoExists(Folio)
-                    if (!procesoExiste) {
-                        Log.d("CronometroScreen","El proceso no existe, se crea uno nuevo")
-                        tiemposViewModel.upsertProceso(
-                            Proceso(folio = Folio, tipoId = TipoId, fecha = System.currentTimeMillis(), status = Status)
-                        )
-                    }
-
-                    // Verificar si el tiempo ya existe antes de hacer un `upsert`
-                    val tiempoExiste = tiemposViewModel.checkIfTiempoExists(Folio, Etapa)
-                    if (!tiempoExiste) {
-                        Log.d("CronometroScreen","Registro en tiempos no existe, se crea uno")
-                        tiemposViewModel.upsertTiempo(
-                            Tiempo(
-                                procesoFolio = Folio,
-                                etapa = Etapa,
-                                tiempo = 0,
-                                fechaInicio = System.currentTimeMillis(),
-                                fechaFin = 0, // ✅ Valor por defecto
-                                isRunning = newState,
-                                isFinished = false // ✅ Valor por defecto
+                    if(newState) {
+                        // Verificar si el proceso existe antes de hacer un `upsert`
+                        val procesoExiste = tiemposViewModel.checkIfProcesoExists(Folio)
+                        if (!procesoExiste) {
+                            Log.d("CronometroScreen", "El proceso no existe, se crea uno nuevo")
+                            tiemposViewModel.upsertProceso(
+                                Proceso(
+                                    folio = Folio,
+                                    tipoId = TipoId,
+                                    fecha = System.currentTimeMillis(),
+                                    status = Status
+                                )
                             )
-                        )
+                        }
+
+                        // Verificar si el tiempo ya existe antes de hacer un `upsert`
+                        val tiempoExiste = tiemposViewModel.checkIfTiempoExists(Folio, Etapa)
+                        if (!tiempoExiste) {
+                            Log.d("CronometroScreen", "Registro en tiempos no existe, se crea uno")
+                            tiemposViewModel.upsertTiempo(
+                                Tiempo(
+                                    procesoFolio = Folio,
+                                    etapa = Etapa,
+                                    tiempo = 0,
+                                    fechaInicio = System.currentTimeMillis(),
+                                    fechaFin = 0, // ✅ Valor por defecto
+                                    isRunning = newState,
+                                    isFinished = false // ✅ Valor por defecto
+                                )
+                            )
+                            // Hacer el registro en ACCESS iniciar tiempo
+                            val fecha = formatearFechaActual()
+                            papeletaViewModel.iniciarTiempo(Folio, Etapa, fecha)
+                            Log.d("CronometroScreen", "iniciarTiempo -> Folio: $Folio, Etapa: $Etapa, Fecha: $fecha")
+                            papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
+                            Log.d("CronometroScreen", "cargarTiempoPorEtapa -> Folio: $Folio, Etapa: $Etapa, Tiempo: $tiempoDesdeDBA")
+                        } else {
+                            Log.d("CronometroScreen", "Registro ya existe")
+                            tiempoDesdeDBA.value?.fechaInicio?.let {
+                                papeletaViewModel.iniciarTiempo(
+                                    Folio,
+                                    Etapa,
+                                    it
+                                )
+                                Log.d("CronometroScreen", "iniciarTiempo -> Folio: $Folio, Etapa: $Etapa, Fecha: $it")
+                            }
+                        }
                     }
                     // PAUSA
                     if (!newState) {
                         val tiempoIdNuevo = tiemposViewModel.getTiempoId(Folio, Etapa).firstOrNull() ?: -1
                         Log.d("CronometroScreen","Pausa, se actualiza el tiempo para folio: ${Folio} en la etapa ${Etapa} con un tiempo de ${time}")
                         tiemposViewModel.updateTiempoByFolio(Folio, Etapa, time)
+                        // Actualizar tiemmpo en ACCESS
+                        papeletaViewModel.pausarTiempo(PausarTiempoRequest(Folio, Etapa, time))
                         cronometroService?.resetCronometro(tiempoIdNuevo, Etapa)
                         if (cronometroService?.getActiveEtapas()?.isEmpty() == true) {
                             val intent = Intent(contexto, CronometroService::class.java)
@@ -619,12 +651,18 @@ fun CronometroScreen(
                                 val intent = Intent(contexto, CronometroService::class.java)
                                 contexto.stopService(intent)
                             }
+                            // ACCESS
+                            papeletaViewModel.finalizarTiempo(Folio, Etapa, formatearFechaActual(), time)
+                            papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
                         }
                     } ?: run {
                         Log.d("CronometroScreen", "Boton finalizar -> ${Folio}, ${Etapa}, ${time}")
                         tiemposViewModel.updateTiempoByFolio(Folio, Etapa, time)
                         tiemposViewModel.finalizarTiempoByFolioEtapa(Folio, Etapa)
                         tiemposViewModel.updateIsRunningByFolio(Folio, Etapa, false)
+                        // ACCESS
+                        papeletaViewModel.finalizarTiempo(Folio, Etapa, formatearFechaActual(), time)
+                        papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
                     }
 
                 }, enabled = !isFinished
@@ -645,6 +683,10 @@ fun CronometroScreen(
                             tiemposViewModel.updateIsRunningByFolio(Folio, Etapa, false)
                             val tiempoIdNuevo = tiemposViewModel.getTiempoId(Folio, Etapa).firstOrNull() ?: -1
                             tiemposViewModel.updateTiempoByFolio(Folio, Etapa,0)
+
+                            // Reiniciar en Access
+                            papeletaViewModel.reiniciarTiempo(Folio, Etapa)
+                            papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
 
                             cronometroService?.let { service ->
                                 service.resetCronometro(tiempoIdNuevo, Etapa)
@@ -777,6 +819,8 @@ fun CronometroScreen(
                                     )
                                     // Guardar en base de datos
                                     tiemposViewModel.upsertDetencion(detencion)
+                                    // ACCESS
+                                    papeletaViewModel.reportarDetencionTiempo(time, Etapa, Folio, formatearFechaActual(), reason)
                                     stopDialog = false
                                     onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                                 }
@@ -1021,8 +1065,13 @@ fun CronometroScreen(
 */
 
 fun formatearFechaActual(): String {
-    val formato = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale.getDefault())
+    val formato = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     return formato.format(Date(System.currentTimeMillis()))
+}
+
+fun formatearFecha(fecha: Long): String {
+    val formato = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    return formato.format(Date(fecha))
 }
 
 @SuppressLint("DefaultLocale")

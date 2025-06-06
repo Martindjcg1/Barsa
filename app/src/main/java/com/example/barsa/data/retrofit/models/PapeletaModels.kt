@@ -53,10 +53,56 @@ data class DetencionRemota(
     val activa: Boolean
 )
 
-data class DesactivarDetencionResponse(
-    val message: String? = null,
-    val error: String? = null
+data class IniciarTiempoRequest(
+    val folio: Int,
+    val etapa: String,
+    val fechaInicio: String
 )
+
+data class PausarTiempoRequest(
+    val folio: Int,
+    val etapa: String,
+    val tiempo: Int
+)
+
+data class ReiniciarTiempoRequest(
+    val folio: Int,
+    val etapa: String
+)
+
+data class FinalizarTiempoRequest(
+    val folio: Int,
+    val etapa: String,
+    val fechaFin: String,
+    val tiempo: Int
+)
+
+data class DetencionTiempoRequest(
+    val tiempo: Int,
+    val etapa: String,
+    val folio: Int,
+    val fecha: String,
+    val motivo: String
+)
+
+data class ApiSuccessResponse(
+    val message: String?
+)
+
+data class ApiWrapperResponse(
+    val body: ApiSuccessResponse?,
+    val statusCodeValue: Int?,
+    val statusCode: String?
+)
+
+data class ApiErrorResponse(
+    val message: String?,
+    val error: String?,
+    val statusCode: Int?
+)
+
+
+
 
 
 

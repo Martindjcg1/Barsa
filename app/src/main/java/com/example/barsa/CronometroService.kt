@@ -6,6 +6,8 @@ import android.content.Intent
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.barsa.data.retrofit.di.ServiceEntryPointA
+import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.room.di.ServiceEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.*
@@ -23,6 +25,13 @@ class CronometroService : Service() {
             applicationContext,
             ServiceEntryPoint::class.java
         ).tiemposRepository()
+    }
+
+    private val tiemposRepositoryA by lazy {
+        EntryPointAccessors.fromApplication(
+            applicationContext,
+            ServiceEntryPointA::class.java
+        ).papeletasRepository()
     }
 
     override fun onCreate() {
@@ -43,6 +52,7 @@ class CronometroService : Service() {
                     serviceScope.launch {
                         tiemposRepository.updateTiempo(id, etapa, tiempoFinal.toInt())
                         tiemposRepository.updateIsRunning(id, false)
+                        tiemposRepositoryA.pausarTiempo(PausarTiempoRequest(folio, etapa, tiempoFinal.toInt()))
                         Log.d("CronometroService", "Guardado: id=$id, folio=$folio, etapa=$etapa, tiempo=$tiempoFinal s")
                     }.invokeOnCompletion {
                         if (startTimes.isEmpty()) {
@@ -169,6 +179,7 @@ class CronometroService : Service() {
                 Log.d("CronometroService", "Start time de $key: ${startTimes[key]}")
                 tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, tiempoAcumulado.toInt())
                 tiemposRepository.updateIsRunning(tiempo.id, false)
+                tiemposRepositoryA.pausarTiempo(PausarTiempoRequest(tiempo.procesoFolio, tiempo.etapa, tiempoAcumulado.toInt()))
 
                 cronometros[key] = 0L
                 startTimes.remove(key)

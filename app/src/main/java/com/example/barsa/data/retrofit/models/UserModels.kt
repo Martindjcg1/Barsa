@@ -84,3 +84,19 @@ data class UserDetailResponse(
     @SerializedName("rol") val rol: String,
     @SerializedName("estado") val estado: Boolean
 )
+
+
+data class ErrorResponseInfo(
+    val message: String,
+    val statusCode: Int
+)
+
+data class UsuarioInfoResponse(
+    @SerializedName("_id") val id: String,
+    val nombre: String,
+    val apellidos: String,
+    val nombreUsuario: String,
+    val email: String,
+    val rol: String,
+    val estado: Boolean
+)

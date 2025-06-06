@@ -2,9 +2,12 @@ package com.example.barsa.data.retrofit
 
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
-import com.example.barsa.data.retrofit.models.DesactivarDetencionResponse
+import com.example.barsa.data.retrofit.models.ApiWrapperResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
 
+import com.example.barsa.data.retrofit.models.DetencionTiempoRequest
+import com.example.barsa.data.retrofit.models.FinalizarTiempoRequest
+import com.example.barsa.data.retrofit.models.IniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.LoginRequest
 import com.example.barsa.data.retrofit.models.LoginResponse
@@ -12,9 +15,12 @@ import com.example.barsa.data.retrofit.models.LogoutResponse
 import com.example.barsa.data.retrofit.models.RefreshResponse
 import com.example.barsa.data.retrofit.models.RegisterRequest
 import com.example.barsa.data.retrofit.models.RegisterResponse
+import com.example.barsa.data.retrofit.models.PausarTiempoRequest
+import com.example.barsa.data.retrofit.models.ReiniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.models.UserDetailResponse
 import com.example.barsa.data.retrofit.models.UserProfile
+import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Field
@@ -66,6 +72,11 @@ interface UserApiService {
         @Header("Authorization") token: String,
         @Path("id") userId: String
     ): UserDetailResponse
+
+    @GET("user-authentication/obtener-info-usuario-personal")
+    suspend fun obtenerInfoUsuarioPersonal(
+        @Header("Authorization") token: String
+    ): Response<UsuarioInfoResponse>
 }
 
 interface PapeletaApiService {
@@ -98,7 +109,44 @@ interface PapeletaApiService {
         @Header("Authorization") authToken: String,
         @Field("folio") folio: Int,
         @Field("etapa") etapa: String
-    ): Response<DesactivarDetencionResponse>
+    ): Response<ApiWrapperResponse>
+
+    @POST("produccion/iniciar-tiempo")
+    suspend fun iniciarTiempo(
+        @Header("Authorization") authToken: String,
+        @Body body: IniciarTiempoRequest
+    ): Response<ApiWrapperResponse>
+
+    @PUT("produccion/pausar-tiempo")
+    suspend fun pausarTiempo(
+        @Body request: PausarTiempoRequest,
+        @Header("Authorization") token: String
+    ): Response<ApiWrapperResponse>
+
+    @GET("produccion/obtener-tiempo")
+    suspend fun getTiempoPorEtapa(
+        @Header("Authorization") authToken: String,
+        @Query("folio") folio: Int,
+        @Query("etapa") etapa: String
+    ): List<TiempoRemoto>
+
+    @PUT("produccion/reiniciar-tiempo")
+    suspend fun reiniciarTiempo(
+        @Header("Authorization") authToken: String,
+        @Body body: ReiniciarTiempoRequest
+    ): Response<ApiWrapperResponse>
+
+    @PUT("produccion/finalizar-tiempo")
+    suspend fun finalizarTiempo(
+        @Header("Authorization") token: String,
+        @Body request: FinalizarTiempoRequest
+    ): Response<ApiWrapperResponse>
+
+    @POST("produccion/detencion-tiempo")
+    suspend fun reportarDetencionTiempo(
+        @Header("Authorization") token: String,
+        @Body request: DetencionTiempoRequest
+    ): Response<ApiWrapperResponse>
 
 }
 

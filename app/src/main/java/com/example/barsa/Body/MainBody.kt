@@ -1,9 +1,12 @@
 package com.example.barsa.Body
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,6 +35,8 @@ fun MainBody(
     userViewModel: UserViewModel,
     onLogout: () -> Unit // NUEVO PARÁMETRO
 ) {
+    val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
+    Log.d("MainBody", "$rol")
     Box(
         modifier = modifier.fillMaxSize()
     ) {
@@ -54,46 +59,115 @@ fun MainBody(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            when {
-                currentRoute == "inventario" -> {
-                    InventoryScreen(onNavigate)
+            if(rol.equals("Administrador")) {
+                when {
+                    currentRoute == "inventario" -> {
+                        InventoryScreen(onNavigate)
+                    }
+
+                    currentRoute == "producciones" -> {
+                        ProduccionesScreen(onNavigate, papeletaViewModel)
+                    }
+
+                    currentRoute == "usuario" -> {
+                        UsuarioBody(onNavigate, userViewModel, onLogout = onLogout)
+                    }
+
+                    currentRoute.startsWith("cronometro/") -> {
+                        val parts = currentRoute.removePrefix("cronometro/").split("°")
+                        if (parts.size == 5) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            val Etapa = parts[4]
+                            CronometroScreen(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                Etapa,
+                                onNavigate,
+                                tiemposViewModel,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos para el cronómetro")
+                        }
+                    }
+
+                    currentRoute.startsWith("selector/") -> {
+                        val parts = currentRoute.removePrefix("selector/").split("°")
+                        if (parts.size == 4) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
+                                onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                            }, onNavigate, tiemposViewModel, papeletaViewModel)
+                        } else {
+                            Text("Error: Datos incompletos para el selector de etapa")
+                        }
+                    }
                 }
+                }
+            else if(rol.equals("Produccion"))
+            {
+                when{
                 currentRoute == "producciones" -> {
                     ProduccionesScreen(onNavigate, papeletaViewModel)
                 }
-                currentRoute == "usuario" -> {
-                    // PASAR EL ONLOGOUT A USUARIOBODY
-                    UsuarioBody(
-                        onNavigate = onNavigate,
-                        userViewModel = userViewModel,
-                        onLogout = onLogout // PASAR EL PARÁMETRO
-                    )
-                }
-                currentRoute.startsWith("cronometro/") -> {
-                    val parts = currentRoute.removePrefix("cronometro/").split("°")
-                    if (parts.size == 5) {
-                        val TipoId = parts[0]
-                        val Folio = parts[1].toIntOrNull() ?: 0
-                        val Fecha = parts[2]
-                        val Status = parts[3]
-                        val Etapa = parts[4]
-                        CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate, tiemposViewModel, papeletaViewModel)
-                    } else {
-                        Text("Error: Datos incompletos para el cronómetro")
+                    currentRoute.startsWith("cronometro/") -> {
+                        val parts = currentRoute.removePrefix("cronometro/").split("°")
+                        if (parts.size == 5) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            val Etapa = parts[4]
+                            CronometroScreen(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                Etapa,
+                                onNavigate,
+                                tiemposViewModel,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos para el cronómetro")
+                        }
+                    }
+
+                    currentRoute.startsWith("selector/") -> {
+                        val parts = currentRoute.removePrefix("selector/").split("°")
+                        if (parts.size == 4) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
+                                onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                            }, onNavigate, tiemposViewModel, papeletaViewModel)
+                        } else {
+                            Text("Error: Datos incompletos para el selector de etapa")
+                        }
+                    }
+                    currentRoute == "usuario" -> {
+                        UsuarioBody(onNavigate, userViewModel, onLogout = onLogout)
                     }
                 }
-                currentRoute.startsWith("selector/") -> {
-                    val parts = currentRoute.removePrefix("selector/").split("°")
-                    if (parts.size == 4) {
-                        val TipoId = parts[0]
-                        val Folio = parts[1].toIntOrNull() ?: 0
-                        val Fecha = parts[2]
-                        val Status = parts[3]
-                        EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
-                            onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-                        }, onNavigate, tiemposViewModel, papeletaViewModel)
-                    } else {
-                        Text("Error: Datos incompletos para el selector de etapa")
+            }
+            else if(rol.equals("Inventarios"))
+            {
+                when{
+                    currentRoute == "inventario" -> {
+                        InventoryScreen(onNavigate)
+                    }
+                    currentRoute == "usuario" -> {
+                        UsuarioBody(onNavigate, userViewModel, onLogout = onLogout)
                     }
                 }
             }
