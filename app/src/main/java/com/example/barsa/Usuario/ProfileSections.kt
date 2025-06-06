@@ -19,11 +19,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.models.UserProfile
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
 @Composable
 fun PersonalInfoSection(primaryColor: Color, lightBrown: Color) {
     // Datos de ejemplo para mostrar
-    val userProfile = UserProfile(
+    val userProfile = UserFakeProfile(
         first_name = "Martin",
         last_name = "Castañeda",
         username = "martindjcg",
@@ -209,13 +211,53 @@ fun EditProfileSection(primaryColor: Color, lightBrown: Color) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChangePasswordSection(primaryColor: Color, lightBrown: Color) {
+fun ChangePasswordSection(
+    userViewModel: UserViewModel,
+    primaryColor: Color,
+    lightBrown: Color
+) {
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
+
+    val changePasswordState by userViewModel.changePasswordState.collectAsState()
+
+    // Validaciones locales
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Función para validar contraseña
+    fun isPasswordValid(password: String): Boolean {
+        val hasMinLength = password.length >= 8
+        val hasUpperCase = password.any { it.isUpperCase() }
+        val hasLowerCase = password.any { it.isLowerCase() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+
+        return hasMinLength && hasUpperCase && hasLowerCase && hasDigit && hasSpecialChar
+    }
+
+    // Función para validar campos
+    fun validateFields(): Boolean {
+        return when {
+            currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty() -> {
+                errorMessage = "Todos los campos son obligatorios"
+                false
+            }
+            newPassword != confirmPassword -> {
+                errorMessage = "Las contraseñas no coinciden"
+                false
+            }
+            !isPasswordValid(newPassword) -> {
+                errorMessage = "La nueva contraseña no cumple con los requisitos de seguridad"
+                false
+            }
+            else -> {
+                errorMessage = null
+                true
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -316,47 +358,53 @@ fun ChangePasswordSection(primaryColor: Color, lightBrown: Color) {
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        successMessage?.let {
-            Text(
-                text = it,
-                color = Color.Green,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        errorMessage?.let {
-            Text(
-                text = it,
-                color = Color.Red,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+        // Mostrar estado del cambio de contraseña
+        when (changePasswordState) {
+            is UserViewModel.ChangePasswordState.Loading -> {
+                CircularProgressIndicator(
+                    color = primaryColor,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            is UserViewModel.ChangePasswordState.Success -> {
+                Text(
+                    text = "Contraseña actualizada correctamente",
+                    color = Color.Green,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            is UserViewModel.ChangePasswordState.Error -> {
+                Text(
+                    text = (changePasswordState as UserViewModel.ChangePasswordState.Error).message,
+                    color = Color.Red,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            else -> {
+                // Mostrar errores de validación local
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = Color.Red,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+            }
         }
 
         Button(
             onClick = {
-                if (newPassword.isEmpty() || currentPassword.isEmpty() || confirmPassword.isEmpty()) {
-                    errorMessage = "Todos los campos son obligatorios"
-                    successMessage = null
-                } else if (newPassword != confirmPassword) {
-                    errorMessage = "Las contraseñas no coinciden"
-                    successMessage = null
-                } else {
-                    // Simulación de cambio de contraseña exitoso
-                    successMessage = "Contraseña actualizada correctamente"
-                    errorMessage = null
-                    // Limpiar campos
-                    currentPassword = ""
-                    newPassword = ""
-                    confirmPassword = ""
+                if (validateFields()) {
+                    userViewModel.changePassword(currentPassword, newPassword)
                 }
             },
             modifier = Modifier.align(Alignment.Start),
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryColor
-            )
+            ),
+            enabled = changePasswordState !is UserViewModel.ChangePasswordState.Loading
         ) {
             Text("Cambiar Contraseña")
         }
     }
 }
-

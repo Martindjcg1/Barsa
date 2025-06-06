@@ -18,6 +18,7 @@ import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
 import com.example.barsa.data.room.TiemposViewModel
 
@@ -27,7 +28,9 @@ fun MainBody(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
     tiemposViewModel: TiemposViewModel,
-    papeletaViewModel: PapeletaViewModel
+    papeletaViewModel: PapeletaViewModel,
+    userViewModel: UserViewModel,
+    onLogout: () -> Unit // NUEVO PARÁMETRO
 ) {
     Box(
         modifier = modifier.fillMaxSize()
@@ -59,7 +62,12 @@ fun MainBody(
                     ProduccionesScreen(onNavigate, papeletaViewModel)
                 }
                 currentRoute == "usuario" -> {
-                    UsuarioBody(onNavigate)
+                    // PASAR EL ONLOGOUT A USUARIOBODY
+                    UsuarioBody(
+                        onNavigate = onNavigate,
+                        userViewModel = userViewModel,
+                        onLogout = onLogout // PASAR EL PARÁMETRO
+                    )
                 }
                 currentRoute.startsWith("cronometro/") -> {
                     val parts = currentRoute.removePrefix("cronometro/").split("°")

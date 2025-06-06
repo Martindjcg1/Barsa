@@ -1,11 +1,20 @@
 package com.example.barsa.data.retrofit
 
+import com.example.barsa.data.retrofit.models.ChangePasswordRequest
+import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.DesactivarDetencionResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
+
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.LoginRequest
 import com.example.barsa.data.retrofit.models.LoginResponse
+import com.example.barsa.data.retrofit.models.LogoutResponse
+import com.example.barsa.data.retrofit.models.RefreshResponse
+import com.example.barsa.data.retrofit.models.RegisterRequest
+import com.example.barsa.data.retrofit.models.RegisterResponse
 import com.example.barsa.data.retrofit.models.TiempoRemoto
+import com.example.barsa.data.retrofit.models.UserDetailResponse
+import com.example.barsa.data.retrofit.models.UserProfile
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.Field
@@ -20,6 +29,43 @@ import retrofit2.http.Query
 interface UserApiService {
     @POST("user-authentication/login")
     suspend fun login(@Body credentials: LoginRequest): LoginResponse
+
+    @POST("user-authentication/registro")
+    suspend fun register(
+        @Header("Authorization") token: String,
+        @Body registerData: RegisterRequest
+    ): RegisterResponse
+
+
+    @POST("user-authentication/logout")
+    suspend fun logout(@Header("Authorization") token: String): LogoutResponse
+
+    @POST("user-authentication/refresh")
+    suspend fun refreshToken(@Header("Authorization") token: String): RefreshResponse
+
+    @PUT("user-authentication/cambiar-password")
+    suspend fun changePassword(
+        @Header("Authorization") token: String,
+        @Body changePasswordData: ChangePasswordRequest
+    ): ChangePasswordResponse
+
+    // ACTUALIZADO: Ahora devuelve directamente una lista de UserProfile
+    @GET("user-authentication/listado-usuarios")
+    suspend fun getUsers(
+        @Header("Authorization") token: String,
+        @Query("nombre") nombre: String? = null,
+        @Query("nombreUsuario") nombreUsuario: String? = null,
+        @Query("email") email: String? = null,
+        @Query("rol") rol: String? = null,
+        @Query("estado") estado: String? = null
+    ): List<UserProfile>
+
+    // NUEVO ENDPOINT PARA OBTENER INFORMACIÓN DETALLADA DE USUARIO
+    @GET("user-authentication/obtener-info-usuario/{id}")
+    suspend fun getUserDetail(
+        @Header("Authorization") token: String,
+        @Path("id") userId: String
+    ): UserDetailResponse
 }
 
 interface PapeletaApiService {

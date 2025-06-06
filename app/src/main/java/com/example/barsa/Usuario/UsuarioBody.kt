@@ -1,5 +1,6 @@
 package com.example.barsa.Body.Usuario
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.barsa.Usuario.AddUserSection
@@ -35,13 +37,23 @@ import com.example.barsa.Usuario.PersonalInfoSection
 import com.example.barsa.Usuario.UserDetailsSection
 import com.example.barsa.Usuario.UserListSection
 import com.example.barsa.Usuario.UserOptionsSection
+import com.example.barsa.data.retrofit.ui.UserViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UsuarioBody(onNavigate: (String) -> Unit) {
+fun UsuarioBody(
+    onNavigate: (String) -> Unit,
+    userViewModel: UserViewModel,
+    onLogout: () -> Unit
+) {
     var showSection by remember { mutableStateOf<String?>(null) }
+    var selectedUserId by remember { mutableStateOf<String?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // Observar el estado del logout
+    val logoutState by userViewModel.logoutState.collectAsState()
 
     // Simular que el usuario actual es administrador
     val isAdmin = true
@@ -51,6 +63,15 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
     val lightBrown = Color(0xFFDEB887)   // Marrón claro
     val accentBrown = Color(0xFF654321)  // Marrón medio
     val goldAccent = Color(0xFFD4AF37)   // Dorado para acentos
+
+    // Efecto para manejar el logout exitoso
+    LaunchedEffect(logoutState) {
+        if (logoutState is UserViewModel.LogoutState.Success) {
+            Log.d("UsuarioBody", "Logout exitoso, navegando al login")
+            showLogoutDialog = false
+            onLogout()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -193,15 +214,25 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                         .padding(horizontal = 32.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentBrown
-                    )
+                    ),
+                    enabled = logoutState !is UserViewModel.LogoutState.Loading
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Cerrar Sesión")
+                    if (logoutState is UserViewModel.LogoutState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Cerrando sesión...")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Cerrar Sesión")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -217,7 +248,10 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                 TopAppBar(
                     title = { Text(showSection ?: "") },
                     navigationIcon = {
-                        IconButton(onClick = { showSection = null }) {
+                        IconButton(onClick = {
+                            showSection = null
+                            selectedUserId = null
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Regresar"
@@ -237,14 +271,63 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
                     when (showSection) {
                         "Información Personal" -> PersonalInfoSection(primaryBrown, lightBrown)
                         "Cambiar Datos" -> EditProfileSection(primaryBrown, lightBrown)
-                        "Cambiar contraseña" -> ChangePasswordSection(primaryBrown, lightBrown)
-                        "Agregar Usuario" -> AddUserSection(accentBrown, goldAccent)
-                        "Lista de Usuarios" -> UserListSection(accentBrown, goldAccent) { user ->
-                            showSection = "Detalles de Usuario"
-                        }
+                        "Cambiar contraseña" -> ChangePasswordSection(userViewModel, primaryBrown, lightBrown)
+                        "Agregar Usuario" -> AddUserSection(userViewModel, accentBrown, goldAccent)
+                        "Lista de Usuarios" -> UserListSection(
+                            userViewModel = userViewModel,
+                            primaryColor = accentBrown,
+                            accentColor = goldAccent
+                        ) { user ->
+                            // CAPTURAR EL ID DEL USUARIO SELECCIONADO CON LOGS
+                            Log.d("UsuarioBody", "Usuario seleccionado: ${user.username}")
+                            Log.d("UsuarioBody", "ID del usuario: ${user.id}")
 
-                        "Detalles de Usuario" -> UserDetailsSection(accentBrown, goldAccent)
-                        "Gestionar Usuarios" -> ManageUsersSection(accentBrown, goldAccent)
+                            if (user.id != null) {
+                                selectedUserId = user.id
+                                showSection = "Detalles de Usuario"
+                                Log.d("UsuarioBody", "Navegando a detalles con ID: $selectedUserId")
+                            } else {
+                                Log.e("UsuarioBody", "Error: El usuario no tiene ID")
+                                // Mostrar mensaje de error al usuario
+                            }
+                        }
+                        "Detalles de Usuario" -> {
+                            // VERIFICAR QUE TENEMOS UN ID DE USUARIO
+                            selectedUserId?.let { userId ->
+                                Log.d("UsuarioBody", "Mostrando detalles para usuario ID: $userId")
+                                UserDetailsSection(
+                                    userViewModel = userViewModel,
+                                    userId = userId,
+                                    primaryColor = accentBrown,
+                                    accentColor = goldAccent
+                                )
+                            } ?: run {
+                                // MOSTRAR ERROR SI NO HAY ID
+                                Log.e("UsuarioBody", "Error: No hay ID de usuario seleccionado")
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "Error: No se pudo cargar la información del usuario",
+                                            color = Color.Red,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Button(
+                                            onClick = { showSection = "Lista de Usuarios" },
+                                            colors = ButtonDefaults.buttonColors(containerColor = accentBrown)
+                                        ) {
+                                            Text("Volver a la lista")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        "Gestionar Usuarios" -> ManageUsersSection(userViewModel, accentBrown, goldAccent)
                     }
                 }
             }
@@ -256,27 +339,47 @@ fun UsuarioBody(onNavigate: (String) -> Unit) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
             title = { Text("Cerrar Sesión") },
-            text = { Text("¿Estás seguro que deseas cerrar sesión?") },
+            text = {
+                if (logoutState is UserViewModel.LogoutState.Error) {
+                    Text("Error al cerrar sesión: ${(logoutState as UserViewModel.LogoutState.Error).message}\n\n¿Deseas continuar?")
+                } else {
+                    Text("¿Estás seguro que deseas cerrar sesión?")
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        showLogoutDialog = false
-                        onNavigate("login")
+                        if (logoutState is UserViewModel.LogoutState.Error) {
+                            // Si hay error, cerrar sesión localmente
+                            showLogoutDialog = false
+                            onLogout()
+                        } else {
+                            // Ejecutar logout
+                            userViewModel.logout()
+                        }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentBrown)
+                    colors = ButtonDefaults.buttonColors(containerColor = accentBrown),
+                    enabled = logoutState !is UserViewModel.LogoutState.Loading
                 ) {
-                    Text("Sí, cerrar sesión")
+                    Text(
+                        if (logoutState is UserViewModel.LogoutState.Error) {
+                            "Continuar"
+                        } else {
+                            "Sí, cerrar sesión"
+                        }
+                    )
                 }
             },
             dismissButton = {
-                Button(
-                    onClick = { showLogoutDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-                ) {
-                    Text("Cancelar")
+                if (logoutState !is UserViewModel.LogoutState.Loading) {
+                    Button(
+                        onClick = { showLogoutDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                    ) {
+                        Text("Cancelar")
+                    }
                 }
             }
         )
     }
 }
-

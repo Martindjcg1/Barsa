@@ -1,6 +1,7 @@
 package com.example.barsa.Usuario
 
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,57 +19,56 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.barsa.data.retrofit.models.UserProfile
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
-// Reemplazar DeleteUserSection con ManageUsersSection
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
-    // Lista de usuarios de ejemplo
-    val users = remember {
-        mutableStateListOf(
-            UserProfile("Juan", "Pérez", "juanperez", "juan@example.com", "15/01/2023", "Inventarios", true),
-            UserProfile("Ana", "García", "anagarcia", "ana@example.com", "20/02/2023", "Producción", true),
-            UserProfile("Carlos", "López", "carloslopez", "carlos@example.com", "10/03/2023", "Administrador", true),
-            UserProfile("Laura", "Martínez", "lauramartinez", "laura@example.com", "05/04/2023", "Inventarios", false),
-            UserProfile("Roberto", "Fernández", "robertof", "roberto@example.com", "12/05/2023", "Producción", true),
-            UserProfile("María", "Rodríguez", "mariar", "maria@example.com", "18/06/2023", "Inventarios", false)
-        )
-    }
-
+fun ManageUsersSection(
+    userViewModel: UserViewModel,
+    primaryColor: Color,
+    accentColor: Color
+) {
     var showActionDialog by remember { mutableStateOf(false) }
     var selectedUser by remember { mutableStateOf<UserProfile?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
-    var filteredUsers by remember { mutableStateOf<List<UserProfile>>(users.toList()) }
     var showActiveOnly by remember { mutableStateOf(false) }
     var showInactiveOnly by remember { mutableStateOf(false) }
 
-    // Función para actualizar la lista filtrada
-    fun updateFilteredUsersList() {
-        filteredUsers = users.filter { user ->
-            // Filtrar por búsqueda
-            val matchesQuery = searchQuery.isEmpty() ||
-                    user.first_name?.contains(searchQuery, ignoreCase = true) == true ||
-                    user.last_name?.contains(searchQuery, ignoreCase = true) == true ||
-                    user.username?.contains(searchQuery, ignoreCase = true) == true ||
-                    user.email?.contains(searchQuery, ignoreCase = true) == true ||
-                    user.role?.contains(searchQuery, ignoreCase = true) == true
+    val getUsersState by userViewModel.getUsersState.collectAsState()
 
-            // Filtrar por estado
-            val matchesState = when {
-                showActiveOnly -> user.active
-                showInactiveOnly -> !user.active
-                else -> true
-            }
-
-            matchesQuery && matchesState
-        }
+    // Cargar usuarios al inicializar
+    LaunchedEffect(Unit) {
+        Log.d("ManageUsersSection", "Initializing - calling getUsers")
+        userViewModel.getUsers()
     }
 
-    // Inicializar la lista filtrada
-    LaunchedEffect(Unit) {
-        updateFilteredUsersList()
+    // Función para aplicar filtros
+    fun applyFilters() {
+        Log.d("ManageUsersSection", "Applying filters - searchQuery: '$searchQuery', showActiveOnly: $showActiveOnly, showInactiveOnly: $showInactiveOnly")
+
+        val estado = when {
+            showActiveOnly -> "activo"
+            showInactiveOnly -> "inactivo"
+            else -> null
+        }
+
+        val searchTerm = if (searchQuery.isNotBlank()) searchQuery else null
+
+        userViewModel.getUsers(
+            nombre = searchTerm,
+            nombreUsuario = searchTerm,
+            email = searchTerm,
+            estado = estado
+        )
+    }
+
+    // Aplicar filtros cuando cambien los estados
+    LaunchedEffect(showActiveOnly, showInactiveOnly) {
+        applyFilters()
     }
 
     Column(
@@ -96,10 +96,19 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
             value = searchQuery,
             onValueChange = { query ->
                 searchQuery = query
-                updateFilteredUsersList()
             },
             placeholder = { Text("Buscar usuario...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = {
+                        searchQuery = ""
+                        applyFilters()
+                    }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
@@ -121,7 +130,6 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
                 onClick = {
                     showActiveOnly = false
                     showInactiveOnly = false
-                    updateFilteredUsersList()
                 },
                 label = { Text("Todos") },
                 leadingIcon = if (!showActiveOnly && !showInactiveOnly) {
@@ -134,7 +142,6 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
                 onClick = {
                     showActiveOnly = !showActiveOnly
                     if (showActiveOnly) showInactiveOnly = false
-                    updateFilteredUsersList()
                 },
                 label = { Text("Activos") },
                 leadingIcon = if (showActiveOnly) {
@@ -147,7 +154,6 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
                 onClick = {
                     showInactiveOnly = !showInactiveOnly
                     if (showInactiveOnly) showActiveOnly = false
-                    updateFilteredUsersList()
                 },
                 label = { Text("Inactivos") },
                 leadingIcon = if (showInactiveOnly) {
@@ -156,6 +162,20 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
             )
         }
 
+        // Botón de búsqueda
+        Button(
+            onClick = { applyFilters() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+        ) {
+            Icon(Icons.Default.Search, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Buscar")
+        }
+
+        // Mensaje de éxito
         successMessage?.let {
             Card(
                 modifier = Modifier
@@ -186,34 +206,87 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Lista de usuarios
-        if (filteredUsers.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No se encontraron usuarios con los filtros actuales",
-                    color = Color.Gray
-                )
+        // Contenido basado en el estado del API
+        when (getUsersState) {
+            is UserViewModel.GetUsersState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = primaryColor)
+                }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                items(filteredUsers) { user ->
-                    UserManagementItem(
-                        user = user,
-                        onClick = {
-                            selectedUser = user
-                            showActionDialog = true
-                        },
-                        primaryColor = primaryColor,
-                        accentColor = accentColor
+            is UserViewModel.GetUsersState.Success -> {
+                val users = (getUsersState as UserViewModel.GetUsersState.Success).users
+                if (users.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No se encontraron usuarios con los filtros actuales",
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        items(users) { user ->
+                            UserManagementItem(
+                                user = user,
+                                onClick = {
+                                    selectedUser = user
+                                    showActionDialog = true
+                                },
+                                primaryColor = primaryColor,
+                                accentColor = accentColor
+                            )
+                        }
+                    }
+                }
+            }
+            is UserViewModel.GetUsersState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Error: ${(getUsersState as UserViewModel.GetUsersState.Error).message}",
+                            color = Color.Red,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { userViewModel.getUsers() },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("Reintentar")
+                        }
+                    }
+                }
+            }
+            is UserViewModel.GetUsersState.Initial -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Presiona buscar para cargar usuarios",
+                        color = Color.Gray
                     )
                 }
             }
@@ -240,34 +313,18 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
             confirmButton = {
                 Button(
                     onClick = {
-                        try {
-                            // Activar/desactivar usuario de forma segura
-                            selectedUser?.let { user ->
-                                val index = users.indexOfFirst { it.username == user.username }
-                                if (index != -1) {
-                                    // Crear un nuevo objeto UserProfile con el estado actualizado
-                                    val updatedUser = user.copy(active = !user.active)
-                                    // Actualizar la lista mutable de forma segura
-                                    users[index] = updatedUser
+                        // TODO: Implementar llamada al API para activar/desactivar usuario
+                        // Por ahora solo mostramos mensaje de éxito
+                        successMessage = if (isActivating)
+                            "Usuario activado correctamente"
+                        else
+                            "Usuario desactivado correctamente"
 
-                                    // Mostrar mensaje de éxito
-                                    successMessage = if (!user.active)
-                                        "Usuario activado correctamente"
-                                    else
-                                        "Usuario desactivado correctamente"
+                        // Recargar la lista de usuarios
+                        applyFilters()
 
-                                    // Actualizar la lista filtrada
-                                    updateFilteredUsersList()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            // Manejar cualquier excepción que pueda ocurrir
-                            successMessage = "Error: No se pudo actualizar el usuario"
-                        } finally {
-                            // Cerrar el diálogo
-                            showActionDialog = false
-                            selectedUser = null
-                        }
+                        showActionDialog = false
+                        selectedUser = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isActivating) primaryColor else Color.Red
@@ -288,35 +345,6 @@ fun ManageUsersSection(primaryColor: Color, accentColor: Color) {
             }
         )
     }
-}
-
-private fun updateFilteredUsers(
-    users: List<UserProfile>,
-    query: String,
-    showActiveOnly: Boolean,
-    showInactiveOnly: Boolean,
-    updateState: (List<UserProfile>) -> Unit
-) {
-    val filtered = users.filter { user ->
-        // Filtrar por búsqueda
-        val matchesQuery = query.isEmpty() ||
-                user.first_name?.contains(query, ignoreCase = true) == true ||
-                user.last_name?.contains(query, ignoreCase = true) == true ||
-                user.username?.contains(query, ignoreCase = true) == true ||
-                user.email?.contains(query, ignoreCase = true) == true ||
-                user.role?.contains(query, ignoreCase = true) == true
-
-        // Filtrar por estado
-        val matchesState = when {
-            showActiveOnly -> user.active
-            showInactiveOnly -> !user.active
-            else -> true
-        }
-
-        matchesQuery && matchesState
-    }
-
-    updateState(filtered)
 }
 
 @Composable
@@ -377,7 +405,7 @@ fun UserManagementItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${user.first_name} ${user.last_name}",
+                        text = "${user.first_name ?: ""} ${user.last_name ?: ""}".trim(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -400,10 +428,18 @@ fun UserManagementItem(
                 }
 
                 Text(
-                    text = "@${user.username}",
+                    text = "@${user.username ?: ""}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
+
+                user.email?.let { email ->
+                    Text(
+                        text = email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -451,4 +487,3 @@ fun UserManagementItem(
         }
     }
 }
-

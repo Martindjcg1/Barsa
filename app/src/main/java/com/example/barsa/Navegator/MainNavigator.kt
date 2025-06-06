@@ -51,22 +51,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
         navController = navController,
         startDestination = "login"
     ) {
-        /*
         composable("login") {
-            LoginScreen(userViewModel,
-                onLoginClick = { username, password ->
-                    // Aquí puedes agregar la lógica de autenticación
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                }
-            )
-        }
-
-         */
-
-        composable("login") {
-
             LoginScreen(userViewModel, onLoginClick = { username, password ->
                 Log.d("LoginScreen", "${username}, ${password}")
                 userViewModel.login(username, password)
@@ -89,10 +74,13 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
 
-                    else -> {}
+                    // NO HACER NADA EN Initial Y Loading
+                    is UserViewModel.LoginState.Initial,
+                    is UserViewModel.LoginState.Loading -> {
+                        // No hacer nada
+                    }
                 }
             }
-
         }
 
         composable("main") {
@@ -118,8 +106,18 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                         currentRoute = route
                     },
                     modifier = Modifier.padding(paddingValues),
-                    tiemposViewModel,
-                    papeletaViewModel
+                    tiemposViewModel = tiemposViewModel,
+                    papeletaViewModel = papeletaViewModel,
+                    userViewModel = userViewModel,
+                    // PASAR LA FUNCIÓN DE LOGOUT AL MAINBODY
+                    onLogout = {
+                        // LIMPIAR TODOS LOS ESTADOS ANTES DE NAVEGAR
+                        userViewModel.clearAllStates()
+                        Log.d("MainNavigator", "Navegando al login desde MainNavigator")
+                        navController.navigate("login") {
+                            popUpTo("main") { inclusive = true }
+                        }
+                    }
                 )
 
                 if (showNotifications) {
@@ -135,7 +133,6 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
         }
 
         // Agregando ruta de la vista de cronometro
-        //composable("cronometro") { CronometroScreen() }
         composable(
             "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
         ) { backStackEntry ->

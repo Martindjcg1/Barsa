@@ -2,6 +2,7 @@ package com.example.barsa.Usuario
 
 
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,12 +24,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.models.UserProfile
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddUserSection(primaryColor: Color, accentColor: Color) {
+fun AddUserSection(
+    userViewModel: UserViewModel,
+    primaryColor: Color,
+    accentColor: Color
+) {
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
     var usuario by remember { mutableStateOf("") }
@@ -37,11 +45,36 @@ fun AddUserSection(primaryColor: Color, accentColor: Color) {
     var confirmPassword by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf("Inventarios") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val registerState by userViewModel.registerState.collectAsState()
 
     val roles = listOf("Inventarios", "Producción", "Administrador")
     var showRoleDropdown by remember { mutableStateOf(false) }
+
+    // Validaciones locales
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Función para validar campos
+    fun validateFields(): Boolean {
+        return when {
+            nombre.isEmpty() || apellido.isEmpty() || usuario.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() -> {
+                errorMessage = "Todos los campos son obligatorios excepto el correo electrónico"
+                false
+            }
+            password != confirmPassword -> {
+                errorMessage = "Las contraseñas no coinciden"
+                false
+            }
+            email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                errorMessage = "Debes ingresar un correo válido o dejarlo vacío"
+                false
+            }
+            else -> {
+                errorMessage = null
+                true
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -161,8 +194,7 @@ fun AddUserSection(primaryColor: Color, accentColor: Color) {
 
         // Selector de rol
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
                 value = selectedRole,
@@ -204,73 +236,81 @@ fun AddUserSection(primaryColor: Color, accentColor: Color) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        successMessage?.let {
-            Text(
-                text = it,
-                color = Color.Green,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        errorMessage?.let {
-            Text(
-                text = it,
-                color = Color.Red,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+        // Mostrar estado del registro
+        when (registerState) {
+            is UserViewModel.RegisterState.Loading -> {
+                CircularProgressIndicator(
+                    color = primaryColor,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            is UserViewModel.RegisterState.Success -> {
+                Text(
+                    text = "Usuario creado correctamente",
+                    color = Color.Green,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            is UserViewModel.RegisterState.Error -> {
+                Text(
+                    text = (registerState as UserViewModel.RegisterState.Error).message,
+                    color = Color.Red,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            else -> {
+                // Mostrar errores de validación local
+                errorMessage?.let {
+                    Text(
+                        text = it,
+                        color = Color.Red,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+            }
         }
 
         Button(
             onClick = {
-                if (nombre.isEmpty() || apellido.isEmpty() || usuario.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-                    errorMessage = "Todos los campos son obligatorios excepto el correo electrónico"
-                    successMessage = null
-                } else if (password != confirmPassword) {
-                    errorMessage = "Las contraseñas no coinciden"
-                    successMessage = null
-                } else {
-                    // Simulación de creación de usuario exitosa
-                    successMessage = "Usuario creado correctamente"
-                    errorMessage = null
-                    // Limpiar campos
-                    nombre = ""
-                    apellido = ""
-                    usuario = ""
-                    email = ""
-                    password = ""
-                    confirmPassword = ""
-                    selectedRole = "Inventarios"
+                if (validateFields()) {
+                    userViewModel.register(
+                        nombre = nombre,
+                        apellidos = apellido.ifBlank { null },
+                        nombreUsuario = usuario,
+                        email = email.ifBlank { null },
+                        password = password,
+                        rolString = selectedRole
+                    )
                 }
             },
             modifier = Modifier.align(Alignment.Start),
             colors = ButtonDefaults.buttonColors(
                 containerColor = primaryColor
-            )
+            ),
+            enabled = registerState !is UserViewModel.RegisterState.Loading
         ) {
             Text("Crear Usuario")
         }
     }
 }
 
-// Actualizar la lista de usuarios para incluir el estado de activación
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserListSection(primaryColor: Color, accentColor: Color, onUserClick: (UserProfile) -> Unit) {
-    // Lista de usuarios de ejemplo
-    val users = remember {
-        listOf(
-            UserProfile("Juan", "Pérez", "juanperez", "juan@example.com", "15/01/2023", "Inventarios", true),
-            UserProfile("Ana", "García", "anagarcia", "ana@example.com", "20/02/2023", "Producción", true),
-            UserProfile("Carlos", "López", "carloslopez", "carlos@example.com", "10/03/2023", "Administrador", true),
-            UserProfile("Laura", "Martínez", "lauramartinez", "laura@example.com", "05/04/2023", "Inventarios", false),
-            UserProfile("Roberto", "Fernández", "robertof", "roberto@example.com", "12/05/2023", "Producción", true),
-            UserProfile("María", "Rodríguez", "mariar", "maria@example.com", "18/06/2023", "Inventarios", true),
-            UserProfile("Pedro", "Sánchez", "pedros", "pedro@example.com", "22/07/2023", "Administrador", false)
-        )
-    }
-
+fun UserListSection(
+    userViewModel: UserViewModel,
+    primaryColor: Color,
+    accentColor: Color,
+    onUserClick: (UserProfile) -> Unit
+) {
     var searchQuery by remember { mutableStateOf("") }
-    var filteredUsers by remember { mutableStateOf(users) }
+    val getUsersState by userViewModel.getUsersState.collectAsState()
+
+    // Cargar usuarios al inicializar
+    LaunchedEffect(Unit) {
+        Log.d("UserListSection", "Cargando lista de usuarios")
+        userViewModel.getUsers()
+    }
 
     Column(
         modifier = Modifier
@@ -289,20 +329,29 @@ fun UserListSection(primaryColor: Color, accentColor: Color, onUserClick: (UserP
             value = searchQuery,
             onValueChange = { query ->
                 searchQuery = query
-                filteredUsers = if (query.isEmpty()) {
-                    users
+                // Aplicar búsqueda en tiempo real
+                if (query.isNotBlank()) {
+                    userViewModel.getUsers(
+                        nombre = query,
+                        nombreUsuario = query,
+                        email = query
+                    )
                 } else {
-                    users.filter { user ->
-                        user.first_name?.contains(query, ignoreCase = true) == true ||
-                                user.last_name?.contains(query, ignoreCase = true) == true ||
-                                user.username?.contains(query, ignoreCase = true) == true ||
-                                user.email?.contains(query, ignoreCase = true) == true ||
-                                user.role?.contains(query, ignoreCase = true) == true
-                    }
+                    userViewModel.getUsers()
                 }
             },
             placeholder = { Text("Buscar usuario...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = {
+                        searchQuery = ""
+                        userViewModel.getUsers()
+                    }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
@@ -314,24 +363,99 @@ fun UserListSection(primaryColor: Color, accentColor: Color, onUserClick: (UserP
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Lista de usuarios
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(filteredUsers) { user ->
-                UserCard(
-                    user = user,
-                    primaryColor = primaryColor,
-                    accentColor = accentColor,
-                    onClick = { onUserClick(user) }
-                )
+        // Contenido basado en el estado del API
+        when (getUsersState) {
+            is UserViewModel.GetUsersState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = primaryColor)
+                }
+            }
+            is UserViewModel.GetUsersState.Success -> {
+                val users = (getUsersState as UserViewModel.GetUsersState.Success).users
+                Log.d("UserListSection", "Usuarios cargados: ${users.size}")
+                users.forEach { user ->
+                    Log.d("UserListSection", "Usuario: ${user.username}, ID: ${user.id}")
+                }
+
+                if (users.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No se encontraron usuarios",
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    // Lista de usuarios
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(users) { user ->
+                            UserCard(
+                                user = user,
+                                primaryColor = primaryColor,
+                                accentColor = accentColor,
+                                onClick = {
+                                    Log.d("UserListSection", "Usuario clickeado: ${user.username}, ID: ${user.id}")
+                                    onUserClick(user)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            is UserViewModel.GetUsersState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Error: ${(getUsersState as UserViewModel.GetUsersState.Error).message}",
+                            color = Color.Red,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { userViewModel.getUsers() },
+                            colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+                        ) {
+                            Text("Reintentar")
+                        }
+                    }
+                }
+            }
+            is UserViewModel.GetUsersState.Initial -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Cargando usuarios...",
+                        color = Color.Gray
+                    )
+                }
             }
         }
     }
 }
 
-// Actualizar la clase UserCard para mostrar el estado de activación
 @Composable
 fun UserCard(
     user: UserProfile,
@@ -387,7 +511,7 @@ fun UserCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${user.first_name} ${user.last_name}",
+                        text = "${user.first_name ?: ""} ${user.last_name ?: ""}".trim(),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -410,10 +534,18 @@ fun UserCard(
                 }
 
                 Text(
-                    text = "@${user.username}",
+                    text = "@${user.username ?: ""}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
+
+                user.email?.let { email ->
+                    Text(
+                        text = email,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -444,6 +576,14 @@ fun UserCard(
                         }
                     )
                 }
+
+                // Mostrar ID para debug
+                Text(
+                    text = "ID: ${user.id ?: "No ID"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
 
             // Icono para ver detalles
