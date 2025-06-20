@@ -92,7 +92,7 @@ fun EtapaSelector(
         }
     }
 
-    val todasLasEtapas = listOf("Madera", "Producción", "Pulido", "Pintura", "Tapiceria", "Empaque")
+    val todasLasEtapas = listOf("Madera", "Producción", "Pintura", "Armado", "Tapiceria", "Empaque")
 
     val uiState by combine(
         //tiemposViewModel.getEtapasFinalizadas(Folio),

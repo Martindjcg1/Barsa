@@ -120,7 +120,7 @@ class PapeletaViewModel @Inject constructor(
                     if ("Madera" !in finalizadas) disponibles.add("Madera")
                     if ("Producción" !in finalizadas) disponibles.add("Producción")
                     if (disponibles.isEmpty()) {
-                        listOf("Pulido","Pintura", "Tapiceria", "Empaque")
+                        listOf("Pintura", "Armado", "Tapiceria", "Empaque")
                             .firstOrNull { it !in finalizadas }
                             ?.let { disponibles.add(it) }
                     }

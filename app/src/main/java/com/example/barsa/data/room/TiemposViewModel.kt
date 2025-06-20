@@ -82,7 +82,7 @@ class TiemposViewModel @Inject constructor(
                 if (!maderaFinalizada) etapasDisponibles.add("Madera")
                 if (!produccionFinalizada) etapasDisponibles.add("Producción")
                 if (etapasDisponibles.isEmpty()) {
-                    val flujoRestante = listOf("Pulido","Pintura", "Tapiceria", "Empaque")
+                    val flujoRestante = listOf("Pintura", "Armado", "Tapiceria", "Empaque")
                     flujoRestante.firstOrNull { it !in etapasFinalizadas }?.let { etapasDisponibles.add(it) }
                 }
 
