@@ -59,7 +59,7 @@ fun MainBody(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if(rol.equals("Administrador")) {
+            if (rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
                 when {
                     currentRoute == "inventario" -> {
                         InventoryScreen(onNavigate)

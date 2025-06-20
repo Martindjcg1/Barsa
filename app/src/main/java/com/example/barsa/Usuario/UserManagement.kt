@@ -43,12 +43,33 @@ fun AddUserSection(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    var selectedRole by remember { mutableStateOf("Inventarios") }
+
     var passwordVisible by remember { mutableStateOf(false) }
 
     val registerState by userViewModel.registerState.collectAsState()
 
-    val roles = listOf("Inventarios", "Producción", "Administrador")
+    // Observar la información del usuario actual para determinar su rol
+    val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
+
+    // Cargar información del usuario actual al iniciar
+    LaunchedEffect(Unit) {
+        userViewModel.obtenerInfoUsuarioPersonal()
+    }
+
+    // Determinar roles disponibles según el rol del usuario actual
+    val roles = remember(infoUsuarioResult) {
+        infoUsuarioResult?.getOrNull()?.rol?.let { currentUserRole ->
+            when (currentUserRole.lowercase()) {
+                "superadministrador" -> listOf("Inventarios", "Produccion", "Administrador", "SuperAdministrador")
+                "administrador" -> listOf("Inventarios", "Produccion", "Administrador")
+                else -> listOf("Inventarios", "Produccion") // Por defecto, roles básicos
+            }
+        } ?: listOf("Inventarios", "Produccion") // Si no hay información del usuario, roles básicos
+    }
+
+    var selectedRole by remember(roles) { mutableStateOf(roles.firstOrNull() ?: "Inventarios") }
+
+
     var showRoleDropdown by remember { mutableStateOf(false) }
 
     // Validaciones locales
@@ -306,10 +327,15 @@ fun UserListSection(
     var searchQuery by remember { mutableStateOf("") }
     val getUsersState by userViewModel.getUsersState.collectAsState()
 
+    // Observar información del usuario actual para filtrarlo de la lista
+    val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
+
     // Cargar usuarios al inicializar
     LaunchedEffect(Unit) {
         Log.d("UserListSection", "Cargando lista de usuarios")
         userViewModel.getUsers()
+        // También cargar información del usuario actual
+        userViewModel.obtenerInfoUsuarioPersonal()
     }
 
     Column(
@@ -376,8 +402,28 @@ fun UserListSection(
                 }
             }
             is UserViewModel.GetUsersState.Success -> {
-                val users = (getUsersState as UserViewModel.GetUsersState.Success).users
-                Log.d("UserListSection", "Usuarios cargados: ${users.size}")
+                val allUsers = (getUsersState as UserViewModel.GetUsersState.Success).users
+
+                // Filtrar al usuario actual y aplicar filtros de rol
+                val users = allUsers.filter { user ->
+                    val currentUserInfo = infoUsuarioResult?.getOrNull()
+                    val currentUserName = currentUserInfo?.nombreUsuario
+                    val currentUserRole = currentUserInfo?.rol
+
+                    // Filtrar al usuario actual
+                    val isNotCurrentUser = user.username != currentUserName
+
+                    // Si el usuario actual es Administrador, no mostrar SuperAdministradores
+                    val canViewUser = if (currentUserRole?.lowercase() == "administrador") {
+                        user.role?.lowercase() != "superadministrador"
+                    } else {
+                        true // SuperAdministrador puede ver todos los roles
+                    }
+
+                    isNotCurrentUser && canViewUser
+                }
+
+                Log.d("UserListSection", "Usuarios totales: ${allUsers.size}, Usuarios filtrados: ${users.size}, Rol actual: ${infoUsuarioResult?.getOrNull()?.rol}")
                 users.forEach { user ->
                     Log.d("UserListSection", "Usuario: ${user.username}, ID: ${user.id}")
                 }
@@ -455,6 +501,7 @@ fun UserListSection(
         }
     }
 }
+
 
 @Composable
 fun UserCard(

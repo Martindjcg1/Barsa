@@ -1,6 +1,7 @@
 package com.example.barsa.Usuario
 
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -34,6 +35,8 @@ fun UserDetailsSection(
     accentColor: Color
 ) {
     val getUserDetailState by userViewModel.getUserDetailState.collectAsState()
+    val updateUserState by userViewModel.updateUserState.collectAsState()
+    val toggleUserStatusState by userViewModel.toggleUserStatusState.collectAsState()
 
     var nombre by remember { mutableStateOf("") }
     var apellido by remember { mutableStateOf("") }
@@ -66,6 +69,48 @@ fun UserDetailsSection(
             email = user.email ?: ""
             selectedRole = user.rol
             isActive = user.estado
+        }
+    }
+
+    // Manejo del resultado de la actualización de usuario
+    LaunchedEffect(updateUserState) {
+        when (updateUserState) {
+            is UserViewModel.UpdateUserState.Success -> {
+                Log.d("UserDetailsSection", "Usuario actualizado exitosamente")
+                successMessage = "Usuario actualizado correctamente"
+                isEditing = false
+                // Limpiar campos de contraseña
+                password = ""
+                confirmPassword = ""
+
+                // Limpiar mensaje después de 3 segundos
+                kotlinx.coroutines.delay(3000)
+                successMessage = null
+            }
+            is UserViewModel.UpdateUserState.Error -> {
+                Log.e("UserDetailsSection", "Error en actualización: ${(updateUserState as UserViewModel.UpdateUserState.Error).message}")
+                successMessage = "Error: ${(updateUserState as UserViewModel.UpdateUserState.Error).message}"
+            }
+            else -> {}
+        }
+    }
+
+    // Manejo del resultado de activar/desactivar usuario
+    LaunchedEffect(toggleUserStatusState) {
+        when (toggleUserStatusState) {
+            is UserViewModel.ToggleUserStatusState.Success -> {
+                Log.d("UserDetailsSection", "Estado del usuario cambiado exitosamente")
+                successMessage = if (isActive) "Usuario desactivado correctamente" else "Usuario activado correctamente"
+
+                // Limpiar mensaje después de 3 segundos
+                kotlinx.coroutines.delay(3000)
+                successMessage = null
+            }
+            is UserViewModel.ToggleUserStatusState.Error -> {
+                Log.e("UserDetailsSection", "Error al cambiar estado: ${(toggleUserStatusState as UserViewModel.ToggleUserStatusState.Error).message}")
+                successMessage = "Error: ${(toggleUserStatusState as UserViewModel.ToggleUserStatusState.Error).message}"
+            }
+            else -> {}
         }
     }
 
@@ -413,25 +458,40 @@ fun UserDetailsSection(
                             if ((password.isNotEmpty() || confirmPassword.isNotEmpty()) && password != confirmPassword) {
                                 successMessage = "Error: Las contraseñas no coinciden"
                             } else {
-                                // TODO: Implementar llamada al API para actualizar usuario
-                                successMessage = "Cambios guardados correctamente"
-                                isEditing = false
-                                // Limpiar campos de contraseña
-                                password = ""
-                                confirmPassword = ""
+                                // Llamar al API para actualizar usuario
+                                userViewModel.updateUser(
+                                    userId = userId,
+                                    nombre = nombre.takeIf { it.isNotBlank() },
+                                    apellidos = apellido.takeIf { it.isNotBlank() },
+                                    nombreUsuario = usuario.takeIf { it.isNotBlank() },
+                                    email = email.takeIf { it.isNotBlank() },
+                                    password = password.takeIf { it.isNotBlank() },
+                                    rol = selectedRole,
+                                    estado = null // No cambiar el estado desde aquí
+                                )
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = primaryColor
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = updateUserState !is UserViewModel.UpdateUserState.Loading
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ThumbUp,
-                            contentDescription = "Guardar cambios"
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Guardar Cambios")
+                        if (updateUserState is UserViewModel.UpdateUserState.Loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Guardando...")
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.ThumbUp,
+                                contentDescription = "Guardar cambios"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Guardar Cambios")
+                        }
                     }
                 } else {
                     // Modo visualización
@@ -462,6 +522,13 @@ fun UserDetailsSection(
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            userViewModel.resetUpdateUserState()
+            userViewModel.resetToggleUserStatusState()
+        }
+    }
+
     // Diálogo de confirmación para activar/desactivar usuario
     if (showActivationDialog) {
         AlertDialog(
@@ -478,18 +545,22 @@ fun UserDetailsSection(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Implementar llamada al API para activar/desactivar usuario
-                        isActive = !isActive
-                        successMessage = if (isActive)
-                            "Usuario activado correctamente"
-                        else
-                            "Usuario desactivado correctamente"
+                        // Llamar al API específico para cambiar el estado del usuario
+                        userViewModel.toggleUserStatus(userId)
                         showActivationDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isActive) Color.Red else Color.Green
-                    )
+                    ),
+                    enabled = toggleUserStatusState !is UserViewModel.ToggleUserStatusState.Loading
                 ) {
+                    if (toggleUserStatusState is UserViewModel.ToggleUserStatusState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(if (isActive) "Desactivar" else "Activar")
                 }
             },

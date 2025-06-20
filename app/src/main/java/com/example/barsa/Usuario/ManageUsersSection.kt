@@ -38,12 +38,56 @@ fun ManageUsersSection(
     var showActiveOnly by remember { mutableStateOf(false) }
     var showInactiveOnly by remember { mutableStateOf(false) }
 
+    // Estados para manejar la carga de usuarios
     val getUsersState by userViewModel.getUsersState.collectAsState()
+
+    // NUEVO: Observar el estado de toggleUserStatus
+    val toggleUserStatusState by userViewModel.toggleUserStatusState.collectAsState()
+
+    // Observar información del usuario actual para filtrado
+    val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
 
     // Cargar usuarios al inicializar
     LaunchedEffect(Unit) {
         Log.d("ManageUsersSection", "Initializing - calling getUsers")
         userViewModel.getUsers()
+        // También cargar información del usuario actual
+        userViewModel.obtenerInfoUsuarioPersonal()
+    }
+
+    // NUEVO: Manejo del resultado de activar/desactivar usuario
+    LaunchedEffect(toggleUserStatusState) {
+        when (toggleUserStatusState) {
+            is UserViewModel.ToggleUserStatusState.Success -> {
+                Log.d("ManageUsersSection", "Estado del usuario cambiado exitosamente")
+                val wasActivating = selectedUser?.active == false
+                successMessage = if (wasActivating)
+                    "Usuario activado correctamente"
+                else
+                    "Usuario desactivado correctamente"
+
+                // MEJORADO: Recargar la lista de usuarios de forma más directa
+                kotlinx.coroutines.delay(500) // Pequeño delay para que el servidor procese
+                userViewModel.getUsers() // Recargar todos los usuarios
+
+                // Cerrar el diálogo
+                showActionDialog = false
+                selectedUser = null
+
+                // Limpiar mensaje después de 3 segundos
+                kotlinx.coroutines.delay(2500) // Total 3 segundos
+                successMessage = null
+            }
+            is UserViewModel.ToggleUserStatusState.Error -> {
+                Log.e("ManageUsersSection", "Error al cambiar estado: ${(toggleUserStatusState as UserViewModel.ToggleUserStatusState.Error).message}")
+                successMessage = "Error: ${(toggleUserStatusState as UserViewModel.ToggleUserStatusState.Error).message}"
+
+                // Cerrar el diálogo en caso de error
+                showActionDialog = false
+                selectedUser = null
+            }
+            else -> {}
+        }
     }
 
     // Función para aplicar filtros
@@ -182,7 +226,10 @@ fun ManageUsersSection(
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.Green.copy(alpha = 0.1f)
+                    containerColor = if (it.contains("Error"))
+                        Color.Red.copy(alpha = 0.1f)
+                    else
+                        Color.Green.copy(alpha = 0.1f)
                 )
             ) {
                 Row(
@@ -192,14 +239,17 @@ fun ManageUsersSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CheckCircle,
+                        imageVector = if (it.contains("Error"))
+                            Icons.Default.Delete
+                        else
+                            Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color.Green
+                        tint = if (it.contains("Error")) Color.Red else Color.Green
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = it,
-                        color = Color.Green
+                        color = if (it.contains("Error")) Color.Red else Color.Green
                     )
                 }
             }
@@ -219,7 +269,32 @@ fun ManageUsersSection(
                 }
             }
             is UserViewModel.GetUsersState.Success -> {
-                val users = (getUsersState as UserViewModel.GetUsersState.Success).users
+                val allUsers = (getUsersState as UserViewModel.GetUsersState.Success).users
+
+                // Filtrar al usuario actual y aplicar filtros de rol
+                val users = allUsers.filter { user ->
+                    val currentUserInfo = infoUsuarioResult?.getOrNull()
+                    val currentUserName = currentUserInfo?.nombreUsuario
+                    val currentUserRole = currentUserInfo?.rol
+
+                    // Filtrar al usuario actual
+                    val isNotCurrentUser = user.username != currentUserName
+
+                    // Si el usuario actual es Administrador, no mostrar SuperAdministradores
+                    val canViewUser = if (currentUserRole?.lowercase() == "administrador") {
+                        user.role?.lowercase() != "superadministrador"
+                    } else {
+                        true // SuperAdministrador puede ver todos los roles
+                    }
+
+                    isNotCurrentUser && canViewUser
+                }
+
+                Log.d("ManageUsersSection", "Usuarios totales: ${allUsers.size}, Usuarios filtrados: ${users.size}, Rol actual: ${infoUsuarioResult?.getOrNull()?.rol}")
+                users.forEach { user ->
+                    Log.d("ManageUsersSection", "Usuario: ${user.username}, ID: ${user.id}")
+                }
+
                 if (users.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -293,6 +368,13 @@ fun ManageUsersSection(
         }
     }
 
+    // NUEVO: Limpiar estado al salir
+    DisposableEffect(Unit) {
+        onDispose {
+            userViewModel.resetToggleUserStatusState()
+        }
+    }
+
     // Diálogo de confirmación para activar/desactivar usuario
     if (showActionDialog && selectedUser != null) {
         val isActivating = !selectedUser!!.active
@@ -313,23 +395,29 @@ fun ManageUsersSection(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Implementar llamada al API para activar/desactivar usuario
-                        // Por ahora solo mostramos mensaje de éxito
-                        successMessage = if (isActivating)
-                            "Usuario activado correctamente"
-                        else
-                            "Usuario desactivado correctamente"
-
-                        // Recargar la lista de usuarios
-                        applyFilters()
-
-                        showActionDialog = false
-                        selectedUser = null
+                        // IMPLEMENTADO: Llamada real al API para activar/desactivar usuario
+                        selectedUser?.id?.let { userId ->
+                            Log.d("ManageUsersSection", "Llamando toggleUserStatus para usuario ID: $userId")
+                            userViewModel.toggleUserStatus(userId)
+                        } ?: run {
+                            Log.e("ManageUsersSection", "Error: Usuario seleccionado no tiene ID")
+                            successMessage = "Error: No se pudo obtener el ID del usuario"
+                            showActionDialog = false
+                            selectedUser = null
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isActivating) primaryColor else Color.Red
-                    )
+                    ),
+                    enabled = toggleUserStatusState !is UserViewModel.ToggleUserStatusState.Loading
                 ) {
+                    if (toggleUserStatusState is UserViewModel.ToggleUserStatusState.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(if (isActivating) "Activar" else "Desactivar")
                 }
             },

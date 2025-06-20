@@ -100,3 +100,45 @@ data class UsuarioInfoResponse(
     val rol: String,
     val estado: Boolean
 )
+
+
+data class UpdatePersonalInfoRequest(
+    val nombreUsuario: String,
+    val email: String?
+)
+
+// Hacemos la respuesta más flexible para manejar diferentes formatos del servidor
+data class UpdatePersonalInfoResponse(
+    val message: String? = null,
+    val success: Boolean? = null,
+    val status: String? = null,
+    val data: Any? = null
+)
+
+// Modelo para la request de actualización de usuario
+data class UpdateUserRequest(
+    val nombre: String?,
+    val apellidos: String?,
+    val nombreUsuario: String?,
+    val email: String?,
+    val password: String?,
+    val rol: String?,
+    val estado: String? // "true" o "false"
+)
+
+// Modelo para la respuesta de actualización de usuario
+data class UpdateUserResponse(
+    val message: String? = null,
+    val success: Boolean? = null,
+    val status: String? = null,
+    val data: Any? = null
+)
+
+// Modelo para la respuesta de activar/desactivar usuario
+data class ToggleUserStatusResponse(
+    val message: String? = null,
+    val success: Boolean? = null,
+    val status: String? = null,
+    val data: Any? = null
+)
+

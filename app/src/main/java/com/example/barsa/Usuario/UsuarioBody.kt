@@ -55,6 +55,9 @@ fun UsuarioBody(
     // Observar el estado del logout
     val logoutState by userViewModel.logoutState.collectAsState()
 
+    // NUEVO: Observar la información del usuario
+    val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
+
     // Simular que el usuario actual es administrador
     val isAdmin = true
 
@@ -63,6 +66,11 @@ fun UsuarioBody(
     val lightBrown = Color(0xFFDEB887)   // Marrón claro
     val accentBrown = Color(0xFF654321)  // Marrón medio
     val goldAccent = Color(0xFFD4AF37)   // Dorado para acentos
+
+    // NUEVO: Obtener información del usuario al cargar
+    LaunchedEffect(Unit) {
+        userViewModel.obtenerInfoUsuarioPersonal()
+    }
 
     // Efecto para manejar el logout exitoso
     LaunchedEffect(logoutState) {
@@ -139,7 +147,8 @@ fun UsuarioBody(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        // Texto con fondo semitransparente para mejor visibilidad
+
+                        // SECCIÓN MODIFICADA: Mostrar información real del usuario
                         Box(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
@@ -147,37 +156,77 @@ fun UsuarioBody(
                                 .background(Color.Black.copy(alpha = 0.5f))
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Martin Castañeda",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "martindjcg@gmail.com",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White
-                                )
-                                if (isAdmin) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = null,
-                                            tint = goldAccent,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                            // Manejar los diferentes estados de la información del usuario
+                            infoUsuarioResult?.let { result ->
+                                result.onSuccess { userInfo ->
+                                    // Mostrar información real del usuario
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
-                                            text = "Administrador",
-                                            color = goldAccent,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp
+                                            text = "${userInfo.nombre ?: ""} ${userInfo.apellidos ?: ""}".trim().ifEmpty { "Usuario" },
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = userInfo.email ?: "Sin email",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White
+                                        )
+
+                                        // Mostrar rol del usuario
+                                        userInfo.rol?.let { rol ->
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (rol.lowercase().contains("admin"))
+                                                        Icons.Default.Star else Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    tint = goldAccent,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = rol,
+                                                    color = goldAccent,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 14.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                result.onFailure { error ->
+                                    // Mostrar información de error
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "Error al cargar información",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Toca para reintentar",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.8f)
                                         )
                                     }
+                                }
+                            } ?: run {
+                                // Estado de carga
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Cargando información...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.White
+                                    )
                                 }
                             }
                         }
@@ -269,8 +318,8 @@ fun UsuarioBody(
                 // Contenido de la sección
                 Box(modifier = Modifier.fillMaxSize()) {
                     when (showSection) {
-                        "Información Personal" -> PersonalInfoSection(primaryBrown, lightBrown)
-                        "Cambiar Datos" -> EditProfileSection(primaryBrown, lightBrown)
+                        "Información Personal" -> PersonalInfoSection(userViewModel,primaryBrown, lightBrown)
+                        "Cambiar Datos" -> EditProfileSection(userViewModel,primaryBrown, lightBrown)
                         "Cambiar contraseña" -> ChangePasswordSection(userViewModel, primaryBrown, lightBrown)
                         "Agregar Usuario" -> AddUserSection(userViewModel, accentBrown, goldAccent)
                         "Lista de Usuarios" -> UserListSection(

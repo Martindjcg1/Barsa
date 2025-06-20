@@ -36,7 +36,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
     val navController = rememberNavController()
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     var currentRoute by remember { mutableStateOf("") }
-    if (rol.equals("Administrador") || rol.equals("Inventarios"))
+    if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador"))
     {
         currentRoute = "inventario"
     }

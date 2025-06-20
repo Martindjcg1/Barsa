@@ -18,6 +18,11 @@ import com.example.barsa.data.retrofit.models.RegisterResponse
 import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.ReiniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
+import com.example.barsa.data.retrofit.models.ToggleUserStatusResponse
+import com.example.barsa.data.retrofit.models.UpdatePersonalInfoRequest
+import com.example.barsa.data.retrofit.models.UpdatePersonalInfoResponse
+import com.example.barsa.data.retrofit.models.UpdateUserRequest
+import com.example.barsa.data.retrofit.models.UpdateUserResponse
 import com.example.barsa.data.retrofit.models.UserDetailResponse
 import com.example.barsa.data.retrofit.models.UserProfile
 import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
@@ -27,6 +32,7 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -42,7 +48,6 @@ interface UserApiService {
         @Body registerData: RegisterRequest
     ): RegisterResponse
 
-
     @POST("user-authentication/logout")
     suspend fun logout(@Header("Authorization") token: String): LogoutResponse
 
@@ -55,7 +60,13 @@ interface UserApiService {
         @Body changePasswordData: ChangePasswordRequest
     ): ChangePasswordResponse
 
-    // ACTUALIZADO: Ahora devuelve directamente una lista de UserProfile
+    // CORREGIDO: Cambiado de @PUT a @PATCH
+    @PATCH("user-authentication/update-info-usuario-personal")
+    suspend fun updatePersonalInfo(
+        @Header("Authorization") token: String,
+        @Body updateData: UpdatePersonalInfoRequest
+    ): UpdatePersonalInfoResponse
+
     @GET("user-authentication/listado-usuarios")
     suspend fun getUsers(
         @Header("Authorization") token: String,
@@ -66,7 +77,6 @@ interface UserApiService {
         @Query("estado") estado: String? = null
     ): List<UserProfile>
 
-    // NUEVO ENDPOINT PARA OBTENER INFORMACIÓN DETALLADA DE USUARIO
     @GET("user-authentication/obtener-info-usuario/{id}")
     suspend fun getUserDetail(
         @Header("Authorization") token: String,
@@ -77,6 +87,19 @@ interface UserApiService {
     suspend fun obtenerInfoUsuarioPersonal(
         @Header("Authorization") token: String
     ): Response<UsuarioInfoResponse>
+
+    @PATCH("user-authentication/{id}")
+    suspend fun updateUser(
+        @Header("Authorization") token: String,
+        @Path("id") userId: String,
+        @Body updateData: UpdateUserRequest
+    ): UpdateUserResponse
+
+    @PUT("user-authentication/desactivar-usuario/{id}")
+    suspend fun toggleUserStatus(
+        @Header("Authorization") token: String,
+        @Path("id") userId: String
+    ): ToggleUserStatusResponse
 }
 
 interface PapeletaApiService {

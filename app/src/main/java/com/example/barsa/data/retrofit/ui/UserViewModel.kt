@@ -11,6 +11,10 @@ import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
 import com.example.barsa.data.retrofit.models.LogoutResponse
 import com.example.barsa.data.retrofit.models.RefreshResponse
 import com.example.barsa.data.retrofit.models.RegisterResponse
+import com.example.barsa.data.retrofit.models.ToggleUserStatusResponse
+import com.example.barsa.data.retrofit.models.UpdatePersonalInfoResponse
+import com.example.barsa.data.retrofit.models.UpdateUserRequest
+import com.example.barsa.data.retrofit.models.UpdateUserResponse
 import com.example.barsa.data.retrofit.models.UserDetailResponse
 import com.example.barsa.data.retrofit.models.UserProfile
 import com.example.barsa.data.retrofit.repository.UserRepository
@@ -20,6 +24,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -64,12 +69,35 @@ class UserViewModel @Inject constructor(
         object Initial : GetUsersState()
     }
 
-    // NUEVO ESTADO PARA INFORMACIÓN DETALLADA DE USUARIO
     sealed class GetUserDetailState {
         object Loading : GetUserDetailState()
         data class Success(val user: UserDetailResponse) : GetUserDetailState()
         data class Error(val message: String) : GetUserDetailState()
         object Initial : GetUserDetailState()
+    }
+
+    // NUEVO: Estado para actualizar información personal
+    sealed class UpdatePersonalInfoState {
+        object Idle : UpdatePersonalInfoState()
+        object Loading : UpdatePersonalInfoState()
+        data class Success(val response: UpdatePersonalInfoResponse) : UpdatePersonalInfoState()
+        data class Error(val message: String) : UpdatePersonalInfoState()
+    }
+
+    // Estado para actualizar usuario
+    sealed class UpdateUserState {
+        object Idle : UpdateUserState()
+        object Loading : UpdateUserState()
+        data class Success(val response: UpdateUserResponse) : UpdateUserState()
+        data class Error(val message: String) : UpdateUserState()
+    }
+
+    // Estado para activar/desactivar usuario
+    sealed class ToggleUserStatusState {
+        object Idle : ToggleUserStatusState()
+        object Loading : ToggleUserStatusState()
+        data class Success(val response: ToggleUserStatusResponse) : ToggleUserStatusState()
+        data class Error(val message: String) : ToggleUserStatusState()
     }
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Initial)
@@ -93,6 +121,21 @@ class UserViewModel @Inject constructor(
     private val _getUserDetailState = MutableStateFlow<GetUserDetailState>(GetUserDetailState.Initial)
     val getUserDetailState: StateFlow<GetUserDetailState> = _getUserDetailState
 
+    private val _infoUsuarioResult = MutableStateFlow<Result<UsuarioInfoResponse>?>(null)
+    val infoUsuarioResult: StateFlow<Result<UsuarioInfoResponse>?> = _infoUsuarioResult
+
+    // NUEVO: StateFlow para actualizar información personal
+    private val _updatePersonalInfoState = MutableStateFlow<UpdatePersonalInfoState>(UpdatePersonalInfoState.Idle)
+    val updatePersonalInfoState: StateFlow<UpdatePersonalInfoState> = _updatePersonalInfoState
+
+    // StateFlow para actualizar usuario
+    private val _updateUserState = MutableStateFlow<UpdateUserState>(UpdateUserState.Idle)
+    val updateUserState: StateFlow<UpdateUserState> = _updateUserState
+
+    // StateFlow para activar/desactivar usuario
+    private val _toggleUserStatusState = MutableStateFlow<ToggleUserStatusState>(ToggleUserStatusState.Idle)
+    val toggleUserStatusState: StateFlow<ToggleUserStatusState> = _toggleUserStatusState
+
     fun login(nombreUsuario: String, password: String) {
         viewModelScope.launch {
             _loginState.value = LoginState.Loading
@@ -110,9 +153,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    private val _infoUsuarioResult = MutableStateFlow<Result<UsuarioInfoResponse>?>(null)
-    val infoUsuarioResult: StateFlow<Result<UsuarioInfoResponse>?> = _infoUsuarioResult
-
     fun resetInfoUsuarioResult() {
         _infoUsuarioResult.value = null
     }
@@ -124,13 +164,122 @@ class UserViewModel @Inject constructor(
 
             result.onSuccess { response ->
                 tokenManager.saveUsuarioInfo(response.nombre, response.nombreUsuario, response.rol)
-               // Log.d("","${response.nombre}, ${response.nombreUsuario}, ${response.rol}")
+                // Log.d("","${response.nombre}, ${response.nombreUsuario}, ${response.rol}")
             }
 
             result.onFailure { error ->
                 Log.d("obtenerInfoUsuarioVM Error", error.message ?: "Error al obtener info del usuario")
             }
         }
+    }
+
+    // FUNCIÓN SIMPLIFICADA Y MÁS ROBUSTA: Solo actualizar nombreUsuario y email
+    fun updatePersonalInfo(nombreUsuario: String, email: String?) {
+        viewModelScope.launch {
+            Log.d("UserViewModel", "Iniciando updatePersonalInfo")
+            _updatePersonalInfoState.value = UpdatePersonalInfoState.Loading
+            try {
+                val result = userRepository.updatePersonalInfo(nombreUsuario, email)
+                result.onSuccess { response ->
+                    Log.d("UserViewModel", "UpdatePersonalInfo exitoso")
+                    _updatePersonalInfoState.value = UpdatePersonalInfoState.Success(response)
+
+                    // NO llamar a obtenerInfoUsuarioPersonal() inmediatamente para evitar conflictos
+                    // Se puede llamar después si es necesario
+
+                }.onFailure { error ->
+                    Log.e("UserViewModel", "UpdatePersonalInfo falló: ${error.message}")
+                    _updatePersonalInfoState.value = UpdatePersonalInfoState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Exception en updatePersonalInfo ViewModel", e)
+                _updatePersonalInfoState.value = UpdatePersonalInfoState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // Función para actualizar usuario
+    fun updateUser(
+        userId: String,
+        nombre: String?,
+        apellidos: String?,
+        nombreUsuario: String?,
+        email: String?,
+        password: String?,
+        rol: String?,
+        estado: String?
+    ) {
+        viewModelScope.launch {
+            Log.d("UserViewModel", "Iniciando updateUser para ID: $userId")
+            _updateUserState.value = UpdateUserState.Loading
+            try {
+                val updateData = UpdateUserRequest(
+                    nombre = nombre?.takeIf { it.isNotBlank() },
+                    apellidos = apellidos?.takeIf { it.isNotBlank() },
+                    nombreUsuario = nombreUsuario?.takeIf { it.isNotBlank() },
+                    email = email?.takeIf { it.isNotBlank() },
+                    password = password?.takeIf { it.isNotBlank() },
+                    rol = rol?.takeIf { it.isNotBlank() },
+                    estado = estado
+                )
+
+                val result = userRepository.updateUserById(userId, updateData)
+                result.onSuccess { response ->
+                    Log.d("UserViewModel", "UpdateUser exitoso")
+                    _updateUserState.value = UpdateUserState.Success(response)
+
+                    // Recargar la información del usuario después de actualizar
+                    getUserDetail(userId)
+
+                }.onFailure { error ->
+                    Log.e("UserViewModel", "UpdateUser falló: ${error.message}")
+                    _updateUserState.value = UpdateUserState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Exception en updateUser ViewModel", e)
+                _updateUserState.value = UpdateUserState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // Función para activar/desactivar usuario
+    fun toggleUserStatus(userId: String) {
+        viewModelScope.launch {
+            Log.d("UserViewModel", "Iniciando toggleUserStatus para ID: $userId")
+            _toggleUserStatusState.value = ToggleUserStatusState.Loading
+            try {
+                val result = userRepository.toggleUserStatus(userId)
+                result.onSuccess { response ->
+                    Log.d("UserViewModel", "ToggleUserStatus exitoso")
+                    _toggleUserStatusState.value = ToggleUserStatusState.Success(response)
+
+                    // Recargar la información del usuario después de cambiar el estado
+                    getUserDetail(userId)
+
+                }.onFailure { error ->
+                    Log.e("UserViewModel", "ToggleUserStatus falló: ${error.message}")
+                    _toggleUserStatusState.value = ToggleUserStatusState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Exception en toggleUserStatus ViewModel", e)
+                _toggleUserStatusState.value = ToggleUserStatusState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // NUEVO: Función para resetear el estado de actualización
+    fun resetUpdatePersonalInfoState() {
+        _updatePersonalInfoState.value = UpdatePersonalInfoState.Idle
+    }
+
+    // Función para resetear el estado de actualización de usuario
+    fun resetUpdateUserState() {
+        _updateUserState.value = UpdateUserState.Idle
+    }
+
+    // Función para resetear el estado de activar/desactivar usuario
+    fun resetToggleUserStatusState() {
+        _toggleUserStatusState.value = ToggleUserStatusState.Idle
     }
 
     fun register(
@@ -233,7 +382,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    // NUEVO MÉTODO PARA OBTENER INFORMACIÓN DETALLADA DE USUARIO
     fun getUserDetail(userId: String) {
         viewModelScope.launch {
             Log.d("UserViewModel", "Starting getUserDetail request for ID: $userId")
@@ -277,5 +425,9 @@ class UserViewModel @Inject constructor(
         _changePasswordState.value = null
         _getUsersState.value = GetUsersState.Initial
         _getUserDetailState.value = GetUserDetailState.Initial
+        // NUEVO: Resetear también el estado de actualización personal
+        _updatePersonalInfoState.value = UpdatePersonalInfoState.Idle
+        _updateUserState.value = UpdateUserState.Idle
+        _toggleUserStatusState.value = ToggleUserStatusState.Idle
     }
 }

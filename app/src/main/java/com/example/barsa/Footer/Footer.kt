@@ -22,7 +22,7 @@ fun Footer(
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     Log.d("MainBody", "$rol")
     NavigationBar {
-        if (rol.equals("Administrador")) {
+        if (rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
             NavigationBarItem(
                 icon = { Icon(Icons.Default.List, contentDescription = "Inventario") },
                 label = { Text("Inventario") },
