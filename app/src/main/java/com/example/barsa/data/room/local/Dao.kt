@@ -6,11 +6,13 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
+/*
 @Dao
 interface ProcesoDao {
     @Upsert
     suspend fun upsert(proceso: Proceso)
 }
+ */
 
 @Dao
 interface TiempoDao {
@@ -40,7 +42,7 @@ interface TiempoDao {
     suspend fun updateIsRunning(id: Int, isRunning: Boolean)
 
     // Actualizar la duración total del tiempo en segundos
-    @Query("UPDATE tiempos SET tiempo = :nuevoTiempo WHERE id = :id AND etapa = :etapa AND isFinished = false")
+    @Query("UPDATE tiempos SET tiempo = :nuevoTiempo WHERE id = :id AND etapa = :etapa AND isFinished = 0")
     suspend fun updateTiempo(id: Int, etapa: String, nuevoTiempo: Int)
 
     // Actualizar fechaFin de un tiempo específico

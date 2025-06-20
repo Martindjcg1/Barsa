@@ -17,13 +17,13 @@
 package com.example.barsa.data.room.repository
 
 import com.example.barsa.data.room.local.Detencion
-import com.example.barsa.data.room.local.Proceso
+//import com.example.barsa.data.room.local.Proceso
 import com.example.barsa.data.room.local.Tiempo
 import kotlinx.coroutines.flow.Flow
 
 interface TiemposRepository {
     // Métodos para procesos
-    suspend fun upsertProceso(proceso: Proceso)
+    //suspend fun upsertProceso(proceso: Proceso)
 
     // Métodos para tiempos
     suspend fun upsertTiempo(tiempo: Tiempo)

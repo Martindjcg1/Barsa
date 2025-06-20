@@ -169,7 +169,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
 
             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                 navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel, papeletaViewModel)
+            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel, papeletaViewModel, userViewModel)
         }
     }
 }

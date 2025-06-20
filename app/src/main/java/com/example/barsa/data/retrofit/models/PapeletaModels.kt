@@ -40,7 +40,8 @@ data class TiempoRemoto(
     val fechaInicio: String?,
     val fechaFin: String?,
     val isRunning: Boolean,
-    val isFinished: Boolean
+    val isFinished: Boolean,
+    val usuario: String
 )
 
 data class DetencionRemota(

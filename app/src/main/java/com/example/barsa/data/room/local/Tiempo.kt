@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+/*
 @Entity(tableName = "procesos")
 data class Proceso(
     @PrimaryKey
@@ -22,6 +23,11 @@ data class Proceso(
         childColumns = ["procesoFolio"],
         onDelete = ForeignKey.CASCADE
     )],
+    indices = [Index("procesoFolio"), Index(value = ["procesoFolio", "etapa"], unique = true)]
+)
+*/
+@Entity(
+    tableName = "tiempos",
     indices = [Index("procesoFolio"), Index(value = ["procesoFolio", "etapa"], unique = true)]
 )
 data class Tiempo(

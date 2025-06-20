@@ -126,9 +126,15 @@ fun ProduccionesScreen(
 
     val papeletaState by papeletaViewModel.papeletaState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        papeletaViewModel.getListadoPapeletas(page = papeletaViewModel.currentPage) // Usa la página guardada
-    }
+    val currentPage by papeletaViewModel.currentPage.collectAsState()
+
+    /*LaunchedEffect(currentPage) {
+
+        if (papeletaState !is PapeletaViewModel.PapeletaState.Success) {
+            papeletaViewModel.getListadoPapeletas(page = currentPage)
+        }
+    }*/
+
 
     LaunchedEffect(papeletaState) {
         (papeletaState as? PapeletaViewModel.PapeletaState.Error)?.let {
@@ -141,7 +147,7 @@ fun ProduccionesScreen(
         bottomBar = {
             if (papeletaState is PapeletaViewModel.PapeletaState.Success) {
                 val successState = papeletaState as PapeletaViewModel.PapeletaState.Success
-                val currentPage = successState.currentPage
+                //val currentPage = successState.currentPage
                 val totalPages = successState.totalPages
 
                 Row(

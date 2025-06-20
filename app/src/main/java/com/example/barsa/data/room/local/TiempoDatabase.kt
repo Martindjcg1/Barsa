@@ -9,13 +9,15 @@ import androidx.room.RoomDatabase
  * Database class with a singleton Instance object.
  */
 @Database(
-    entities = [Proceso::class, Tiempo::class, Detencion::class],
-    version = 6,
+    entities = [
+        //Proceso::class,
+        Tiempo::class, Detencion::class],
+    version = 8,
     exportSchema = false
 )
 abstract class TiempoDatabase : RoomDatabase() {
 
-    abstract fun procesoDao(): ProcesoDao
+    //abstract fun procesoDao(): ProcesoDao
     abstract fun tiempoDao(): TiempoDao
     abstract fun detencionDao(): DetencionDao
 

@@ -18,21 +18,21 @@ package com.example.barsa.data.room.repository
 
 import com.example.barsa.data.room.local.Detencion
 import com.example.barsa.data.room.local.DetencionDao
-import com.example.barsa.data.room.local.Proceso
-import com.example.barsa.data.room.local.ProcesoDao
+//import com.example.barsa.data.room.local.Proceso
+//import com.example.barsa.data.room.local.ProcesoDao
 import com.example.barsa.data.room.local.Tiempo
 import com.example.barsa.data.room.local.TiempoDao
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class OfflineTiemposRepository @Inject constructor(
-    private val procesoDao: ProcesoDao,
+    //private val procesoDao: ProcesoDao,
     private val tiempoDao: TiempoDao,
     private val detencionDao: DetencionDao
 ) : TiemposRepository {
 
     // Métodos para procesos
-    override suspend fun upsertProceso(proceso: Proceso) = procesoDao.upsert(proceso)
+   // override suspend fun upsertProceso(proceso: Proceso) = procesoDao.upsert(proceso)
 
     // Métodos para tiempos
     override suspend fun upsertTiempo(tiempo: Tiempo) = tiempoDao.upsert(tiempo)

@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.barsa.data.room.local.Detencion
-import com.example.barsa.data.room.local.Proceso
+//import com.example.barsa.data.room.local.Proceso
 import com.example.barsa.data.room.local.Tiempo
 import com.example.barsa.data.room.repository.TiemposRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -82,7 +82,7 @@ class TiemposViewModel @Inject constructor(
                 if (!maderaFinalizada) etapasDisponibles.add("Madera")
                 if (!produccionFinalizada) etapasDisponibles.add("Producción")
                 if (etapasDisponibles.isEmpty()) {
-                    val flujoRestante = listOf("Pintura", "Tapiceria", "Empaque")
+                    val flujoRestante = listOf("Pulido","Pintura", "Tapiceria", "Empaque")
                     flujoRestante.firstOrNull { it !in etapasFinalizadas }?.let { etapasDisponibles.add(it) }
                 }
 
@@ -154,7 +154,7 @@ class TiemposViewModel @Inject constructor(
         }
     }
 
-    fun upsertProceso(proceso: Proceso) {
+    /*fun upsertProceso(proceso: Proceso) {
         //Log.d("upsertProceso", "Insertando proceso: $proceso")
         viewModelScope.launch {
             try {
@@ -164,7 +164,7 @@ class TiemposViewModel @Inject constructor(
                 Log.e("upsertProceso", "Error al insertar proceso", e)
             }
         }
-    }
+    }*/
 
     fun upsertTiempo(tiempo: Tiempo) {
         //Log.d("upsertTiempo", "Insertando tiempo: $tiempo")

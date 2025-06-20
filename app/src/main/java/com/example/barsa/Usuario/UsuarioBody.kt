@@ -51,6 +51,7 @@ fun UsuarioBody(
     var selectedUserId by remember { mutableStateOf<String?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    var isAdmin:Boolean = false
 
     // Observar el estado del logout
     val logoutState by userViewModel.logoutState.collectAsState()
@@ -59,7 +60,10 @@ fun UsuarioBody(
     val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
 
     // Simular que el usuario actual es administrador
-    val isAdmin = true
+    val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
+    if(rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
+        isAdmin = true
+    }
 
     // Definir colores de la mueblería
     val primaryBrown = Color(0xFF8B4513) // Marrón oscuro

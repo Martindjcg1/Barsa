@@ -10,9 +10,13 @@ import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.repository.PapeletaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import javax.inject.Inject
 
@@ -34,13 +38,15 @@ class PapeletaViewModel @Inject constructor(
         _papeletaState.value = PapeletaState.Loading
     }
 
-    var currentPage = 1
-        private set
     private var totalPages = 1
 
-    fun getListadoPapeletas(page: Int = currentPage, folio: String? = null) {
-        currentPage = page
+    private val _currentPage = MutableStateFlow(1)
+    val currentPage: StateFlow<Int> = _currentPage
+
+    fun getListadoPapeletas(page: Int = _currentPage.value, folio: String? = null) {
+        _currentPage.value = page
         viewModelScope.launch {
+            Log.d("PapeletaViewModel","Llamada a la API")
             _papeletaState.value = PapeletaState.Loading
             try {
                 val result = if (folio != null) {
@@ -51,7 +57,7 @@ class PapeletaViewModel @Inject constructor(
 
                 result.onSuccess { response ->
                     totalPages = response.totalPages
-                    _papeletaState.value = PapeletaState.Success(response.data, totalPages, currentPage)
+                    _papeletaState.value = PapeletaState.Success(response.data, totalPages, _currentPage.value)
                 }.onFailure { error ->
                     _papeletaState.value = PapeletaState.Error(error.message ?: "Error desconocido")
                 }
@@ -61,18 +67,23 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
-
     fun nextPage() {
-        if (currentPage < totalPages) getListadoPapeletas(currentPage + 1)
+        if (_currentPage.value < totalPages){
+            getListadoPapeletas(_currentPage.value + 1)
+            Log.d("NextPage", "NP")
+        }
+
     }
 
     fun previousPage() {
-        if (currentPage > 1) getListadoPapeletas(currentPage - 1)
+        if (_currentPage.value > 1) {
+            getListadoPapeletas(_currentPage.value - 1)
+            Log.d("previousPage", "PP")}
     }
 
     sealed class EtapasState {
         object Loading : EtapasState()
-        //data class Success(val finalizadas: Set<String>, val disponibles: List<String>) : EtapasState()
+        data class Success(val message: String) : EtapasState()
         data class Error(val message: String) : EtapasState()
     }
 
@@ -82,6 +93,11 @@ class PapeletaViewModel @Inject constructor(
     fun resetEtapasState() {
         _etapasState.value = EtapasState.Loading
     }
+
+    //private val _objetoTiempo = MutableStateFlow<TiempoRemoto?>(null)
+    //val objetoTiempo : Flow<TiempoRemoto?> = _objetoTiempo
+    private val _tiemposEnEjecucion = MutableStateFlow<List<TiempoRemoto>>(emptyList())
+    val tiemposEnEjecucion: Flow<List<TiempoRemoto>> = _tiemposEnEjecucion.asStateFlow()
 
     private val _etapasFinalizadas = MutableStateFlow<Set<String>>(emptySet())
     val etapasFinalizadas: StateFlow<Set<String>> = _etapasFinalizadas
@@ -104,11 +120,13 @@ class PapeletaViewModel @Inject constructor(
                     if ("Madera" !in finalizadas) disponibles.add("Madera")
                     if ("Producción" !in finalizadas) disponibles.add("Producción")
                     if (disponibles.isEmpty()) {
-                        listOf("Pintura", "Tapiceria", "Empaque")
+                        listOf("Pulido","Pintura", "Tapiceria", "Empaque")
                             .firstOrNull { it !in finalizadas }
                             ?.let { disponibles.add(it) }
                     }
                     _etapasDisponibles.value = disponibles
+                    _tiemposEnEjecucion.value = tiempos.filter { it.isRunning }
+                    _etapasState.value = EtapasState.Success("1")
                 }.onFailure { error ->
                     Log.e("cargarInfoEtapasPorFolio", "Error al obtener tiempos")
                     _etapasFinalizadas.value = emptySet()
@@ -128,12 +146,15 @@ class PapeletaViewModel @Inject constructor(
 
     fun cargarUltimaDetencionActiva(folio: Int) {
         viewModelScope.launch {
+            _etapasState.value = EtapasState.Loading
             try {
                 val result = papeletaRepository.getUltimaDetencion(folio)
                 result.onSuccess { _ultimaDetencion.value = it }
-                    .onFailure {
-                        Log.e("ultimaDetencionActiva", "Error al obtener detención activa", it)
+                    .onFailure { error ->
+                        Log.e("ultimaDetencionActiva", "Error al obtener detención activa", error)
                         _ultimaDetencion.value = null
+                        _etapasState.value = EtapasState.Error(error.message ?: "Error inesperado")
+                        _etapasState.value = EtapasState.Success("1")
                     }
             } catch (e: Exception) {
                 Log.e("ultimaDetencionActiva", "Error inesperado", e)
@@ -142,31 +163,38 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
+    sealed class TiempoEtapaState {
+        object Loading : TiempoEtapaState()
+        data class Success(val message: String) : TiempoEtapaState()
+        data class Error(val message: String) : TiempoEtapaState()
+    }
+
+    private val _tiempoEtapasState = MutableStateFlow<TiempoEtapaState>(TiempoEtapaState.Loading)
+    val tiempoEtapasState: StateFlow<TiempoEtapaState> = _tiempoEtapasState
+
     private val _tiempoPorEtapa = MutableStateFlow<TiempoRemoto?>(null)
     val tiempoPorEtapa: StateFlow<TiempoRemoto?> = _tiempoPorEtapa
 
-    private val _tiempoPorEtapaError = MutableStateFlow<String?>(null)
-    val tiempoPorEtapaError: StateFlow<String?> = _tiempoPorEtapaError
-
-    fun resetTiempoPorEtapaState() {
+    fun resetTiempoEtapaState() {
         _tiempoPorEtapa.value = null
-        _tiempoPorEtapaError.value = null
+        _tiempoEtapasState.value = TiempoEtapaState.Loading
     }
 
     fun cargarTiempoPorEtapa(folio: Int, etapa: String) {
         viewModelScope.launch {
+            _tiempoEtapasState.value = TiempoEtapaState.Loading
             try {
                 val result = papeletaRepository.getTiempoPorEtapa(folio, etapa)
                 result.onSuccess {
                     _tiempoPorEtapa.value = it
-                    _tiempoPorEtapaError.value = null
+                    _tiempoEtapasState.value = TiempoEtapaState.Success("1")
                 }.onFailure {
                     _tiempoPorEtapa.value = null
-                    _tiempoPorEtapaError.value = it.message ?: "Error al obtener el tiempo"
+                    _tiempoEtapasState.value = TiempoEtapaState.Error( it.message ?: "Error al obtener el tiempo")
                 }
             } catch (e: Exception) {
                 _tiempoPorEtapa.value = null
-                _tiempoPorEtapaError.value = "Error inesperado"
+                _tiempoEtapasState.value = TiempoEtapaState.Error("Error al obtener el tiempo")
             }
         }
     }
@@ -277,19 +305,19 @@ class PapeletaViewModel @Inject constructor(
         motivo: String
     ) {
         viewModelScope.launch {
-            _detencionTiempoResult.value = null
-            val result = papeletaRepository.reportarDetencionTiempo(
-                tiempo = tiempo,
-                etapa = etapa,
-                folio = folio,
-                fecha = fecha,
-                motivo = motivo
-            )
-            _detencionTiempoResult.value = result
-            cargarUltimaDetencionActiva(folio)
-            result.onFailure { error ->
-                Log.e("detencionTiempoVM", error.message ?: "Error al detener tiempo")
-            }
+                _detencionTiempoResult.value = null
+                val result = papeletaRepository.reportarDetencionTiempo(
+                    tiempo = tiempo,
+                    etapa = etapa,
+                    folio = folio,
+                    fecha = fecha,
+                    motivo = motivo
+                )
+                _detencionTiempoResult.value = result
+                cargarUltimaDetencionActiva(folio)
+                result.onFailure { error ->
+                    Log.e("detencionTiempoVM", error.message ?: "Error al detener tiempo")
+                }
         }
     }
 

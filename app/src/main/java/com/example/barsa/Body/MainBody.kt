@@ -59,7 +59,7 @@ fun MainBody(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
+            if(rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
                 when {
                     currentRoute == "inventario" -> {
                         InventoryScreen(onNavigate)
@@ -105,13 +105,13 @@ fun MainBody(
                             val Status = parts[3]
                             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                                 onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-                            }, onNavigate, tiemposViewModel, papeletaViewModel)
+                            }, onNavigate, tiemposViewModel, papeletaViewModel, userViewModel)
                         } else {
                             Text("Error: Datos incompletos para el selector de etapa")
                         }
                     }
                 }
-                }
+            }
             else if(rol.equals("Produccion"))
             {
                 when{
@@ -150,7 +150,7 @@ fun MainBody(
                             val Status = parts[3]
                             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                                 onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-                            }, onNavigate, tiemposViewModel, papeletaViewModel)
+                            }, onNavigate, tiemposViewModel, papeletaViewModel, userViewModel)
                         } else {
                             Text("Error: Datos incompletos para el selector de etapa")
                         }
