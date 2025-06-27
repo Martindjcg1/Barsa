@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -26,16 +27,26 @@ import com.example.barsa.Header.Notification
 import com.example.barsa.Header.NotificationBox
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 import com.example.barsa.data.room.TiemposViewModel
 import kotlinx.coroutines.delay
 
 @Composable
-fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewModel, papeletaViewModel: PapeletaViewModel) {
+fun MainNavigator(
+    tiemposViewModel: TiemposViewModel,
+    userViewModel: UserViewModel,
+    papeletaViewModel: PapeletaViewModel,
+    inventoryViewModel: InventoryViewModel
+) {
     val navController = rememberNavController()
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     var currentRoute by remember { mutableStateOf("") }
+
+
+
+
     if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador"))
     {
         currentRoute = "inventario"
@@ -124,6 +135,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
                     tiemposViewModel,
                     papeletaViewModel,
                     userViewModel,
+                    inventoryViewModel, // Pasar el InventoryViewModel aquí
                     // PASAR LA FUNCIÓN DE LOGOUT AL MAINBODY
                     onLogout = {
                         // LIMPIAR TODOS LOS ESTADOS ANTES DE NAVEGAR
@@ -173,6 +185,7 @@ fun MainNavigator(tiemposViewModel: TiemposViewModel, userViewModel: UserViewMod
         }
     }
 }
+
 
 /*
         composable("login") {

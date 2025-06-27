@@ -1,7 +1,6 @@
 package com.example.barsa.Body.Inventory
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,60 +8,72 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.example.barsa.Models.InventoryCategory
-import com.example.barsa.Models.InventoryItem
-import androidx.compose.ui.res.painterResource
+
 import com.example.barsa.R
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.barsa.Inventarios.InventoryChangesScreen
-
+import com.example.barsa.data.retrofit.models.InventoryItem
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import com.example.barsa.data.retrofit.ui.UserViewModel
 
 @Composable
-fun InventoryScreen(onNavigate: (String) -> Unit) {
+fun InventoryScreen(
+    onNavigate: (String) -> Unit,
+    inventoryViewModel: InventoryViewModel,
+    userViewModel: UserViewModel // NUEVO: Agregar UserViewModel para obtener rol del usuario
+) {
     var selectedCategory by remember { mutableStateOf<InventoryCategory?>(null) }
     var showAdminPanel by remember { mutableStateOf(false) }
     var adminAction by remember { mutableStateOf<String?>(null) }
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
     var showTransactionOptions by remember { mutableStateOf(false) }
     var transactionAction by remember { mutableStateOf<String?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var successMessage by remember { mutableStateOf("") }
+
+    // Obtener el estado del ViewModel
+    val inventoryState by inventoryViewModel.inventoryState.collectAsState()
+    val createMaterialState by inventoryViewModel.createMaterialState.collectAsState()
+    val updateMaterialState by inventoryViewModel.updateMaterialState.collectAsState()
+
+    // NUEVO: Observar información del usuario para verificar rol
+    val infoUsuarioResult by userViewModel.infoUsuarioResult.collectAsState()
+
+    // NUEVO: Cargar información del usuario al inicializar
+    LaunchedEffect(Unit) {
+        userViewModel.obtenerInfoUsuarioPersonal()
+    }
+
+    // NUEVO: Verificar si el usuario tiene rol de inventarios
+    val hasInventoryRole = remember(infoUsuarioResult) {
+        infoUsuarioResult?.getOrNull()?.rol?.lowercase()?.contains("inventarios") == true
+    }
 
     // Lista de todas las categorías posibles
     val categories = remember {
         listOf(
-            InventoryCategory(1, "Cubetas", "Catálogo de cubetas", R.drawable.ic_pintura),
-            InventoryCategory(2, "Telas", "Catálogo de telas", R.drawable.ic_fabric),
-            InventoryCategory(3, "Cascos", "Catálogo de cascos", R.drawable.ic_helmet),
-            InventoryCategory(4, "Herramientas", "Catálogo de herramientas", R.drawable.ic_herramientas),
-            InventoryCategory(5, "Bisagras y Herrajes", "Catálogo de bisagras y herrajes", R.drawable.ic_hinge),
-            InventoryCategory(6, "Pernos y Sujetadores", "Catálogo de pernos y sujetadores", R.drawable.ic_bolt),
-            InventoryCategory(7, "Cintas y Adhesivos", "Catálogo de cintas y adhesivos", R.drawable.ic_tape),
-            InventoryCategory(8, "Separadores y Accesorios de Cristal", "Catálogo de separadores", R.drawable.ic_glass),
-            InventoryCategory(9, "Cubrecantos y Acabados", "Catálogo de cubrecantos", R.drawable.ic_edge),
-            InventoryCategory(10, "Otros Materiales de Construcción", "Otros materiales de construcción", R.drawable.ic_materiales),
-            InventoryCategory(11, "Todo", "Catálogo completo", R.drawable.ic_all)
+            InventoryCategory(1, "Cubetas", "Catálogo de cubetas", 0),
+            InventoryCategory(2, "Telas", "Catálogo de telas", 0),
+            InventoryCategory(3, "Cascos", "Catálogo de cascos", 0),
+            InventoryCategory(4, "Herramientas", "Catálogo de herramientas", 0),
+            InventoryCategory(5, "Bisagras y Herrajes", "Catálogo de bisagras y herrajes", 0),
+            InventoryCategory(6, "Pernos y Sujetadores", "Catálogo de pernos y sujetadores", 0),
+            InventoryCategory(7, "Cintas y Adhesivos", "Catálogo de cintas y adhesivos", 0),
+            InventoryCategory(8, "Separadores y Accesorios de Cristal", "Catálogo de separadores", 0),
+            InventoryCategory(9, "Cubrecantos y Acabados", "Catálogo de cubrecantos", 0),
+            InventoryCategory(10, "Otros Materiales de Construcción", "Otros materiales de construcción", 0),
+            InventoryCategory(11, "Todo", "Catálogo completo", 0)
         )
     }
 
@@ -70,8 +81,72 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
     val primaryBrown = MaterialTheme.colorScheme.primary
     val accentBrown = MaterialTheme.colorScheme.secondary
 
-    // Nombre del usuario actual (en una implementación real, esto vendría de un sistema de autenticación)
-    val currentUser = remember { "Martin Castañeda" }
+    // Manejar el resultado de crear material
+    LaunchedEffect(createMaterialState) {
+        when (createMaterialState) {
+            is InventoryViewModel.CreateMaterialState.Success -> {
+                successMessage = "Material creado exitosamente: ${(createMaterialState as InventoryViewModel.CreateMaterialState.Success).response.message}"
+                showSuccessDialog = true
+                adminAction = null
+                // Recargar datos si hay una categoría seleccionada
+                selectedCategory?.let {
+                    val categoryFilter = when (it.name) {
+                        "Todo" -> null
+                        "Cubetas" -> "cubeta"
+                        "Telas" -> "tela"
+                        "Cascos" -> "casco"
+                        "Herramientas" -> "herramienta"
+                        "Bisagras y Herrajes" -> "bisagra"
+                        "Pernos y Sujetadores" -> "perno"
+                        "Cintas y Adhesivos" -> "cinta"
+                        "Separadores y Accesorios de Cristal" -> "cristal"
+                        "Cubrecantos y Acabados" -> "cubrecanto"
+                        else -> null
+                    }
+                    inventoryViewModel.getInventoryItems(page = 1, descripcion = categoryFilter)
+                }
+                inventoryViewModel.resetCreateMaterialState()
+            }
+            is InventoryViewModel.CreateMaterialState.Error -> {
+                // El error se maneja en AddInventoryScreen
+            }
+            else -> { /* No hacer nada */ }
+        }
+    }
+
+    // Manejar el resultado de actualizar material
+    LaunchedEffect(updateMaterialState) {
+        when (updateMaterialState) {
+            is InventoryViewModel.UpdateMaterialState.Success -> {
+                successMessage = "Material actualizado exitosamente: ${(updateMaterialState as InventoryViewModel.UpdateMaterialState.Success).response.message}"
+                showSuccessDialog = true
+                selectedItem = null
+                adminAction = "edit" // Volver a la lista de edición
+                // Recargar datos si hay una categoría seleccionada
+                selectedCategory?.let {
+                    val categoryFilter = when (it.name) {
+                        "Todo" -> null
+                        "Cubetas" -> "cubeta"
+                        "Telas" -> "tela"
+                        "Cascos" -> "casco"
+                        "Herramientas" -> "herramienta"
+                        "Bisagras y Herrajes" -> "bisagra"
+                        "Pernos y Sujetadores" -> "perno"
+                        "Cintas y Adhesivos" -> "cinta"
+                        "Separadores y Accesorios de Cristal" -> "cristal"
+                        "Cubrecantos y Acabados" -> "cubrecanto"
+                        else -> null
+                    }
+                    inventoryViewModel.getInventoryItems(page = 1, descripcion = categoryFilter)
+                }
+                inventoryViewModel.resetUpdateMaterialState()
+            }
+            is InventoryViewModel.UpdateMaterialState.Error -> {
+                // El error se maneja en EditItemScreen
+            }
+            else -> { /* No hacer nada */ }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -92,83 +167,88 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
                 fontWeight = FontWeight.Bold
             )
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Botón de transacciones (entradas/salidas)
-                IconButton(
-                    onClick = { showTransactionOptions = !showTransactionOptions },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (showTransactionOptions) MaterialTheme.colorScheme.tertiary else primaryBrown,
-                            shape = CircleShape
-                        )
+            // MODIFICADO: Solo mostrar botones si tiene rol de inventarios
+            if (hasInventoryRole) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Entradas/Salidas",
-                        tint = Color.White
-                    )
-                }
+                    // Botón de transacciones (entradas/salidas)
+                    IconButton(
+                        onClick = { showTransactionOptions = !showTransactionOptions },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = if (showTransactionOptions) MaterialTheme.colorScheme.tertiary else primaryBrown,
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Entradas/Salidas",
+                            tint = Color.White
+                        )
+                    }
 
-                // Botón de administrador
-                IconButton(
-                    onClick = { showAdminPanel = !showAdminPanel },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = if (showAdminPanel) accentBrown else primaryBrown,
-                            shape = CircleShape
+                    // Botón de administrador
+                    IconButton(
+                        onClick = { showAdminPanel = !showAdminPanel },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                color = if (showAdminPanel) accentBrown else primaryBrown,
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Panel de Inventarios", // MODIFICADO: Cambiar descripción
+                            tint = Color.White
                         )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = "Panel de Administrador",
-                        tint = Color.White
-                    )
+                    }
                 }
             }
         }
 
-        // Panel de transacciones (visible solo cuando showTransactionOptions es true)
-        AnimatedVisibility(
-            visible = showTransactionOptions,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            TransactionPanel(
-                onRegisterEntry = { transactionAction = "entry" },
-                onRegisterExit = { transactionAction = "exit" },
-                onViewHistory = { transactionAction = "history" }
-            )
+        // MODIFICADO: Panel de transacciones (visible solo cuando showTransactionOptions es true Y tiene rol de inventarios)
+        if (hasInventoryRole) {
+            AnimatedVisibility(
+                visible = showTransactionOptions,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                TransactionPanel(
+                    onRegisterEntry = { transactionAction = "entry" },
+                    onRegisterExit = { transactionAction = "exit" },
+                    onViewHistory = { transactionAction = "history" }
+                )
+            }
         }
 
-        // Panel de administrador (visible solo cuando showAdminPanel es true)
-        AnimatedVisibility(
-            visible = showAdminPanel,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            AdminPanel(
-                onAddInventory = { adminAction = "add" },
-                onEditInventory = {
-                    if (selectedCategory == null) {
-                        // Si no hay categoría seleccionada, mostrar mensaje
-                        adminAction = "select_category_first"
-                    } else {
-                        adminAction = "edit"
+        // MODIFICADO: Panel de administrador (visible solo cuando showAdminPanel es true Y tiene rol de inventarios)
+        if (hasInventoryRole) {
+            AnimatedVisibility(
+                visible = showAdminPanel,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                InventoryPanel( // MODIFICADO: Cambiar nombre del componente
+                    onAddInventory = { adminAction = "add" },
+                    onEditInventory = {
+                        if (selectedCategory == null) {
+                            adminAction = "select_category_first"
+                        } else {
+                            adminAction = "edit"
+                        }
+                    },
+                    onDeleteInventory = {
+                        if (selectedCategory == null) {
+                            adminAction = "select_category_first"
+                        } else {
+                            adminAction = "delete"
+                        }
                     }
-                },
-                onDeleteInventory = {
-                    if (selectedCategory == null) {
-                        // Si no hay categoría seleccionada, mostrar mensaje
-                        adminAction = "select_category_first"
-                    } else {
-                        adminAction = "delete"
-                    }
-                }
-            )
+                )
+            }
         }
 
         // Mensaje para seleccionar categoría primero
@@ -185,56 +265,79 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
             )
         }
 
+        // Diálogo de éxito
+        if (showSuccessDialog) {
+            AlertDialog(
+                onDismissRequest = { showSuccessDialog = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Éxito",
+                            tint = Color.Green,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (successMessage.contains("creado")) "Material Creado"
+                            else "Material Actualizado"
+                        )
+                    }
+                },
+                text = { Text(successMessage) },
+                confirmButton = {
+                    Button(onClick = { showSuccessDialog = false }) {
+                        Text("Aceptar")
+                    }
+                }
+            )
+        }
+
         // Contenido principal
         when {
             // Acciones de transacción
             transactionAction == "entry" -> {
-                InventoryEntriesScreen(
-                    onBackClick = { transactionAction = null }
-                )
+                // Comentado por ahora
             }
             transactionAction == "exit" -> {
-                InventoryExitsScreen(
-                    onBackClick = { transactionAction = null }
-                )
+                // Comentado por ahora
             }
             transactionAction == "history" -> {
-                InventoryChangesScreen(
-                    onBackClick = { transactionAction = null }
-                )
+                // Comentado por ahora
             }
 
             // Acciones de administrador
             adminAction == "add" -> {
                 AddInventoryScreen(
                     categories = categories,
-                    onCancel = { adminAction = null },
-                    onSave = { newItem ->
-                        // Aquí se guardaría el nuevo item en la base de datos
-                        // Por ahora solo cerramos la pantalla
+                    onCancel = {
                         adminAction = null
-                    }
+                        inventoryViewModel.resetCreateMaterialState()
+                    },
+                    onSave = { newItem ->
+                        // El manejo del éxito se hace en el LaunchedEffect arriba
+                        // No necesitamos hacer nada aquí porque el estado se maneja automáticamente
+                    },
+                    inventoryViewModel = inventoryViewModel // Pasar el ViewModel
                 )
             }
             selectedItem != null -> {
-                // Pantalla de edición de item específico
                 EditItemScreen(
                     item = selectedItem!!,
                     onCancel = {
                         selectedItem = null
-                        // Si estábamos en modo edición, volvemos a la lista de edición
                         if (adminAction == "edit") {
                             adminAction = "edit"
                         }
+                        inventoryViewModel.resetUpdateMaterialState()
                     },
                     onSave = { updatedItem ->
-                        // Aquí se guardaría el item actualizado en la base de datos
-                        selectedItem = null
-                        // Si estábamos en modo edición, volvemos a la lista de edición
-                        if (adminAction == "edit") {
-                            adminAction = "edit"
-                        }
-                    }
+                        // El manejo del éxito se hace en el LaunchedEffect arriba
+                        // selectedItem se resetea automáticamente en el LaunchedEffect
+                    },
+                    inventoryViewModel = inventoryViewModel // Pasar el ViewModel
                 )
             }
             adminAction == "edit" && selectedCategory != null -> {
@@ -243,8 +346,8 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
                     onCancel = { adminAction = null },
                     onItemSelected = { item ->
                         selectedItem = item
-                        // No cambiamos adminAction para mantener el contexto de edición
-                    }
+                    },
+                    inventoryViewModel = inventoryViewModel
                 )
             }
             adminAction == "delete" && selectedCategory != null -> {
@@ -256,20 +359,29 @@ fun InventoryScreen(onNavigate: (String) -> Unit) {
 
             // Vista normal de inventario
             selectedCategory == null -> {
+                // Mostrar solo las categorías, sin cargar datos aún
                 CategoryList(
                     categories = categories,
-                    onCategorySelected = { selectedCategory = it }
+                    onCategorySelected = { selectedCategory = it },
+                    inventoryState = InventoryViewModel.InventoryState.Initial // Estado inicial
                 )
             }
             else -> {
+                // Mostrar lista de items - el LaunchedEffect está ahora solo en InventoryItemsList
                 InventoryItemsList(
                     category = selectedCategory!!,
-                    onBackClick = { selectedCategory = null },
+                    onBackClick = {
+                        selectedCategory = null
+                        // Limpiar el estado cuando se regresa
+                        inventoryViewModel.resetInventoryState()
+                        inventoryViewModel.resetSearchState()
+                    },
                     onItemClick = { item ->
                         if (adminAction == "edit") {
                             selectedItem = item
                         }
-                    }
+                    },
+                    inventoryViewModel = inventoryViewModel
                 )
             }
         }
@@ -364,8 +476,9 @@ fun TransactionButton(
     }
 }
 
+// MODIFICADO: Cambiar nombre de AdminPanel a InventoryPanel
 @Composable
-fun AdminPanel(
+fun InventoryPanel(
     onAddInventory: () -> Unit,
     onEditInventory: () -> Unit,
     onDeleteInventory: () -> Unit
@@ -383,7 +496,7 @@ fun AdminPanel(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Panel de Administrador",
+                text = "Panel de Inventarios", // MODIFICADO: Cambiar título
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -395,19 +508,19 @@ fun AdminPanel(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                AdminButton(
+                InventoryButton( // MODIFICADO: Cambiar nombre de AdminButton a InventoryButton
                     icon = Icons.Default.Add,
                     text = "Agregar",
                     onClick = onAddInventory
                 )
 
-                AdminButton(
+                InventoryButton( // MODIFICADO: Cambiar nombre de AdminButton a InventoryButton
                     icon = Icons.Default.Edit,
                     text = "Editar",
                     onClick = onEditInventory
                 )
 
-                AdminButton(
+                InventoryButton( // MODIFICADO: Cambiar nombre de AdminButton a InventoryButton
                     icon = Icons.Default.Delete,
                     text = "Eliminar",
                     onClick = onDeleteInventory
@@ -417,8 +530,9 @@ fun AdminPanel(
     }
 }
 
+// MODIFICADO: Cambiar nombre de AdminButton a InventoryButton
 @Composable
-fun AdminButton(
+fun InventoryButton(
     icon: ImageVector,
     text: String,
     onClick: () -> Unit

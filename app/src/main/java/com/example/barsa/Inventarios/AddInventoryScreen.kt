@@ -8,6 +8,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,51 +30,121 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.barsa.Inventarios.ImageUtils
 import com.example.barsa.Models.InventoryCategory
-import com.example.barsa.Models.InventoryItem
+import com.example.barsa.Models.InventoryItemfake
+import com.example.barsa.data.retrofit.models.ImageInfo
+import com.example.barsa.data.retrofit.models.InventoryItem
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddInventoryScreen(
-    categories: List<InventoryCategory>,
-    onCancel: () -> Unit,
-    onSave: (InventoryItem) -> Unit
+    categories: List<InventoryCategory> = emptyList(),
+    onCancel: () -> Unit = {},
+    onSave: (InventoryItem) -> Unit,
+    inventoryViewModel: InventoryViewModel
 ) {
     var codigoMat by remember { mutableStateOf("") }
-    var descripcion by remember { mutableStateOf("") }
-    var unidad by remember { mutableStateOf("PZA") }
-    var pCompra by remember { mutableStateOf("0.0") }
-    var existencia by remember { mutableStateOf("0.0") }
-    var max by remember { mutableStateOf("0") }
-    var min by remember { mutableStateOf("0") }
-    var inventarioInicial by remember { mutableStateOf("0.0") }
-    var unidadEntrada by remember { mutableStateOf("PZA") }
+    var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var min by remember { mutableStateOf("") }
+    var max by remember { mutableStateOf("") }
     var cantXUnidad by remember { mutableStateOf("1") }
-    var proceso by remember { mutableStateOf("M") }
+    var descripcion by remember { mutableStateOf("") }
+    var pCompra by remember { mutableStateOf("") }
+    var proceso by remember { mutableStateOf("") }
+    var existencia by remember { mutableStateOf("0") }
+    var unidad by remember { mutableStateOf("") }
+    var inventarioInicial by remember { mutableStateOf("0") }
+    var unidadEntrada by remember { mutableStateOf("") }
+
     var selectedCategory by remember { mutableStateOf<InventoryCategory?>(null) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
     var showUnidadDropdown by remember { mutableStateOf(false) }
     var showUnidadEntradaDropdown by remember { mutableStateOf(false) }
+    var showProcesoDropdown by remember { mutableStateOf(false) }
+    var isProcessingImages by remember { mutableStateOf(false) }
+    var showImageLimitWarning by remember { mutableStateOf(false) }
 
-    // Opciones para unidades
-    val unidadOptions = listOf("PZA", "PZAS", "MTR")
-
-    // Para manejar imágenes
-    var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val maxImages = 5
+
+    // Estados del ViewModel
+    val createMaterialState by inventoryViewModel.createMaterialState.collectAsState()
+
+    // Opciones para dropdowns
+    val unidadOptions = listOf("PZA", "PZAS", "MTR", "KG", "LT", "M2", "M3")
+    val procesoOptions = listOf("M", "E", "T", "P")
+
+    // Launcher para seleccionar múltiples imágenes
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            selectedImages = uris
+        contract = ActivityResultContracts.GetMultipleContents(),
+        onResult = { uris ->
+            if (uris.isNotEmpty()) {
+                val totalImages = selectedImages.size + uris.size
+                if (totalImages > maxImages) {
+                    val availableSlots = maxImages - selectedImages.size
+                    if (availableSlots > 0) {
+                        selectedImages = selectedImages + uris.take(availableSlots)
+                    }
+                    showImageLimitWarning = true
+                } else {
+                    selectedImages = selectedImages + uris
+                }
+
+                android.util.Log.d("AddInventoryScreen",
+                    "Seleccionadas ${selectedImages.size} imagen(es)")
+            }
+        }
+    )
+
+    // Manejar el resultado de crear material
+    LaunchedEffect(createMaterialState) {
+        when (createMaterialState) {
+            is InventoryViewModel.CreateMaterialState.Success -> {
+                // Si el servidor devuelve el item creado, usarlo directamente
+                val createdItem = (createMaterialState as InventoryViewModel.CreateMaterialState.Success).response.data
+
+                if (createdItem != null) {
+                    // Usar el item que devolvió el servidor
+                    onSave(createdItem)
+                } else {
+                    // Si no hay data en la respuesta, crear un item básico para la UI
+                    // Nota: Dependiendo de la opción elegida para el modelo, ajustar aquí
+                    val newItem = createInventoryItemFromForm(
+                        codigoMat = codigoMat,
+                        descripcion = descripcion,
+                        unidad = unidad,
+                        pCompra = pCompra.toDoubleOrNull() ?: 0.0,
+                        existencia = existencia.toDoubleOrNull() ?: 0.0,
+                        max = max.toDoubleOrNull() ?: 0.0,
+                        min = min.toDoubleOrNull() ?: 0.0,
+                        inventarioInicial = inventarioInicial.toDoubleOrNull() ?: 0.0,
+                        unidadEntrada = unidadEntrada,
+                        cantXUnidad = cantXUnidad.toDoubleOrNull() ?: 1.0,
+                        proceso = proceso,
+                        selectedImages = selectedImages
+                    )
+                    onSave(newItem)
+                }
+
+                inventoryViewModel.resetCreateMaterialState()
+            }
+            is InventoryViewModel.CreateMaterialState.Error -> {
+                isProcessingImages = false
+            }
+            else -> { /* No hacer nada */ }
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         // Encabezado
         Row(
@@ -83,89 +155,37 @@ fun AddInventoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Agregar Nuevo Inventario",
+                text = "Agregar Material",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
 
-            IconButton(
-                onClick = onCancel,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
-                        shape = CircleShape
+            if (onCancel != {}) {
+                IconButton(onClick = onCancel) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cancelar"
                     )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Cancelar",
-                    tint = MaterialTheme.colorScheme.error
-                )
+                }
             }
         }
 
-        // Formulario
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
-                // Código y Categoría en la misma fila
-                Row(
+                // Código Material
+                OutlinedTextField(
+                    value = codigoMat,
+                    onValueChange = { codigoMat = it.uppercase() },
+                    label = { Text("Código Material *") },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Código
-                    OutlinedTextField(
-                        value = codigoMat,
-                        onValueChange = { codigoMat = it },
-                        label = { Text("Código *") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-
-                    // Categoría (Dropdown)
-                    Box(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = selectedCategory?.name ?: "",
-                            onValueChange = { },
-                            label = { Text("Categoría *") },
-                            readOnly = true,
-                            trailingIcon = {
-                                IconButton(onClick = { showCategoryDropdown = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Seleccionar categoría"
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        DropdownMenu(
-                            expanded = showCategoryDropdown,
-                            onDismissRequest = { showCategoryDropdown = false },
-                            modifier = Modifier.fillMaxWidth(0.9f)
-                        ) {
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category.name) },
-                                    onClick = {
-                                        selectedCategory = category
-                                        showCategoryDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+                    singleLine = true,
+                    placeholder = { Text("Ej: ASDASO15") }
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -175,7 +195,8 @@ fun AddInventoryScreen(
                     onValueChange = { descripcion = it },
                     label = { Text("Descripción *") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    maxLines = 2,
+                    placeholder = { Text("Ej: Tachuela Tachonada Escamada") }
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -186,9 +207,7 @@ fun AddInventoryScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Unidad (Dropdown)
-                    Box(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Box(modifier = Modifier.weight(1f)) {
                         OutlinedTextField(
                             value = unidad,
                             onValueChange = { },
@@ -202,13 +221,13 @@ fun AddInventoryScreen(
                                     )
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Seleccionar") }
                         )
 
                         DropdownMenu(
                             expanded = showUnidadDropdown,
-                            onDismissRequest = { showUnidadDropdown = false },
-                            modifier = Modifier.fillMaxWidth(0.9f)
+                            onDismissRequest = { showUnidadDropdown = false }
                         ) {
                             unidadOptions.forEach { option ->
                                 DropdownMenuItem(
@@ -225,10 +244,11 @@ fun AddInventoryScreen(
                     OutlinedTextField(
                         value = pCompra,
                         onValueChange = { pCompra = it },
-                        label = { Text("Precio Compra") },
+                        label = { Text("Precio Compra *") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        placeholder = { Text("0.00") }
                     )
                 }
 
@@ -242,20 +262,19 @@ fun AddInventoryScreen(
                     OutlinedTextField(
                         value = existencia,
                         onValueChange = { existencia = it },
-                        label = { Text("Existencia") },
+                        label = { Text("Existencia *") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        placeholder = { Text("0") }
                     )
 
                     // Unidad de Entrada (Dropdown)
-                    Box(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Box(modifier = Modifier.weight(1f)) {
                         OutlinedTextField(
                             value = unidadEntrada,
                             onValueChange = { },
-                            label = { Text("Unidad Entrada") },
+                            label = { Text("Unidad Entrada *") },
                             readOnly = true,
                             trailingIcon = {
                                 IconButton(onClick = { showUnidadEntradaDropdown = true }) {
@@ -265,13 +284,13 @@ fun AddInventoryScreen(
                                     )
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Seleccionar") }
                         )
 
                         DropdownMenu(
                             expanded = showUnidadEntradaDropdown,
-                            onDismissRequest = { showUnidadEntradaDropdown = false },
-                            modifier = Modifier.fillMaxWidth(0.9f)
+                            onDismissRequest = { showUnidadEntradaDropdown = false }
                         ) {
                             unidadOptions.forEach { option ->
                                 DropdownMenuItem(
@@ -296,19 +315,21 @@ fun AddInventoryScreen(
                     OutlinedTextField(
                         value = max,
                         onValueChange = { max = it },
-                        label = { Text("Máximo") },
+                        label = { Text("Máximo *") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        placeholder = { Text("100") }
                     )
 
                     OutlinedTextField(
                         value = min,
                         onValueChange = { min = it },
-                        label = { Text("Mínimo") },
+                        label = { Text("Mínimo *") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        placeholder = { Text("10") }
                     )
                 }
 
@@ -322,160 +343,148 @@ fun AddInventoryScreen(
                     OutlinedTextField(
                         value = inventarioInicial,
                         onValueChange = { inventarioInicial = it },
-                        label = { Text("Inventario Inicial") },
+                        label = { Text("Inventario Inicial *") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        placeholder = { Text("0") }
                     )
 
                     OutlinedTextField(
                         value = cantXUnidad,
                         onValueChange = { cantXUnidad = it },
-                        label = { Text("Cant. por Unidad") },
+                        label = { Text("Cant. por Unidad *") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        placeholder = { Text("1") }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Proceso (Radio buttons)
-                Text(
-                    text = "Proceso:",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-
-                // Primera fila de radio buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = proceso == "M",
-                        onClick = { proceso = "M" }
+                // *** AQUÍ ESTÁ EL DROPDOWN DE PROCESO QUE FALTABA ***
+                // Proceso (Dropdown)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = proceso,
+                        onValueChange = { },
+                        label = { Text("Proceso *") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showProcesoDropdown = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Seleccionar proceso"
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Seleccionar proceso") }
                     )
-                    Text("Manufactura (M)", modifier = Modifier.padding(start = 4.dp))
 
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    RadioButton(
-                        selected = proceso == "E",
-                        onClick = { proceso = "E" }
-                    )
-                    Text("Ensamble (E)", modifier = Modifier.padding(start = 4.dp))
-                }
-
-                // Segunda fila de radio buttons
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = proceso == "T",
-                        onClick = { proceso = "T" }
-                    )
-                    Text("Terminado (T)", modifier = Modifier.padding(start = 4.dp))
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    RadioButton(
-                        selected = proceso == "P",
-                        onClick = { proceso = "P" }
-                    )
-                    Text("Preparación (P)", modifier = Modifier.padding(start = 4.dp))
+                    DropdownMenu(
+                        expanded = showProcesoDropdown,
+                        onDismissRequest = { showProcesoDropdown = false }
+                    ) {
+                        procesoOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    proceso = option
+                                    showProcesoDropdown = false
+                                }
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Sección de imágenes
-                Text(
-                    text = "Imágenes (Opcional)",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Botón para seleccionar imágenes
-                Button(
-                    onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AddCircle ,
-                        contentDescription = "Agregar imágenes"
+                    Text(
+                        text = "Imágenes (Máx. $maxImages)",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Seleccionar Imágenes")
+
+                    Text(
+                        text = if (selectedImages.isEmpty()) "Opcional" else "${selectedImages.size}/$maxImages",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (selectedImages.size >= maxImages) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Mostrar imágenes seleccionadas
-                if (selectedImages.isNotEmpty()) {
+                // Botón para agregar imágenes
+                OutlinedButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = selectedImages.size < maxImages
+                ) {
+                    Icon(Icons.Default.AddCircle, contentDescription = "Agregar Imágenes")
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${selectedImages.size} imagen(es) seleccionada(s)",
-                        style = MaterialTheme.typography.bodyMedium
+                        if (selectedImages.isEmpty()) "Seleccionar Imágenes"
+                        else if (selectedImages.size >= maxImages) "Límite alcanzado"
+                        else "Agregar Más Imágenes"
                     )
+                }
 
+                // Preview de imágenes seleccionadas
+                if (selectedImages.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                    LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        selectedImages.forEachIndexed { index, uri ->
-                            Box(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(
-                                        width = 1.dp,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                            ) {
+                        items(selectedImages.withIndex().toList()) { (index, uri) ->
+                            Box {
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(uri)
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "Imagen $index",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
+                                    contentDescription = "Imagen ${index + 1}",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(8.dp))
                                 )
 
                                 // Botón para eliminar imagen
                                 IconButton(
                                     onClick = {
-                                        selectedImages = selectedImages.filterIndexed { i, _ -> i != index }
+                                        selectedImages = selectedImages.filter { it != uri }
                                     },
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
                                         .size(24.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.error,
-                                            shape = CircleShape
-                                        )
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
                                         contentDescription = "Eliminar imagen",
                                         tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier
+                                            .size(16.dp)
                                     )
                                 }
                             }
                         }
                     }
+
+                    Text(
+                        text = "Las imágenes se enviarán como archivos",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
         }
@@ -485,53 +494,171 @@ fun AddInventoryScreen(
         // Botones de acción
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            TextButton(
-                onClick = onCancel
-            ) {
-                Text("Cancelar")
+            if (onCancel != {}) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f),
+                    enabled = createMaterialState !is InventoryViewModel.CreateMaterialState.Loading && !isProcessingImages
+                ) {
+                    Text("Cancelar")
+                }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
 
             Button(
                 onClick = {
-                    // Validar campos obligatorios
-                    if (codigoMat.isNotBlank() && descripcion.isNotBlank() && unidad.isNotBlank() && selectedCategory != null) {
-                        // Crear nuevo item
-                        val newItem = InventoryItem(
+                    scope.launch {
+                        isProcessingImages = true
+
+                        android.util.Log.d("AddInventoryScreen", "Iniciando creación de material")
+                        android.util.Log.d("AddInventoryScreen", "Código: $codigoMat")
+                        android.util.Log.d("AddInventoryScreen", "Descripción: $descripcion")
+                        android.util.Log.d("AddInventoryScreen", "Proceso: $proceso")
+                        android.util.Log.d("AddInventoryScreen", "Imágenes: ${selectedImages.size}")
+
+                        // Llamar al ViewModel para crear el material con archivos
+                        inventoryViewModel.createMaterial(
+                            context = context,
                             codigoMat = codigoMat,
                             descripcion = descripcion,
                             unidad = unidad,
-                            pCompra = pCompra.toDoubleOrNull() ?: 0.0,
+                            pcompra = pCompra.toDoubleOrNull() ?: 0.0,
                             existencia = existencia.toDoubleOrNull() ?: 0.0,
-                            max = max.toIntOrNull() ?: 0,
-                            min = min.toIntOrNull() ?: 0,
+                            max = max.toDoubleOrNull() ?: 0.0,
+                            min = min.toDoubleOrNull() ?: 0.0,
                             inventarioInicial = inventarioInicial.toDoubleOrNull() ?: 0.0,
                             unidadEntrada = unidadEntrada,
-                            cantXUnidad = cantXUnidad.toIntOrNull() ?: 1,
+                            cantxunidad = cantXUnidad.toDoubleOrNull() ?: 1.0,
                             proceso = proceso,
-                            borrado = false,
-                            // Aquí se guardarían las URLs de las imágenes después de subirlas al servidor
-                            imagenUrl = if (selectedImages.isNotEmpty()) selectedImages[0].toString() else null,
-                            imagenesUrls = selectedImages.map { it.toString() }
+                            imageUris = selectedImages
                         )
-                        onSave(newItem)
-                    } else {
-                        // Mostrar mensaje de error (en una implementación real)
-                        // Por ahora solo imprimimos en consola
-                        println("Por favor complete todos los campos obligatorios")
+
+                        isProcessingImages = false
                     }
-                }
+                },
+                enabled = codigoMat.isNotEmpty() &&
+                        descripcion.isNotEmpty() &&
+                        unidad.isNotEmpty() &&
+                        pCompra.isNotEmpty() &&
+                        existencia.isNotEmpty() &&
+                        max.isNotEmpty() &&
+                        min.isNotEmpty() &&
+                        inventarioInicial.isNotEmpty() &&
+                        unidadEntrada.isNotEmpty() &&
+                        cantXUnidad.isNotEmpty() &&
+                        proceso.isNotEmpty() &&
+                        createMaterialState !is InventoryViewModel.CreateMaterialState.Loading &&
+                        !isProcessingImages,
+                modifier = Modifier.weight(1f)
             ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Guardar"
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Guardar")
+                if (createMaterialState is InventoryViewModel.CreateMaterialState.Loading || isProcessingImages) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (isProcessingImages) "Procesando..." else "Guardando...")
+                } else {
+                    Text("Guardar Material")
+                }
             }
         }
+
+        // Mostrar error si existe
+        if (createMaterialState is InventoryViewModel.CreateMaterialState.Error) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Error",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Error al crear material",
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = (createMaterialState as InventoryViewModel.CreateMaterialState.Error).message,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
+
+        // Advertencia de límite de imágenes
+        if (showImageLimitWarning) {
+            AlertDialog(
+                onDismissRequest = { showImageLimitWarning = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Advertencia",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Límite de imágenes")
+                    }
+                },
+                text = {
+                    Text("Solo se pueden agregar máximo $maxImages imágenes. Se han seleccionado las primeras $maxImages imágenes.")
+                },
+                confirmButton = {
+                    Button(onClick = { showImageLimitWarning = false }) {
+                        Text("Entendido")
+                    }
+                }
+            )
+        }
     }
+}
+
+// Función helper para crear InventoryItem desde el formulario
+private fun createInventoryItemFromForm(
+    codigoMat: String,
+    descripcion: String,
+    unidad: String,
+    pCompra: Double,
+    existencia: Double,
+    max: Double,
+    min: Double,
+    inventarioInicial: Double,
+    unidadEntrada: String,
+    cantXUnidad: Double,
+    proceso: String,
+    selectedImages: List<Uri>
+): InventoryItem {
+    return InventoryItem(
+        codigoMat = codigoMat,
+        imagenesInfo = selectedImages.map { ImageInfo(url = it.toString()) },
+        min = min,
+        max = max,
+        cantXUnidad = cantXUnidad,
+        descripcion = descripcion,
+        borrado = false,
+        pcompra = pCompra,
+        proceso = proceso,
+        existencia = existencia,
+        unidad = unidad,
+        inventarioInicial = inventarioInicial,
+        unidadEntrada = unidadEntrada
+    )
 }

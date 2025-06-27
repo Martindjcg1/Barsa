@@ -3,11 +3,14 @@ package com.example.barsa.data.retrofit
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.ApiWrapperResponse
+import com.example.barsa.data.retrofit.models.CreateMaterialRequest
+import com.example.barsa.data.retrofit.models.CreateMaterialResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
 
 import com.example.barsa.data.retrofit.models.DetencionTiempoRequest
 import com.example.barsa.data.retrofit.models.FinalizarTiempoRequest
 import com.example.barsa.data.retrofit.models.IniciarTiempoRequest
+import com.example.barsa.data.retrofit.models.InventoryPaginationResponse
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.LoginRequest
 import com.example.barsa.data.retrofit.models.LoginResponse
@@ -19,6 +22,7 @@ import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.ReiniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.models.ToggleUserStatusResponse
+import com.example.barsa.data.retrofit.models.UpdateMaterialResponse
 import com.example.barsa.data.retrofit.models.UpdatePersonalInfoRequest
 import com.example.barsa.data.retrofit.models.UpdatePersonalInfoResponse
 import com.example.barsa.data.retrofit.models.UpdateUserRequest
@@ -37,6 +41,11 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+
+import retrofit2.http.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+
 
 interface UserApiService {
     @POST("user-authentication/login")
@@ -101,6 +110,59 @@ interface UserApiService {
         @Path("id") userId: String
     ): ToggleUserStatusResponse
 }
+
+
+interface InventoryApiService {
+    @GET("materia/get-listado-materia")
+    suspend fun getInventoryItems(
+        @Header("Authorization") token: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10,
+        @Query("codigoMat") codigoMat: String? = null,
+        @Query("descripcion") descripcion: String? = null,
+        @Query("unidad") unidad: String? = null,
+        @Query("proceso") proceso: String? = null,
+        @Query("borrado") borrado: String? = null
+    ): InventoryPaginationResponse
+
+    @Multipart
+    @POST("materia/crear-materia")
+    suspend fun createMaterial(
+        @Header("Authorization") token: String,
+        @Part("codigoMat") codigoMat: RequestBody,
+        @Part("descripcion") descripcion: RequestBody,
+        @Part("unidad") unidad: RequestBody,
+        @Part("pcompra") pcompra: RequestBody,
+        @Part("existencia") existencia: RequestBody,
+        @Part("max") max: RequestBody,
+        @Part("min") min: RequestBody,
+        @Part("inventarioInicial") inventarioInicial: RequestBody,
+        @Part("unidadEntrada") unidadEntrada: RequestBody,
+        @Part("cantxunidad") cantxunidad: RequestBody,
+        @Part("proceso") proceso: RequestBody,
+        @Part files: List<MultipartBody.Part>? = null // Archivos de imagen
+    ): CreateMaterialResponse
+
+    @Multipart
+    @PUT("materia/update-materia/{codigoMat}")
+    suspend fun updateMaterial(
+        @Header("Authorization") token: String,
+        @Path("codigoMat") codigoMat: String,
+        @Part("descripcion") descripcion: RequestBody,
+        @Part("unidad") unidad: RequestBody,
+        @Part("pcompra") pcompra: RequestBody,
+        @Part("existencia") existencia: RequestBody,
+        @Part("max") max: RequestBody,
+        @Part("min") min: RequestBody,
+        @Part("inventarioInicial") inventarioInicial: RequestBody, // Cambié el nombre
+        @Part("unidadEntrada") unidadEntrada: RequestBody,
+        @Part("cantxunidad") cantxunidad: RequestBody, // Cambié el nombre
+        @Part("proceso") proceso: RequestBody,
+        @Part("borrado") borrado: RequestBody, // Agregué este campo
+        @Part imagenes: List<MultipartBody.Part>? = null // Múltiples archivos con el mismo nombre "imagenes"
+    ): UpdateMaterialResponse
+}
+
 
 interface PapeletaApiService {
     @GET("papeleta/get-listado-papeletas")

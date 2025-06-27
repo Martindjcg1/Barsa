@@ -15,11 +15,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.barsa.Models.InventoryCategory
-import com.example.barsa.Models.InventoryItem
+import com.example.barsa.data.retrofit.models.InventoryItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +32,8 @@ fun DeleteInventoryScreen(
     onCancel: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var items by remember { mutableStateOf(getAllInventoryItems()) }
+    // Cambiar a lista vacía inicialmente para usar datos del ViewModel
+    var items by remember { mutableStateOf(emptyList<InventoryItem>()) }
     var filteredItems by remember {
         mutableStateOf(
             if (category.name == "Todo") {
@@ -59,7 +64,7 @@ fun DeleteInventoryScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
-            
+
             IconButton(
                 onClick = onCancel,
                 modifier = Modifier
@@ -147,7 +152,7 @@ fun DeleteInventoryScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        // Aquí se eliminaría el item de la base de datos
+                        // Aquí se eliminaría el item de la base de datos usando el ViewModel
                         // Por ahora solo lo eliminamos de la lista local
                         items = items.filter { it.codigoMat != itemToDelete?.codigoMat }
                         filteredItems = filteredItems.filter { it.codigoMat != itemToDelete?.codigoMat }
@@ -191,6 +196,24 @@ fun DeletableItemCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Mostrar imagen si existe
+            if (item.imagenes.isNotEmpty()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(item.imagenes.first())
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = item.descripcion,
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+
             // Información del item
             Column(
                 modifier = Modifier.weight(1f)
@@ -200,14 +223,14 @@ fun DeletableItemCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Text(
                     text = item.descripcion,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -217,17 +240,35 @@ fun DeletableItemCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (item.existencia < item.min) MaterialTheme.colorScheme.error else Color.Gray
                     )
-                    
+
                     Spacer(modifier = Modifier.width(16.dp))
-                    
+
                     Text(
-                        text = "Precio: $${item.pCompra}",
+                        text = "Precio: $${String.format("%.2f", item.pcompra)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.Gray
                     )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Text(
+                        text = item.unidad,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Mostrar proceso si existe
+                if (item.proceso.isNotBlank()) {
+                    Text(
+                        text = "Proceso: ${item.proceso}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             }
-            
+
             // Botón de eliminar
             IconButton(
                 onClick = onDeleteClick,
@@ -243,4 +284,3 @@ fun DeletableItemCard(
         }
     }
 }
-

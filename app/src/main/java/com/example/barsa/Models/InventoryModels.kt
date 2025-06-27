@@ -1,11 +1,12 @@
 package com.example.barsa.Models
 
+import com.example.barsa.data.retrofit.models.InventoryItem
 import java.util.Date
 
 
 
 // Modelo para los items de inventario
-data class InventoryItem(
+data class InventoryItemfake(
     val codigoMat: String,
     val descripcion: String,
     val unidad: String,

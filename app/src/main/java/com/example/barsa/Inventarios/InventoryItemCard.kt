@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.barsa.Models.InventoryItem
+import com.example.barsa.Models.InventoryItemfake
+import com.example.barsa.data.retrofit.models.InventoryItem
+
 
 @Composable
 fun InventoryItemCard(
@@ -71,8 +73,8 @@ fun InventoryItemCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Actualizar la visualización de la imagen para hacerla interactuable
-            if (!item.imagenUrl.isNullOrEmpty()) {
+            // Mostrar la primera imagen si existe - usar la propiedad computada
+            if (item.imagenes.isNotEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -83,7 +85,7 @@ fun InventoryItemCard(
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(item.imagenUrl)
+                            .data(item.imagenes.first()) // Usar la propiedad computada
                             .crossfade(true)
                             .build(),
                         contentDescription = item.descripcion,
@@ -92,6 +94,27 @@ fun InventoryItemCard(
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Fit
                     )
+
+                    // Indicador de múltiples imágenes
+                    if (item.imagenes.size > 1) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .background(
+                                    Color.Black.copy(alpha = 0.7f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "+${item.imagenes.size - 1}",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -132,7 +155,7 @@ fun InventoryItemCard(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.max.toString(),
+                        text = String.format("%.2f", item.max),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -143,7 +166,7 @@ fun InventoryItemCard(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.min.toString(),
+                        text = String.format("%.2f", item.min),
                         style = MaterialTheme.typography.bodyLarge,
                         color = stockColor
                     )
@@ -154,7 +177,7 @@ fun InventoryItemCard(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = item.existencia.toString(),
+                        text = String.format("%.2f", item.existencia),
                         style = MaterialTheme.typography.bodyLarge,
                         color = stockColor,
                         fontWeight = FontWeight.Bold
@@ -162,11 +185,21 @@ fun InventoryItemCard(
                 }
             }
 
+            // Información adicional del proceso
+            if (item.proceso.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Proceso: ${item.proceso}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // Añadir botón de reabastecimiento si el stock está bajo o no hay stock
             if (item.existencia < item.min) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
-                    onClick = { /* Sin funcionalidad por ahora */ },
+                    onClick = { /* Funcionalidad de reabastecimiento */ },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = stockColor
@@ -182,17 +215,10 @@ fun InventoryItemCard(
     }
 
     // Mostrar el visor de imágenes si se hace clic en la imagen
-    if (showImageViewer) {
-        if (item.imagenesUrls.isNotEmpty()) {
-            ImageViewerDialog(
-                imageUrls = item.imagenesUrls,
-                onDismiss = { showImageViewer = false }
-            )
-        } else if (!item.imagenUrl.isNullOrEmpty()) {
-            ImageViewerDialog(
-                imageUrls = listOf(item.imagenUrl),
-                onDismiss = { showImageViewer = false }
-            )
-        }
+    if (showImageViewer && item.imagenes.isNotEmpty()) {
+        ImageViewerDialog(
+            imageUrls = item.imagenes, // Usar la propiedad computada
+            onDismiss = { showImageViewer = false }
+        )
     }
 }

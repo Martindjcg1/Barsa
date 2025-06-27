@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
@@ -15,9 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.barsa.Models.InventoryCategory
-import com.example.barsa.Models.InventoryItem
+
+import com.example.barsa.data.retrofit.models.InventoryItem
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
 import kotlin.math.ceil
 import kotlin.math.min
 
@@ -25,36 +29,74 @@ import kotlin.math.min
 fun InventoryItemsList(
     category: InventoryCategory,
     onBackClick: () -> Unit,
-    onItemClick: (InventoryItem) -> Unit = {}
+    onItemClick: (InventoryItem) -> Unit = {},
+    inventoryViewModel: InventoryViewModel
 ) {
-    // Obtener todos los items y filtrarlos según la categoría seleccionada
-    var allItems by remember { mutableStateOf(getAllInventoryItems()) }
-    var filteredItems by remember {
-        mutableStateOf(
-            if (category.name == "Todo") {
-                allItems
-            } else {
-                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
-            }
-        )
-    }
-
     var searchQuery by remember { mutableStateOf("") }
     var selectedItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var isSearching by remember { mutableStateOf(false) }
+    var hasLoadedInitialData by remember { mutableStateOf(false) }
 
-    // Variables para la paginación
-    val itemsPerPage = 5
-    var currentPage by remember { mutableStateOf(1) }
-    val totalPages = ceil(filteredItems.size.toFloat() / itemsPerPage).toInt().coerceAtLeast(1)
+    // Obtener estados del ViewModel
+    val inventoryState by inventoryViewModel.inventoryState.collectAsState()
+    val searchState by inventoryViewModel.searchState.collectAsState()
+    val currentPage by inventoryViewModel.currentPage.collectAsState()
 
-    // Calcular los elementos a mostrar en la página actual
-    val startIndex = (currentPage - 1) * itemsPerPage
-    val endIndex = min(startIndex + itemsPerPage, filteredItems.size)
-    val currentPageItems = filteredItems.subList(startIndex, endIndex)
+    // Determinar qué estado usar (búsqueda o navegación normal)
+    val currentState = if (isSearching) searchState else inventoryState
+    val currentItems = when (currentState) {
+        is InventoryViewModel.InventoryState.Success -> currentState.response.data
+        is InventoryViewModel.SearchState.Success -> currentState.response.data
+        else -> emptyList()
+    }
 
-    // Función para cambiar de página
-    fun changePage(page: Int) {
-        currentPage = page.coerceIn(1, totalPages)
+    // Obtener información de paginación
+    val paginationInfo = when (currentState) {
+        is InventoryViewModel.InventoryState.Success -> {
+            Triple(currentState.response.currentPage, currentState.response.totalPages, currentState.response.totalItems)
+        }
+        is InventoryViewModel.SearchState.Success -> {
+            Triple(currentState.response.currentPage, currentState.response.totalPages, currentState.response.totalItems)
+        }
+        else -> Triple(1, 1, 0)
+    }
+
+    // Función para obtener el filtro de categoría para la API
+    fun getCategoryFilter(): String? {
+        return when (category.name) {
+            "Todo" -> null
+            "Cubetas" -> "cubeta"
+            "Telas" -> "tela"
+            "Cascos" -> "casco"
+            "Herramientas" -> "herramienta"
+            "Bisagras y Herrajes" -> "bisagra"
+            "Pernos y Sujetadores" -> "perno"
+            "Cintas y Adhesivos" -> "cinta"
+            "Separadores y Accesorios de Cristal" -> "cristal"
+            "Cubrecantos y Acabados" -> "cubrecanto"
+            else -> null
+        }
+    }
+
+    // Cargar datos iniciales SOLO UNA VEZ cuando se monta el componente
+    LaunchedEffect(category.id) { // Usar category.id como key para evitar recomposiciones innecesarias
+        if (!hasLoadedInitialData) {
+            isSearching = false
+            searchQuery = ""
+            inventoryViewModel.resetSearchState()
+
+            val categoryFilter = getCategoryFilter()
+            inventoryViewModel.getInventoryItems(
+                page = 1,
+                descripcion = categoryFilter
+            )
+            hasLoadedInitialData = true
+        }
+    }
+
+    // Resetear el flag cuando se cambia de categoría
+    LaunchedEffect(category.id) {
+        hasLoadedInitialData = false
     }
 
     Column {
@@ -76,35 +118,62 @@ fun InventoryItemsList(
         // Barra de búsqueda
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = {
-                searchQuery = it
-                // Filtrar items basados en la búsqueda
-                filteredItems = if (category.name == "Todo") {
-                    allItems.filter { item ->
-                        item.descripcion.contains(searchQuery, ignoreCase = true) ||
-                                item.codigoMat.contains(searchQuery, ignoreCase = true)
-                    }
+            onValueChange = { newQuery ->
+                searchQuery = newQuery
+                if (newQuery.isNotBlank()) {
+                    // Activar modo búsqueda
+                    isSearching = true
+                    inventoryViewModel.searchInventoryItems(newQuery, page = 1)
                 } else {
-                    allItems.filter { item ->
-                        categorizarMaterial(item.descripcion) == category.name &&
-                                (item.descripcion.contains(searchQuery, ignoreCase = true) ||
-                                        item.codigoMat.contains(searchQuery, ignoreCase = true))
-                    }
+                    // Volver al modo normal con filtro de categoría
+                    isSearching = false
+                    inventoryViewModel.resetSearchState()
+                    val categoryFilter = getCategoryFilter()
+                    inventoryViewModel.getInventoryItems(
+                        page = 1,
+                        descripcion = categoryFilter
+                    )
                 }
-                // Resetear a la primera página cuando se realiza una búsqueda
-                currentPage = 1
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 16.dp),
             placeholder = { Text("Buscar en ${category.name}...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = {
+                            searchQuery = ""
+                            isSearching = false
+                            inventoryViewModel.resetSearchState()
+                            val categoryFilter = getCategoryFilter()
+                            inventoryViewModel.getInventoryItems(
+                                page = 1,
+                                descripcion = categoryFilter
+                            )
+                        }
+                    ) {
+                        Icon(Icons.Default.Clear, contentDescription = "Limpiar búsqueda")
+                    }
+                }
+            },
             singleLine = true
         )
 
+        // Indicador de modo de búsqueda
+        if (isSearching) {
+            Text(
+                text = "Buscando: \"$searchQuery\"",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
         // Información de paginación
         Text(
-            text = "Mostrando ${startIndex + 1} a ${endIndex} de ${filteredItems.size} items",
+            text = "Página ${paginationInfo.first} de ${paginationInfo.second} - Total: ${paginationInfo.third} items",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .fillMaxWidth()
@@ -112,30 +181,157 @@ fun InventoryItemsList(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        // Grid de items
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 250.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.weight(1f)
-        ) {
-            items(currentPageItems) { item ->
-                InventoryItemCard(
-                    item = item,
-                    onClick = {
-                        selectedItem = item
-                        onItemClick(item)
+        // Contenido principal según el estado
+        when (currentState) {
+            is InventoryViewModel.InventoryState.Loading,
+            is InventoryViewModel.SearchState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            is InventoryViewModel.InventoryState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Error: ${currentState.message}")
+                        Button(
+                            onClick = {
+                                if (isSearching) {
+                                    inventoryViewModel.searchInventoryItems(searchQuery, page = 1)
+                                } else {
+                                    val categoryFilter = getCategoryFilter()
+                                    inventoryViewModel.getInventoryItems(
+                                        page = 1,
+                                        descripcion = categoryFilter
+                                    )
+                                }
+                            }
+                        ) {
+                            Text("Reintentar")
+                        }
                     }
-                )
+                }
+            }
+
+            is InventoryViewModel.SearchState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Error en búsqueda: ${currentState.message}")
+                        Button(
+                            onClick = {
+                                inventoryViewModel.searchInventoryItems(searchQuery, page = 1)
+                            }
+                        ) {
+                            Text("Reintentar")
+                        }
+                    }
+                }
+            }
+
+            is InventoryViewModel.InventoryState.Success,
+            is InventoryViewModel.SearchState.Success -> {
+                if (currentItems.isEmpty()) {
+                    // Mostrar mensaje cuando no hay resultados
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = Color.Gray
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = if (isSearching) {
+                                    "No se encontraron resultados para \"$searchQuery\""
+                                } else {
+                                    "No hay items en esta categoría"
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    // Grid de items
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 250.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(currentItems) { item ->
+                            InventoryItemCard(
+                                item = item,
+                                onClick = {
+                                    selectedItem = item
+                                    onItemClick(item)
+                                }
+                            )
+                        }
+                    }
+
+                    // Controles de paginación - solo mostrar si hay más de una página
+                    if (paginationInfo.second > 1) {
+                        PaginationControls(
+                            currentPage = paginationInfo.first,
+                            totalPages = paginationInfo.second,
+                            onPageChange = { newPage ->
+                                if (isSearching) {
+                                    inventoryViewModel.searchInventoryItems(searchQuery, page = newPage)
+                                } else {
+                                    val categoryFilter = getCategoryFilter()
+                                    inventoryViewModel.getInventoryItems(
+                                        page = newPage,
+                                        descripcion = categoryFilter
+                                    )
+                                }
+                            },
+                            isLoading = currentState is InventoryViewModel.InventoryState.Loading ||
+                                    currentState is InventoryViewModel.SearchState.Loading
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
-
-        // Controles de paginación
-        PaginationControls(
-            currentPage = currentPage,
-            totalPages = totalPages,
-            onPageChange = { changePage(it) }
-        )
 
         // Dialog para ver detalles del item
         selectedItem?.let { item ->
@@ -147,11 +343,13 @@ fun InventoryItemsList(
     }
 }
 
+
 @Composable
 fun PaginationControls(
     currentPage: Int,
     totalPages: Int,
-    onPageChange: (Int) -> Unit
+    onPageChange: (Int) -> Unit,
+    isLoading: Boolean = false
 ) {
     if (totalPages <= 1) return
 
@@ -168,12 +366,15 @@ fun PaginationControls(
             // Botón para ir a la página anterior
             IconButton(
                 onClick = { onPageChange(currentPage - 1) },
-                enabled = currentPage > 1
+                enabled = currentPage > 1 && !isLoading
             ) {
                 Icon(
                     Icons.Default.KeyboardArrowLeft,
                     contentDescription = "Página anterior",
-                    tint = if (currentPage > 1) MaterialTheme.colorScheme.primary else Color.Gray
+                    tint = if (currentPage > 1 && !isLoading)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        Color.Gray
                 )
             }
 
@@ -191,19 +392,35 @@ fun PaginationControls(
                 } else {
                     // Mostrar número de página
                     Surface(
-                        modifier = Modifier
-                            .size(40.dp),
+                        modifier = Modifier.size(40.dp),
                         shape = MaterialTheme.shapes.small,
-                        color = if (page == currentPage) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        onClick = { onPageChange(page) }
+                        color = if (page == currentPage)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            Color.Transparent,
+                        onClick = {
+                            if (!isLoading && page != currentPage) {
+                                onPageChange(page)
+                            }
+                        }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = page.toString(),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (page == currentPage) FontWeight.Bold else FontWeight.Normal,
-                                color = if (page == currentPage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                            )
+                            if (isLoading && page == currentPage) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = page.toString(),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (page == currentPage) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (page == currentPage)
+                                        MaterialTheme.colorScheme.onPrimary
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }
@@ -212,12 +429,15 @@ fun PaginationControls(
             // Botón para ir a la página siguiente
             IconButton(
                 onClick = { onPageChange(currentPage + 1) },
-                enabled = currentPage < totalPages
+                enabled = currentPage < totalPages && !isLoading
             ) {
                 Icon(
                     Icons.Default.KeyboardArrowRight,
                     contentDescription = "Página siguiente",
-                    tint = if (currentPage < totalPages) MaterialTheme.colorScheme.primary else Color.Gray
+                    tint = if (currentPage < totalPages && !isLoading)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        Color.Gray
                 )
             }
         }

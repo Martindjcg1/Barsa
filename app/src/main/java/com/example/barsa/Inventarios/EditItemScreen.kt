@@ -5,7 +5,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,19 +27,23 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.barsa.Models.InventoryItem
+
+import com.example.barsa.Models.InventoryItemfake
+import com.example.barsa.data.retrofit.models.InventoryItem
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditItemScreen(
     item: InventoryItem,
     onCancel: () -> Unit,
-    onSave: (InventoryItem) -> Unit
+    onSave: (InventoryItem) -> Unit,
+    inventoryViewModel: InventoryViewModel
 ) {
     var codigoMat by remember { mutableStateOf(item.codigoMat) }
     var descripcion by remember { mutableStateOf(item.descripcion) }
     var unidad by remember { mutableStateOf(item.unidad) }
-    var pCompra by remember { mutableStateOf(item.pCompra.toString()) }
+    var pCompra by remember { mutableStateOf(item.pcompra.toString()) }
     var existencia by remember { mutableStateOf(item.existencia.toString()) }
     var max by remember { mutableStateOf(item.max.toString()) }
     var min by remember { mutableStateOf(item.min.toString()) }
@@ -52,28 +55,70 @@ fun EditItemScreen(
     var showUnidadEntradaDropdown by remember { mutableStateOf(false) }
 
     // Opciones para unidades
-    val unidadOptions = listOf("PZA", "PZAS", "MTR")
+    val unidadOptions = listOf("PZA", "PZAS", "MTR", "KG", "LT", "M2", "M3")
 
-    // Para manejar imágenes
-    var existingImages by remember {
-        mutableStateOf(
-            if (item.imagenesUrls.isNotEmpty()) {
-                item.imagenesUrls
-            } else if (item.imagenUrl != null) {
-                listOf(item.imagenUrl)
-            } else {
-                emptyList()
-            }
-        )
-    }
+    // Para manejar imágenes - usar las URLs directamente de item.imagenes (List<String>)
+    var existingImages by remember { mutableStateOf(item.imagenes) } // Ya es List<String>
     var newImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val context = LocalContext.current
+
+    // Observar el estado de actualización
+    val updateMaterialState by inventoryViewModel.updateMaterialState.collectAsState()
+
+    // Variables para mostrar mensajes
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
         if (uris.isNotEmpty()) {
             newImages = uris
         }
+    }
+
+    // Manejar el resultado de la actualización
+    LaunchedEffect(updateMaterialState) {
+        when (updateMaterialState) {
+            is InventoryViewModel.UpdateMaterialState.Success -> {
+                // Simplemente llamar onSave con el item actualizado del response o el original
+                val updatedItem = (updateMaterialState as InventoryViewModel.UpdateMaterialState.Success).response.data ?: item
+                onSave(updatedItem)
+                inventoryViewModel.resetUpdateMaterialState()
+            }
+            is InventoryViewModel.UpdateMaterialState.Error -> {
+                errorMessage = (updateMaterialState as InventoryViewModel.UpdateMaterialState.Error).message
+                showErrorDialog = true
+            }
+            else -> { /* No hacer nada */ }
+        }
+    }
+
+    // Diálogo de error
+    if (showErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Error al actualizar")
+                }
+            },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                Button(onClick = { showErrorDialog = false }) {
+                    Text("Aceptar")
+                }
+            }
+        )
     }
 
     Column(
@@ -142,7 +187,8 @@ fun EditItemScreen(
                     onValueChange = { descripcion = it },
                     label = { Text("Descripción *") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -161,8 +207,12 @@ fun EditItemScreen(
                             onValueChange = { },
                             label = { Text("Unidad *") },
                             readOnly = true,
+                            enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading,
                             trailingIcon = {
-                                IconButton(onClick = { showUnidadDropdown = true }) {
+                                IconButton(
+                                    onClick = { showUnidadDropdown = true },
+                                    enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = "Seleccionar unidad"
@@ -195,7 +245,8 @@ fun EditItemScreen(
                         label = { Text("Precio Compra") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
 
@@ -212,7 +263,8 @@ fun EditItemScreen(
                         label = { Text("Existencia") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
 
                     // Unidad de Entrada (Dropdown)
@@ -224,8 +276,12 @@ fun EditItemScreen(
                             onValueChange = { },
                             label = { Text("Unidad Entrada") },
                             readOnly = true,
+                            enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading,
                             trailingIcon = {
-                                IconButton(onClick = { showUnidadEntradaDropdown = true }) {
+                                IconButton(
+                                    onClick = { showUnidadEntradaDropdown = true },
+                                    enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.ArrowDropDown,
                                         contentDescription = "Seleccionar unidad de entrada"
@@ -265,8 +321,9 @@ fun EditItemScreen(
                         onValueChange = { max = it },
                         label = { Text("Máximo") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
 
                     OutlinedTextField(
@@ -274,8 +331,9 @@ fun EditItemScreen(
                         onValueChange = { min = it },
                         label = { Text("Mínimo") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
 
@@ -292,7 +350,8 @@ fun EditItemScreen(
                         label = { Text("Inventario Inicial") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
 
                     OutlinedTextField(
@@ -300,8 +359,9 @@ fun EditItemScreen(
                         onValueChange = { cantXUnidad = it },
                         label = { Text("Cant. por Unidad") },
                         modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
 
@@ -323,7 +383,8 @@ fun EditItemScreen(
                 ) {
                     RadioButton(
                         selected = proceso == "M",
-                        onClick = { proceso = "M" }
+                        onClick = { proceso = "M" },
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Manufactura (M)", modifier = Modifier.padding(start = 4.dp))
 
@@ -331,7 +392,8 @@ fun EditItemScreen(
 
                     RadioButton(
                         selected = proceso == "E",
-                        onClick = { proceso = "E" }
+                        onClick = { proceso = "E" },
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Ensamble (E)", modifier = Modifier.padding(start = 4.dp))
                 }
@@ -345,7 +407,8 @@ fun EditItemScreen(
                 ) {
                     RadioButton(
                         selected = proceso == "T",
-                        onClick = { proceso = "T" }
+                        onClick = { proceso = "T" },
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Terminado (T)", modifier = Modifier.padding(start = 4.dp))
 
@@ -353,7 +416,8 @@ fun EditItemScreen(
 
                     RadioButton(
                         selected = proceso == "P",
-                        onClick = { proceso = "P" }
+                        onClick = { proceso = "P" },
+                        enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Preparación (P)", modifier = Modifier.padding(start = 4.dp))
                 }
@@ -397,25 +461,27 @@ fun EditItemScreen(
                                     contentScale = ContentScale.Crop
                                 )
 
-                                // Botón para eliminar imagen
-                                IconButton(
-                                    onClick = {
-                                        existingImages = existingImages.filterIndexed { i, _ -> i != index }
-                                    },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(24.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.error,
-                                            shape = CircleShape
+                                // Botón para eliminar imagen (solo si no está cargando)
+                                if (updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading) {
+                                    IconButton(
+                                        onClick = {
+                                            existingImages = existingImages.filterIndexed { i, _ -> i != index }
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(24.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.error,
+                                                shape = CircleShape
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Eliminar imagen",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Eliminar imagen",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -436,7 +502,8 @@ fun EditItemScreen(
                 // Botón para seleccionar imágenes
                 Button(
                     onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                 ) {
                     Icon(
                         imageVector = Icons.Default.AddCircle,
@@ -484,25 +551,27 @@ fun EditItemScreen(
                                     contentScale = ContentScale.Crop
                                 )
 
-                                // Botón para eliminar imagen
-                                IconButton(
-                                    onClick = {
-                                        newImages = newImages.filterIndexed { i, _ -> i != index }
-                                    },
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(24.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.error,
-                                            shape = CircleShape
+                                // Botón para eliminar imagen (solo si no está cargando)
+                                if (updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading) {
+                                    IconButton(
+                                        onClick = {
+                                            newImages = newImages.filterIndexed { i, _ -> i != index }
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(24.dp)
+                                            .background(
+                                                color = MaterialTheme.colorScheme.error,
+                                                shape = CircleShape
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Eliminar imagen",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Eliminar imagen",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -519,7 +588,8 @@ fun EditItemScreen(
             horizontalArrangement = Arrangement.End
         ) {
             TextButton(
-                onClick = onCancel
+                onClick = onCancel,
+                enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
             ) {
                 Text("Cancelar")
             }
@@ -530,39 +600,45 @@ fun EditItemScreen(
                 onClick = {
                     // Validar campos obligatorios
                     if (descripcion.isNotBlank() && unidad.isNotBlank()) {
-                        // Crear item actualizado
-                        val updatedItem = InventoryItem(
+                        // Llamar a la función de actualización del ViewModel
+                        // Solo pasamos las nuevas imágenes, no las existentes
+                        inventoryViewModel.updateMaterial(
+                            context = context,
                             codigoMat = codigoMat,
                             descripcion = descripcion,
                             unidad = unidad,
-                            pCompra = pCompra.toDoubleOrNull() ?: 0.0,
+                            pcompra = pCompra.toDoubleOrNull() ?: 0.0,
                             existencia = existencia.toDoubleOrNull() ?: 0.0,
-                            max = max.toIntOrNull() ?: 0,
-                            min = min.toIntOrNull() ?: 0,
+                            max = max.toDoubleOrNull() ?: 0.0,
+                            min = min.toDoubleOrNull() ?: 0.0,
                             inventarioInicial = inventarioInicial.toDoubleOrNull() ?: 0.0,
                             unidadEntrada = unidadEntrada,
-                            cantXUnidad = cantXUnidad.toIntOrNull() ?: 1,
+                            cantxunidad = cantXUnidad.toDoubleOrNull() ?: 1.0,
                             proceso = proceso,
-                            borrado = false,
-                            // Combinar imágenes existentes y nuevas
-                            imagenUrl = if (existingImages.isNotEmpty()) existingImages[0] else
-                                if (newImages.isNotEmpty()) newImages[0].toString() else null,
-                            imagenesUrls = existingImages + newImages.map { it.toString() }
+                            borrado = item.borrado, // Mantener el estado actual de borrado
+                            newImageUris = newImages // Solo las nuevas imágenes
                         )
-                        onSave(updatedItem)
                     } else {
-                        // Mostrar mensaje de error (en una implementación real)
-                        // Por ahora solo imprimimos en consola
-                        println("Por favor complete todos los campos obligatorios")
+                        errorMessage = "Por favor complete todos los campos obligatorios"
+                        showErrorDialog = true
                     }
-                }
+                },
+                enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
             ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Guardar"
-                )
+                if (updateMaterialState is InventoryViewModel.UpdateMaterialState.Loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Guardar"
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Guardar Cambios")
+                Text(if (updateMaterialState is InventoryViewModel.UpdateMaterialState.Loading) "Guardando..." else "Guardar Cambios")
             }
         }
     }

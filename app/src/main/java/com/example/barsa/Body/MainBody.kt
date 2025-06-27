@@ -20,6 +20,7 @@ import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
+import com.example.barsa.data.retrofit.ui.InventoryViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 
@@ -33,6 +34,7 @@ fun MainBody(
     tiemposViewModel: TiemposViewModel,
     papeletaViewModel: PapeletaViewModel,
     userViewModel: UserViewModel,
+    inventoryViewModel: InventoryViewModel,
     onLogout: () -> Unit // NUEVO PARÁMETRO
 ) {
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
@@ -62,7 +64,7 @@ fun MainBody(
             if(rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
                 when {
                     currentRoute == "inventario" -> {
-                        InventoryScreen(onNavigate)
+                        InventoryScreen(onNavigate, inventoryViewModel, userViewModel)
                     }
 
                     currentRoute == "producciones" -> {
@@ -164,7 +166,7 @@ fun MainBody(
             {
                 when{
                     currentRoute == "inventario" -> {
-                        InventoryScreen(onNavigate)
+                        InventoryScreen(onNavigate, inventoryViewModel, userViewModel)
                     }
                     currentRoute == "usuario" -> {
                         UsuarioBody(onNavigate, userViewModel, onLogout = onLogout)

@@ -1,5 +1,7 @@
 package com.example.barsa.Models
 
+import com.example.barsa.data.retrofit.models.InventoryItem
+
 // Modelo para proveedores
 data class Supplier(
     val id: String,

@@ -21,7 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.barsa.Models.InventoryItem
+import com.example.barsa.data.retrofit.models.InventoryItem
+
 
 @Composable
 fun ItemDetailDialog(
@@ -57,8 +58,8 @@ fun ItemDetailDialog(
                     }
                 }
 
-                // Actualizar la visualización de la imagen en el diálogo para hacerla interactuable
-                if (!item.imagenUrl.isNullOrEmpty() || item.imagenesUrls.isNotEmpty()) {
+                // Mostrar imágenes si existen - usar la propiedad computada
+                if (item.imagenes.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Mostrar la imagen principal
@@ -72,7 +73,7 @@ fun ItemDetailDialog(
                     ) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(if (item.imagenesUrls.isNotEmpty()) item.imagenesUrls[0] else item.imagenUrl)
+                                .data(item.imagenes.first()) // Usar la propiedad computada
                                 .crossfade(true)
                                 .build(),
                             contentDescription = item.descripcion,
@@ -84,10 +85,10 @@ fun ItemDetailDialog(
                     }
 
                     // Si hay múltiples imágenes, mostrar miniaturas
-                    if (item.imagenesUrls.size > 1) {
+                    if (item.imagenes.size > 1) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Galería de imágenes (${item.imagenesUrls.size})",
+                            text = "Galería de imágenes (${item.imagenes.size})",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -99,7 +100,7 @@ fun ItemDetailDialog(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            item.imagenesUrls.forEachIndexed { index, url ->
+                            item.imagenes.forEachIndexed { index, url ->
                                 Box(
                                     modifier = Modifier
                                         .size(80.dp)
@@ -129,35 +130,28 @@ fun ItemDetailDialog(
                 DetailItem("Código", item.codigoMat)
                 DetailItem("Descripción", item.descripcion)
                 DetailItem("Unidad", item.unidad)
-                DetailItem("Precio Compra", "%.2f".format(item.pCompra))
-                DetailItem("Existencia", "%.2f".format(item.existencia))
-                DetailItem("Máximo", item.max.toString())
-                DetailItem("Mínimo", item.min.toString())
-                DetailItem("Inventario Inicial", "%.2f".format(item.inventarioInicial))
+                DetailItem("Precio Compra", String.format("%.2f", item.pcompra))
+                DetailItem("Existencia", String.format("%.2f", item.existencia))
+                DetailItem("Máximo", String.format("%.2f", item.max))
+                DetailItem("Mínimo", String.format("%.2f", item.min))
+                DetailItem("Inventario Inicial", String.format("%.2f", item.inventarioInicial))
                 DetailItem("Unidad Entrada", item.unidadEntrada)
-                DetailItem("Cantidad por Unidad", item.cantXUnidad.toString())
+                DetailItem("Cantidad por Unidad", String.format("%.2f", item.cantXUnidad))
                 DetailItem("Proceso", item.proceso)
                 DetailItem("Estado", if (item.borrado) "Borrado" else "Activo")
-                if (!item.imagenUrl.isNullOrEmpty()) {
-                    DetailItem("URL de Imagen", item.imagenUrl)
+                if (item.imagenes.isNotEmpty()) {
+                    DetailItem("Imágenes", "${item.imagenes.size} imagen(es)")
                 }
             }
         }
     }
 
     // Mostrar el visor de imágenes si se hace clic en la imagen
-    if (showImageViewer) {
-        if (item.imagenesUrls.isNotEmpty()) {
-            ImageViewerDialog(
-                imageUrls = item.imagenesUrls,
-                onDismiss = { showImageViewer = false }
-            )
-        } else if (!item.imagenUrl.isNullOrEmpty()) {
-            ImageViewerDialog(
-                imageUrls = listOf(item.imagenUrl),
-                onDismiss = { showImageViewer = false }
-            )
-        }
+    if (showImageViewer && item.imagenes.isNotEmpty()) {
+        ImageViewerDialog(
+            imageUrls = item.imagenes, // Usar la propiedad computada
+            onDismiss = { showImageViewer = false }
+        )
     }
 }
 
@@ -180,4 +174,3 @@ fun DetailItem(label: String, value: String) {
     }
     Divider(modifier = Modifier.padding(vertical = 4.dp))
 }
-
