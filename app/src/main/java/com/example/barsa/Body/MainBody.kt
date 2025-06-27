@@ -18,6 +18,8 @@ import com.example.barsa.Body.Usuario.UsuarioBody
 
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
+import com.example.barsa.Producciones.InformeFolio
+import com.example.barsa.Producciones.InformeIndividual
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
@@ -112,6 +114,73 @@ fun MainBody(
                             Text("Error: Datos incompletos para el selector de etapa")
                         }
                     }
+
+                    currentRoute.startsWith("informeIndividual/") -> {
+                        val parts = currentRoute.removePrefix("informeIndividual/").split("°")
+                        if (parts.size == 5) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            val Etapa = parts[4]
+                            InformeIndividual(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
+                    /*currentRoute.startsWith("informeFolio/") -> {
+                        val parts = currentRoute.removePrefix("informeFolio/").split("°")
+                        if (parts.size == 5) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            val Etapa = parts[4]
+                            InformeFolio(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }*/
+                    currentRoute.startsWith("informeFolio/") -> {
+                        val parts = currentRoute.removePrefix("informeFolio/").split("°")
+                        //if (parts.size == 5) {
+                        if (parts.size == 4) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            //val Etapa = parts[4]
+                            InformeFolio(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                //Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
                 }
             }
             else if(rol.equals("Produccion"))
@@ -157,6 +226,52 @@ fun MainBody(
                             Text("Error: Datos incompletos para el selector de etapa")
                         }
                     }
+
+                    currentRoute.startsWith("informeIndividual/") -> {
+                        val parts = currentRoute.removePrefix("informeIndividual/").split("°")
+                        if (parts.size == 5) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            val Etapa = parts[4]
+                            InformeIndividual(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
+                    currentRoute.startsWith("informeFolio/") -> {
+                        val parts = currentRoute.removePrefix("informeFolio/").split("°")
+                        //if (parts.size == 5) {
+                        if (parts.size == 4) {
+                            val TipoId = parts[0]
+                            val Folio = parts[1].toIntOrNull() ?: 0
+                            val Fecha = parts[2]
+                            val Status = parts[3]
+                            //val Etapa = parts[4]
+                            InformeFolio(
+                                TipoId,
+                                Folio,
+                                Fecha,
+                                Status,
+                                //Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
                     currentRoute == "usuario" -> {
                         UsuarioBody(onNavigate, userViewModel, onLogout = onLogout)
                     }

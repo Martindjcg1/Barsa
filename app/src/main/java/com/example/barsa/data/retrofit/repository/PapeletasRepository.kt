@@ -10,9 +10,11 @@ import com.example.barsa.data.retrofit.models.ErrorResponse
 import com.example.barsa.data.retrofit.models.FinalizarTiempoRequest
 import com.example.barsa.data.retrofit.models.IniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
+import com.example.barsa.data.retrofit.models.ListadoTiemposResponse
 import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.ReiniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
+import com.example.barsa.data.retrofit.models.TiemposPeriodo
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.firstOrNull
 import retrofit2.HttpException
@@ -71,6 +73,25 @@ class PapeletaRepository @Inject constructor(
             Result.failure(Exception("Error inesperado"))
         }
     }
+
+    suspend fun getTiemposPorPeriodo(fechaInicio: String, fechaFin: String): Result<ListadoTiemposResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+            val response = papeletaApiService.obtenerTiemposPorPeriodo("Bearer $token", fechaInicio, fechaFin)
+            Result.success(response)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponse::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error HTTP inesperado"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("PapeletaRepository", "Error al obtener tiempos por periodo", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
 
     suspend fun getUltimaDetencion(folio: Int): Result<DetencionRemota?> {
         return try {
@@ -279,4 +300,44 @@ class PapeletaRepository @Inject constructor(
             Result.failure(Exception("Error inesperado"))
         }
     }
+
+    suspend fun getDetencionesPorEtapa(folio: Int, etapa: String): Result<List<DetencionRemota>> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+
+            val response = papeletaApiService.getDetencionesPorEtapa("Bearer $token", folio, etapa)
+            Result.success(response)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ApiErrorResponse::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error de servidor"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("PapeletaRepository", "Error al obtener detenciones por etapa", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
+    suspend fun getDetencionesPorFolio(folio: Int): Result<List<DetencionRemota>> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+
+            val response = papeletaApiService.getDetencionesPorFolio("Bearer $token", folio)
+            Result.success(response)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponse::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error de servidor"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("PapeletaRepository", "Error al obtener detenciones", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
+
 }

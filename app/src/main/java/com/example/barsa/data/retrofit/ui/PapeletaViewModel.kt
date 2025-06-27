@@ -3,11 +3,13 @@ package com.example.barsa.data.retrofit.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.DetencionRemota
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.Papeleta
 import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
+import com.example.barsa.data.retrofit.models.TiemposPeriodo
 import com.example.barsa.data.retrofit.repository.PapeletaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -141,6 +143,8 @@ class PapeletaViewModel @Inject constructor(
     }
 
 
+
+
     private val _ultimaDetencion = MutableStateFlow<DetencionRemota?>(null)
     val ultimaDetencion: StateFlow<DetencionRemota?> = _ultimaDetencion
 
@@ -198,6 +202,136 @@ class PapeletaViewModel @Inject constructor(
             }
         }
     }
+
+    sealed class DetencionesEtapaState {
+        object Loading : DetencionesEtapaState()
+        data class Success(val lista: List<DetencionRemota>) : DetencionesEtapaState()
+        data class Error(val message: String) : DetencionesEtapaState()
+    }
+
+    private val _detencionesEtapaState = MutableStateFlow<DetencionesEtapaState>(DetencionesEtapaState.Loading)
+    val detencionesEtapaState: StateFlow<DetencionesEtapaState> = _detencionesEtapaState
+
+    fun resetDetencionesEtapaState() {
+        _detencionesEtapaState.value = DetencionesEtapaState.Loading
+    }
+
+    fun cargarDetencionesPorEtapa(folio: Int, etapa: String) {
+        viewModelScope.launch {
+            _detencionesEtapaState.value = DetencionesEtapaState.Loading
+            try {
+                val result = papeletaRepository.getDetencionesPorEtapa(folio, etapa)
+                result.onSuccess { lista ->
+                    _detencionesEtapaState.value = DetencionesEtapaState.Success(lista)
+                }.onFailure { error ->
+                    _detencionesEtapaState.value = DetencionesEtapaState.Error(error.message ?: "Error al obtener detenciones")
+                }
+            } catch (e: Exception) {
+                _detencionesEtapaState.value = DetencionesEtapaState.Error("Error inesperado al obtener detenciones")
+            }
+        }
+    }
+
+    ///////////////////////////////////////
+
+    sealed class TiemposFolioState {
+        object Loading : TiemposFolioState()
+        data class Success(val lista: List<TiempoRemoto>) : TiemposFolioState()
+        data class Error(val message: String) : TiemposFolioState()
+    }
+
+    private val _tiemposFolioState = MutableStateFlow<TiemposFolioState>(TiemposFolioState.Loading)
+    val tiemposFolioState: StateFlow<TiemposFolioState> = _tiemposFolioState
+
+    fun resetTiemposFolioState() {
+        _tiemposFolioState.value = TiemposFolioState.Loading
+    }
+
+    fun cargarTiemposPorFolio(folio: Int) {
+        viewModelScope.launch {
+            _tiemposFolioState.value = TiemposFolioState.Loading
+            try {
+                val result = papeletaRepository.getTiemposPorFolio(folio)
+                result.onSuccess { lista ->
+                    _tiemposFolioState.value = TiemposFolioState.Success(lista)
+                }.onFailure { error ->
+                    _tiemposFolioState.value =
+                        TiemposFolioState.Error(error.message ?: "Error al obtener los tiempos del folio")
+                }
+            } catch (e: Exception) {
+                _tiemposFolioState.value =
+                    TiemposFolioState.Error("Error inesperado al obtener los tiempos del folio")
+            }
+        }
+    }
+
+    ///////////////////////////////////////7
+
+    sealed class DetencionesFolioState {
+        object Loading : DetencionesFolioState()
+        data class Success(val lista: List<DetencionRemota>) : DetencionesFolioState()
+        data class Error(val message: String) : DetencionesFolioState()
+    }
+
+
+    private val _detencionesFolioState = MutableStateFlow<DetencionesFolioState>(DetencionesFolioState.Loading)
+    val detencionesFolioState: StateFlow<DetencionesFolioState> = _detencionesFolioState
+
+    fun resetDetencionesFolioState() {
+        _detencionesFolioState.value = DetencionesFolioState.Loading
+    }
+
+    fun cargarDetencionesPorFolio(folio: Int) {
+        viewModelScope.launch {
+            _detencionesFolioState.value = DetencionesFolioState.Loading
+            try {
+                val result = papeletaRepository.getDetencionesPorFolio(folio)
+                result.onSuccess { lista ->
+                    _detencionesFolioState.value = DetencionesFolioState.Success(lista)
+                }.onFailure { error ->
+                    _detencionesFolioState.value = DetencionesFolioState.Error(error.message ?: "Error al obtener detenciones del folio")
+                }
+            } catch (e: Exception) {
+                _detencionesFolioState.value = DetencionesFolioState.Error("Error inesperado al obtener detenciones del folio")
+            }
+        }
+    }
+
+    ///////////////////////////////////////////
+    sealed class TiemposPeriodoState {
+        object Loading : TiemposPeriodoState()
+        data class Success(val lista: List<TiemposPeriodo>) : TiemposPeriodoState()
+        data class Error(val message: String) : TiemposPeriodoState()
+    }
+
+    private val _tiemposPeriodoState = MutableStateFlow<TiemposPeriodoState>(TiemposPeriodoState.Loading)
+    val tiemposPeriodoState: StateFlow<TiemposPeriodoState> = _tiemposPeriodoState
+
+    fun resetTiemposPeriodoState() {
+        _tiemposPeriodoState.value = TiemposPeriodoState.Loading
+    }
+
+    fun cargarTiemposPorPeriodo(fechaInicio: String, fechaFin: String) {
+        viewModelScope.launch {
+            _tiemposPeriodoState.value = TiemposPeriodoState.Loading
+            try {
+                val result = papeletaRepository.getTiemposPorPeriodo(fechaInicio, fechaFin)
+                result.onSuccess { respuesta ->
+                    _tiemposPeriodoState.value = TiemposPeriodoState.Success(respuesta.data)
+                }.onFailure { error ->
+                    _tiemposPeriodoState.value = TiemposPeriodoState.Error(error.message ?: "Error al obtener tiempos del periodo")
+                }
+            } catch (e: Exception) {
+                _tiemposPeriodoState.value = TiemposPeriodoState.Error("Error inesperado al obtener tiempos del periodo")
+            }
+        }
+    }
+
+
+
+
+
+
 
     // POST Y PUT
 
@@ -321,6 +455,12 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
+    private val _detalleActual = MutableStateFlow<List<DetallePapeleta>>(emptyList())
+    val detalleActual: StateFlow<List<DetallePapeleta>> = _detalleActual
+
+    fun setDetalleActual(detalle: List<DetallePapeleta>) {
+        _detalleActual.value = detalle
+    }
 }
 
 /*private val _etapasDisponibles = MutableStateFlow<List<String>>(emptyList())

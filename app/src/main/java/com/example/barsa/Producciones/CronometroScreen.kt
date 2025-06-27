@@ -8,17 +8,9 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,16 +24,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.barsa.CronometroService
-import com.example.barsa.data.retrofit.models.DetencionRemota
 import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
-import com.example.barsa.data.retrofit.ui.UserViewModel
 import com.example.barsa.data.room.TiemposViewModel
 import com.example.barsa.data.room.local.Detencion
-//import com.example.barsa.data.room.local.Proceso
 import com.example.barsa.data.room.local.Tiempo
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -293,7 +281,7 @@ fun CronometroScreen(
             Spacer(modifier = Modifier.width(8.dp))
 
             // Mostrar dialog Reiniciar
-            Button(onClick = { showDialog = true }, enabled = time != 0 && (!tiempoDesdeDBA.value?.isFinished!!)) {
+            Button(onClick = { showDialog = true }, enabled = time != 0 && (!puedeEditar)) {
                 Text("Reiniciar")
             }
 
@@ -320,6 +308,7 @@ fun CronometroScreen(
                             // ACCESS
                             papeletaViewModel.finalizarTiempo(Folio, Etapa, formatearFechaActual(), time)
                             papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
+                            onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                         }
                     } ?: run {
                         Log.d("CronometroScreen", "Boton finalizar -> ${Folio}, ${Etapa}, ${time}")
@@ -329,6 +318,7 @@ fun CronometroScreen(
                         // ACCESS
                         papeletaViewModel.finalizarTiempo(Folio, Etapa, formatearFechaActual(), time)
                         papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
+                        onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                     }
 
                 }, enabled = !puedeEditar

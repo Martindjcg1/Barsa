@@ -156,7 +156,7 @@ fun ManageUsersSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 8.dp),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f)
             )

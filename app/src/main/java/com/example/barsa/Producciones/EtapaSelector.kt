@@ -147,7 +147,13 @@ fun EtapaSelector(
                 val estaOcupadaPorOtro = (tiempoActivo != null) && (nombreUsuario != tiempoActivo.usuario)
                 val estaDeshabilitada = hayDetencionActiva || (!esFinalizada && !esDisponible) || estaOcupadaPorOtro
 
-                val onClickAction = { if (esDisponible || esFinalizada) onEtapaSeleccionada(etapa) }
+                val onClickAction = {
+                    if (esFinalizada) {
+                        onNavigate("informeIndividual/${TipoId}°${Folio}°${Fecha}°${Status}°${etapa}")
+                    } else if (esDisponible) {
+                        onEtapaSeleccionada(etapa)
+                    }
+                }
 
                 Card(
                     modifier = Modifier.fillMaxWidth().animateContentSize(),
@@ -205,6 +211,14 @@ fun EtapaSelector(
                     }
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { onNavigate("informeFolio/${TipoId}°${Folio}°${Fecha}°${Status}") },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+        ) {
+            Text("Informe general de papeleta", color = Color.White)
         }
 
         // Botón "Detalles de detención"

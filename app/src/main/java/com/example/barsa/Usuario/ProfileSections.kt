@@ -359,7 +359,7 @@ fun EditProfileSection(
                 label = { Text("Nombre de usuario") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = updatePersonalInfoState !is UserViewModel.UpdatePersonalInfoState.Loading,
-                colors = TextFieldDefaults.outlinedTextFieldColors(
+                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     unfocusedBorderColor = lightBrown,
                     focusedLabelColor = primaryColor
@@ -393,7 +393,7 @@ fun EditProfileSection(
                 label = { Text("Correo Electrónico (Opcional)") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = updatePersonalInfoState !is UserViewModel.UpdatePersonalInfoState.Loading,
-                colors = TextFieldDefaults.outlinedTextFieldColors(
+                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     unfocusedBorderColor = lightBrown,
                     focusedLabelColor = primaryColor
@@ -617,7 +617,7 @@ fun ChangePasswordSection(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = lightBrown,
                 focusedLabelColor = primaryColor
@@ -639,7 +639,7 @@ fun ChangePasswordSection(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = lightBrown,
                 focusedLabelColor = primaryColor
@@ -675,7 +675,7 @@ fun ChangePasswordSection(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = lightBrown,
                 focusedLabelColor = primaryColor
