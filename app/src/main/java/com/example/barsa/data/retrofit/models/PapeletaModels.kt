@@ -102,7 +102,25 @@ data class ApiErrorResponse(
     val statusCode: Int?
 )
 
+data class ListadoTiemposResponse(
+    val totalItems: Int,
+    val totalPages: Int,
+    val currentPage: Int,
+    val data: List<TiemposPeriodo>
+)
 
+data class TiemposPeriodo(
+    val id: Int,
+    val procesoFolio: Int,
+    val etapa: String,
+    val tiempo: Int,
+    val fechaInicio: String?,
+    val fechaFin: String?,
+    val isRunning: Boolean,
+    val isFinished: Boolean,
+    val usuario: String,
+    val detenciones: List<DetencionRemota>
+)
 
 
 

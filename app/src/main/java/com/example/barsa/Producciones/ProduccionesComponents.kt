@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -46,6 +47,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.barsa.R
 import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.Papeleta
+import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 
 /*
 @Composable
@@ -299,7 +301,8 @@ fun FiltroDropdown(
 fun PapeletaCard(
     papeleta: Papeleta,
     detalles: List<DetallePapeleta>,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    papeletaViewModel: PapeletaViewModel
 ) {
     val accentBrown = Color(0xFF654321)
     var showDialog by remember { mutableStateOf(false) }
@@ -340,17 +343,18 @@ fun PapeletaCard(
                 Row {
                     IconButton(
                         onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
                     ) {
                         Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
                     }
                     IconButton(
                         onClick = {
+                            papeletaViewModel.setDetalleActual(detalles)
                             val route =
                                 "selector/${papeleta.tipoId}°${papeleta.folio}°${papeleta.fecha}°${papeleta.status}"
                             onNavigate(route)
                         },
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = accentBrown)
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
                     ) {
                         Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos")
                     }
@@ -480,7 +484,7 @@ fun SearchBar(
                 .height(55.dp),
             placeholder = { Text("Buscar por Folio") },
             singleLine = true,
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = accentBrown,
                 unfocusedBorderColor = lightBrown,
                 focusedTextColor = Color.Black

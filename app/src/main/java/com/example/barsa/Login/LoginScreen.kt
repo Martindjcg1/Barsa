@@ -118,7 +118,7 @@ fun LoginScreen(
                             onValueChange = { username = it },
                             label = { Text("Usuario") },
                             singleLine = true,
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                            colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = accentBrown,
                                 unfocusedBorderColor = lightBrown
                             ),
@@ -132,7 +132,7 @@ fun LoginScreen(
                             label = { Text("Contraseña") },
                             singleLine = true,
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                            colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = accentBrown,
                                 unfocusedBorderColor = lightBrown
                             ),
@@ -198,7 +198,7 @@ fun LoginScreen(
                         onValueChange = { username = it },
                         label = { Text("Usuario") },
                         singleLine = true,
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                        colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = accentBrown,
                             unfocusedBorderColor = lightBrown
                         ),
@@ -212,7 +212,7 @@ fun LoginScreen(
                         label = { Text("Contraseña") },
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                        colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = accentBrown,
                             unfocusedBorderColor = lightBrown
                         ),

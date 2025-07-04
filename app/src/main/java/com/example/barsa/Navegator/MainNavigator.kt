@@ -28,6 +28,8 @@ import com.example.barsa.Header.Notification
 
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
+import com.example.barsa.Producciones.InformeFolio
+import com.example.barsa.Producciones.InformeIndividual
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
 import com.example.barsa.data.retrofit.ui.NotificationViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
@@ -176,6 +178,34 @@ fun MainNavigator(
                 navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
             }, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel, userViewModel)
         }
+
+        composable(
+            "informeIndividual/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
+        ) { backStackEntry ->
+            val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
+            val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
+            val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
+            val Status = backStackEntry.arguments?.getString("Status") ?: ""
+            val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
+
+            InformeIndividual(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, papeletaViewModel)
+        }
+
+        composable(
+            //"informeFolio/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
+            "informeFolio/{TipoId}/{Folio}/{Fecha}/{Status}"
+        ) { backStackEntry ->
+            val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
+            val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
+            val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
+            val Status = backStackEntry.arguments?.getString("Status") ?: ""
+            //val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
+
+            //InformeFolio(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, papeletaViewModel)
+            InformeFolio(TipoId, Folio, Fecha, Status, onNavigate = { route -> navController.navigate(route) }, papeletaViewModel)
+
+        }
+
     }
 }
 

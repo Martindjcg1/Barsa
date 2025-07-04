@@ -269,7 +269,7 @@ fun ProduccionesScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(papeletas, key = { it.folio }) { papeleta ->
-                            PapeletaCard(papeleta, papeleta.detallepapeleta, onNavigate)
+                            PapeletaCard(papeleta, papeleta.detallepapeleta, onNavigate, papeletaViewModel)
                         }
                     }
                 }

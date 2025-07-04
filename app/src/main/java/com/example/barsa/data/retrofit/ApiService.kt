@@ -13,6 +13,7 @@ import com.example.barsa.data.retrofit.models.FinalizarTiempoRequest
 import com.example.barsa.data.retrofit.models.IniciarTiempoRequest
 import com.example.barsa.data.retrofit.models.InventoryPaginationResponse
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
+import com.example.barsa.data.retrofit.models.ListadoTiemposResponse
 import com.example.barsa.data.retrofit.models.LoginRequest
 import com.example.barsa.data.retrofit.models.LoginResponse
 import com.example.barsa.data.retrofit.models.LogoutResponse
@@ -250,5 +251,24 @@ interface PapeletaApiService {
         @Body request: DetencionTiempoRequest
     ): Response<ApiWrapperResponse>
 
+    @GET("produccion/obtener-detencion")
+    suspend fun getDetencionesPorEtapa(
+        @Header("Authorization") authToken: String,
+        @Query("folio") folio: Int,
+        @Query("etapa") etapa: String
+    ): List<DetencionRemota>
+
+    @GET("produccion/obtener-detenciones-folio/{folio}")
+    suspend fun getDetencionesPorFolio(
+        @Header("Authorization") authToken: String,
+        @Path("folio") folio: Int
+    ): List<DetencionRemota>
+
+    @GET("produccion/obtener-tiempos-periodo")
+    suspend fun obtenerTiemposPorPeriodo(
+        @Header("Authorization") authToken: String,
+        @Query("fechaInicio") fechaInicio: String,
+        @Query("fechaFin") fechaFin: String
+    ): ListadoTiemposResponse
 }
 

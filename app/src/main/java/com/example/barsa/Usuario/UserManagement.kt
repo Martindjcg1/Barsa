@@ -122,7 +122,7 @@ fun AddUserSection(
             onValueChange = { nombre = it },
             label = { Text("Nombre") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -135,7 +135,7 @@ fun AddUserSection(
             onValueChange = { apellido = it },
             label = { Text("Apellido") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -148,7 +148,7 @@ fun AddUserSection(
             onValueChange = { usuario = it },
             label = { Text("Nombre de usuario") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -161,7 +161,7 @@ fun AddUserSection(
             onValueChange = { email = it },
             label = { Text("Correo Electrónico (opcional)") },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -183,7 +183,7 @@ fun AddUserSection(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -205,7 +205,7 @@ fun AddUserSection(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                 focusedLabelColor = primaryColor
@@ -231,7 +231,7 @@ fun AddUserSection(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
+                colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = primaryColor,
                     unfocusedBorderColor = accentColor.copy(alpha = 0.5f),
                     focusedLabelColor = primaryColor
@@ -381,7 +381,7 @@ fun UserListSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            colors = TextFieldDefaults.outlinedTextFieldColors(
+            colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = primaryColor,
                 unfocusedBorderColor = accentColor.copy(alpha = 0.5f)
             )

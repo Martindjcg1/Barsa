@@ -50,6 +50,7 @@ dependencies {
     // Room (Base de datos local para almacenar tiempos)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation(libs.androidx.compose.material)
+    implementation(libs.firebase.crashlytics.buildtools)
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     // Coroutines para manejar procesos en segundo plano
@@ -61,7 +62,10 @@ dependencies {
     implementation ("io.coil-kt:coil-compose:2.4.0")
     //datastore preferences
     implementation("androidx.datastore:datastore-preferences:1.1.6")
-
+    // Vico
+    implementation ("com.patrykandpatrick.vico:compose:2.1.3")
+    implementation ("com.patrykandpatrick.vico:compose-m3:2.1.3")
+    implementation("com.patrykandpatrick.vico:core:2.1.3")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
