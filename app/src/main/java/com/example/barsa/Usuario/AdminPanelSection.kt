@@ -84,6 +84,24 @@ fun AdminPanelSection(
                 accentColor = goldAccent,
                 primaryColor = accentBrown
             )
+
+            AdminOptionCard(
+                icon = Icons.Default.Settings,
+                text = "Bítacora Producción",
+                description = "Registro de eventos en el área de producción",
+                onClick = { onOptionSelected("Bitácora Producción") },
+                accentColor = goldAccent,
+                primaryColor = accentBrown
+            )
+
+            AdminOptionCard(
+                icon = Icons.Default.Settings,
+                text = "Bítacora Inventarios",
+                description = "Registro de eventos en el área de inventarios",
+                onClick = { onOptionSelected("Bitácora Inventario") },
+                accentColor = goldAccent,
+                primaryColor = accentBrown
+            )
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.barsa.Producciones
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
@@ -310,7 +312,8 @@ fun PapeletaCard(
     Card(
         modifier = Modifier.fillMaxWidth().padding(8.dp),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
             Row(
@@ -345,7 +348,7 @@ fun PapeletaCard(
                         onClick = { showDialog = true },
                         colors = IconButtonDefaults.iconButtonColors(Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
                     }
                     IconButton(
                         onClick = {
@@ -356,7 +359,7 @@ fun PapeletaCard(
                         },
                         colors = IconButtonDefaults.iconButtonColors(Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos")
+                        Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos", tint = Color.Black, modifier = Modifier.background(Color.White))
                     }
                 }
             }

@@ -108,7 +108,13 @@ fun MainBody(
                             val Fecha = parts[2]
                             val Status = parts[3]
                             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
-                                onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                if(rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
+                                    onNavigate("informeIndividual/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                }
+                                else
+                                {
+                                    onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                }
                             }, onNavigate, tiemposViewModel, papeletaViewModel, userViewModel)
                         } else {
                             Text("Error: Datos incompletos para el selector de etapa")
@@ -220,7 +226,13 @@ fun MainBody(
                             val Fecha = parts[2]
                             val Status = parts[3]
                             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
-                                onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                if(rol.equals("Administrador") || rol.equals("SuperAdministrador")) {
+                                    onNavigate("informeIndividual/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                }
+                                else
+                                {
+                                    onNavigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
+                                }
                             }, onNavigate, tiemposViewModel, papeletaViewModel, userViewModel)
                         } else {
                             Text("Error: Datos incompletos para el selector de etapa")

@@ -3,6 +3,8 @@ package com.example.barsa.data.retrofit.repository
 import android.util.Log
 import com.example.barsa.Stores.TokenManager
 import com.example.barsa.data.retrofit.UserApiService
+import com.example.barsa.data.retrofit.models.BitacoraListadoInventario
+import com.example.barsa.data.retrofit.models.BitacoraListadoProduccion
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.ErrorResponse
@@ -382,4 +384,81 @@ class UserRepository @Inject constructor(
             Result.failure(Exception("Error inesperado: ${e.message}"))
         }
     }
+
+    suspend fun getListadoBitacoraProduccion(
+        fechaInicio: String? = null,
+        fechaFin: String? = null,
+        id: Int? = null,
+        folio: Int? = null,
+        etapa: String? = null,
+        movimiento: String? = null,
+        usuario: String? = null,
+        page: Int? = null,
+        limit: Int? = null
+    ): Result<BitacoraListadoProduccion> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+
+            val response = userApiService.getListadoProduccion(
+                token = "Bearer $token",
+                fechaInicio = fechaInicio,
+                fechaFin = fechaFin,
+                id = id,
+                folio = folio,
+                etapa = etapa,
+                movimiento = movimiento,
+                usuario = usuario,
+                page = page,
+                limit = limit
+            )
+
+            Result.success(response)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponse::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error de servidor"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("BitacoraViewModel", "Error al obtener listado producción", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
+    suspend fun getListadoBitacoraInventario(
+        page: Int? = null,
+        limit: Int? = null,
+        fechaInicio: String? = null,
+        fechaFin: String? = null,
+        id: Int? = null,
+        codigo: String? = null
+    ): Result<BitacoraListadoInventario> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
+
+            val response = userApiService.getListadoInventario(
+                token = "Bearer $token",
+                page = page,
+                limit = limit,
+                fechaInicio = fechaInicio,
+                fechaFin = fechaFin,
+                id = id,
+                borrado = codigo
+            )
+
+            Result.success(response)
+        } catch (e: HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let { gson.fromJson(it, ErrorResponse::class.java) }
+            Result.failure(Exception(errorResponse?.message ?: "Error de servidor"))
+        } catch (e: IOException) {
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("BitacoraViewModel", "Error al obtener listado inventario", e)
+            Result.failure(Exception("Error inesperado"))
+        }
+    }
+
 }

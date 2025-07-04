@@ -66,6 +66,7 @@ import com.patrykandpatrick.vico.core.cartesian.marker.DefaultCartesianMarker
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
+import androidx.compose.foundation.background
 import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,47 +109,81 @@ fun InformeFolio(
     val detenciones = (detencionesState as? PapeletaViewModel.DetencionesFolioState.Success)?.lista.orEmpty()
 
     if (tiempos.isEmpty()) {
+        TopAppBar(
+            title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
+            navigationIcon = {
+                Row {
+                    IconButton(onClick = {
+                        onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
+                    }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    }
+                }
+            },
+            actions = {
+                if (detalle.isNotEmpty()) {
+                    IconButton(
+                        onClick = { showDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.detalles),
+                            contentDescription = "Ver detalles",
+                            tint = Color.Black,
+                            modifier = Modifier.background(Color.White)
+                        )
+                    }
+                }
+            }
+        )
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Sin tiempos capturados o en proceso")
         }
     }
-
-    TopAppBar(
-        title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
-        navigationIcon = {
-            Row {
-                IconButton(onClick = {
-                    onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
-                }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+    else
+    {
+        TopAppBar(
+            title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
+            navigationIcon = {
+                Row {
+                    IconButton(onClick = {
+                        onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
+                    }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    }
+                    IconButton(
+                        onClick = {
+                            generarPDF(context, Folio, tiempos, detenciones)
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White,
+                            contentColor = Color.Black)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_aranceles),
+                            contentDescription = "Exportar PDF",
+                            tint = Color.Black,
+                            modifier = Modifier.background(Color.White)
+                        )
+                    }
                 }
-                IconButton(
-                    onClick = {
-                        generarPDF(context, Folio, tiempos, detenciones)
-                    },
-                    colors = IconButtonDefaults.iconButtonColors(Color.Black)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_aranceles),
-                        contentDescription = "Exportar PDF"
-                    )
+            },
+            actions = {
+                if (detalle.isNotEmpty()) {
+                    IconButton(
+                        onClick = { showDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.detalles),
+                            contentDescription = "Ver detalles",
+                            tint = Color.Black,
+                            modifier = Modifier.background(Color.White)
+                        )
+                    }
                 }
             }
-        },
-        actions = {
-            if (detalle.isNotEmpty()) {
-                IconButton(
-                    onClick = { showDialog = true },
-                    colors = IconButtonDefaults.iconButtonColors(Color.Black)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.detalles),
-                        contentDescription = "Ver detalles"
-                    )
-                }
-            }
-        }
-    )
+        )
+    }
 
     Spacer(modifier = Modifier.height(16.dp))
 
