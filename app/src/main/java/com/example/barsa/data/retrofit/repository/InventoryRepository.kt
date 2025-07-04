@@ -9,7 +9,6 @@ import android.util.Log
 import com.example.barsa.Stores.TokenManager
 import com.example.barsa.data.retrofit.InventoryApiService
 import com.example.barsa.data.retrofit.models.CreateMaterialErrorResponse
-import com.example.barsa.data.retrofit.models.CreateMaterialRequest
 import com.example.barsa.data.retrofit.models.CreateMaterialResponse
 import com.example.barsa.data.retrofit.models.InventoryErrorResponse
 import com.example.barsa.data.retrofit.models.InventoryItem
@@ -21,6 +20,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
 import com.example.barsa.data.retrofit.models.UpdateMaterialErrorResponse
 import com.example.barsa.data.retrofit.models.UpdateMaterialResponse
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -85,6 +85,270 @@ class InventoryRepository @Inject constructor(
             Result.failure(Exception("Fallo de conexión. Verifica tu red"))
         } catch (e: Exception) {
             Log.e("InventoryRepository", "Error inesperado", e)
+            Result.failure(Exception("Error inesperado: ${e.message}"))
+        }
+    }
+
+    // Búsqueda específica por código
+    suspend fun searchByCode(
+        code: String,
+        page: Int = 1,
+        limit: Int = 10
+    ): Result<InventoryPaginationResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("Token de acceso no disponible"))
+            }
+
+            Log.d("InventoryRepository", "Buscando por código: '$code' - Página: $page")
+
+            val response = inventoryApiService.getInventoryItems(
+                token = "Bearer $token",
+                page = page,
+                limit = limit,
+                codigoMat = code,
+                descripcion = null,
+                unidad = null,
+                proceso = null,
+                borrado = null
+            )
+
+            Log.d("InventoryRepository", "Búsqueda por código exitosa - Total: ${response.totalItems}")
+            Result.success(response)
+
+        } catch (e: HttpException) {
+            Log.e("InventoryRepository", "Error HTTP en búsqueda por código: ${e.code()}")
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let {
+                try {
+                    gson.fromJson(it, InventoryErrorResponse::class.java)
+                } catch (ex: Exception) {
+                    null
+                }
+            }
+            Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
+        } catch (e: IOException) {
+            Log.e("InventoryRepository", "Error de conexión en búsqueda por código", e)
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("InventoryRepository", "Error inesperado en búsqueda por código", e)
+            Result.failure(Exception("Error inesperado: ${e.message}"))
+        }
+    }
+
+    // Búsqueda específica por descripción
+    suspend fun searchByDescription(
+        description: String,
+        page: Int = 1,
+        limit: Int = 10
+    ): Result<InventoryPaginationResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("Token de acceso no disponible"))
+            }
+
+            Log.d("InventoryRepository", "Buscando por descripción: '$description' - Página: $page")
+
+            val response = inventoryApiService.getInventoryItems(
+                token = "Bearer $token",
+                page = page,
+                limit = limit,
+                codigoMat = null,
+                descripcion = description,
+                unidad = null,
+                proceso = null,
+                borrado = null
+            )
+
+            Log.d("InventoryRepository", "Búsqueda por descripción exitosa - Total: ${response.totalItems}")
+            Result.success(response)
+
+        } catch (e: HttpException) {
+            Log.e("InventoryRepository", "Error HTTP en búsqueda por descripción: ${e.code()}")
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let {
+                try {
+                    gson.fromJson(it, InventoryErrorResponse::class.java)
+                } catch (ex: Exception) {
+                    null
+                }
+            }
+            Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
+        } catch (e: IOException) {
+            Log.e("InventoryRepository", "Error de conexión en búsqueda por descripción", e)
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("InventoryRepository", "Error inesperado en búsqueda por descripción", e)
+            Result.failure(Exception("Error inesperado: ${e.message}"))
+        }
+    }
+
+    // Búsqueda mejorada con opciones flexibles
+    suspend fun searchInventoryItems(
+        query: String,
+        page: Int = 1,
+        limit: Int = 10,
+        searchInCode: Boolean = true,
+        searchInDescription: Boolean = true
+    ): Result<InventoryPaginationResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("Token de acceso no disponible"))
+            }
+
+            Log.d("InventoryRepository", "Búsqueda flexible: '$query' - Código: $searchInCode, Descripción: $searchInDescription")
+
+            // Si solo busca en código
+            if (searchInCode && !searchInDescription) {
+                return searchByCode(query, page, limit)
+            }
+
+            // Si solo busca en descripción
+            if (!searchInCode && searchInDescription) {
+                return searchByDescription(query, page, limit)
+            }
+
+            // Si busca en ambos, primero intenta por código exacto
+            if (searchInCode && searchInDescription) {
+                // Primero buscar por código exacto
+                val codeResult = searchByCode(query, page, limit)
+
+                codeResult.fold(
+                    onSuccess = { codeResponse ->
+                        if (codeResponse.data.isNotEmpty()) {
+                            Log.d("InventoryRepository", "Encontrados ${codeResponse.data.size} items por código")
+                            return Result.success(codeResponse)
+                        } else {
+                            // Si no hay resultados por código, buscar por descripción
+                            Log.d("InventoryRepository", "No hay resultados por código, buscando por descripción")
+                            return searchByDescription(query, page, limit)
+                        }
+                    },
+                    onFailure = {
+                        // Si falla la búsqueda por código, intentar por descripción
+                        Log.d("InventoryRepository", "Falló búsqueda por código, intentando por descripción")
+                        return searchByDescription(query, page, limit)
+                    }
+                )
+            }
+
+            Result.failure(Exception("Parámetros de búsqueda inválidos"))
+
+        } catch (e: HttpException) {
+            Log.e("InventoryRepository", "Error HTTP en búsqueda: ${e.code()}")
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let {
+                try {
+                    gson.fromJson(it, InventoryErrorResponse::class.java)
+                } catch (ex: Exception) {
+                    null
+                }
+            }
+            Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
+        } catch (e: IOException) {
+            Log.e("InventoryRepository", "Error de conexión en búsqueda", e)
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("InventoryRepository", "Error inesperado en búsqueda", e)
+            Result.failure(Exception("Error inesperado: ${e.message}"))
+        }
+    }
+
+    // Búsqueda avanzada con múltiples filtros
+    suspend fun advancedSearch(
+        query: String? = null,
+        codigoMat: String? = null,
+        descripcion: String? = null,
+        unidad: String? = null,
+        proceso: String? = null,
+        borrado: String? = null,
+        page: Int = 1,
+        limit: Int = 10
+    ): Result<InventoryPaginationResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("Token de acceso no disponible"))
+            }
+
+            Log.d("InventoryRepository", "Búsqueda avanzada - Query: '$query', Código: '$codigoMat', Descripción: '$descripcion'")
+
+            // Si hay un query general, determinar si es código o descripción
+            val finalCodigoMat = codigoMat ?: if (query?.matches(Regex("^[A-Z0-9-]+$")) == true) query else null
+            val finalDescripcion = descripcion ?: if (query != null && finalCodigoMat == null) query else null
+
+            val response = inventoryApiService.getInventoryItems(
+                token = "Bearer $token",
+                page = page,
+                limit = limit,
+                codigoMat = finalCodigoMat,
+                descripcion = finalDescripcion,
+                unidad = unidad,
+                proceso = proceso,
+                borrado = borrado
+            )
+
+            Log.d("InventoryRepository", "Búsqueda avanzada exitosa - Total: ${response.totalItems}")
+            Result.success(response)
+
+        } catch (e: HttpException) {
+            Log.e("InventoryRepository", "Error HTTP en búsqueda avanzada: ${e.code()}")
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorResponse = errorBody?.let {
+                try {
+                    gson.fromJson(it, InventoryErrorResponse::class.java)
+                } catch (ex: Exception) {
+                    null
+                }
+            }
+            Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
+        } catch (e: IOException) {
+            Log.e("InventoryRepository", "Error de conexión en búsqueda avanzada", e)
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("InventoryRepository", "Error inesperado en búsqueda avanzada", e)
+            Result.failure(Exception("Error inesperado: ${e.message}"))
+        }
+    }
+
+    // FUNCIÓN CORREGIDA - Ahora incluye el token de autorización
+    suspend fun deleteMaterial(codigoMat: String): Result<DeleteMaterialResponse> {
+        return try {
+            val token = tokenManager.accessTokenFlow.firstOrNull()
+            if (token.isNullOrEmpty()) {
+                return Result.failure(Exception("Token de acceso no disponible"))
+            }
+
+            Log.d("InventoryRepository", "Eliminando material: $codigoMat")
+
+            // AQUÍ ESTABA EL ERROR - Ahora se pasa el token
+            val response = inventoryApiService.deleteMaterial(
+                token = "Bearer $token",  // ← ESTA LÍNEA FALTABA
+                codigoMat = codigoMat
+            )
+
+            if (response.isSuccessful) {
+                response.body()?.let { deleteResponse ->
+                    Log.d("InventoryRepository", "Material eliminado exitosamente: ${deleteResponse.body.message}")
+                    Result.success(deleteResponse)
+                } ?: Result.failure(Exception("Respuesta vacía del servidor"))
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("InventoryRepository", "Error al eliminar material: ${response.code()} - $errorBody")
+                Result.failure(Exception("Error ${response.code()}: $errorBody"))
+            }
+        } catch (e: HttpException) {
+            Log.e("InventoryRepository", "Error HTTP al eliminar material: ${e.code()}")
+            val errorBody = e.response()?.errorBody()?.string()
+            Result.failure(Exception("Error del servidor al eliminar material"))
+        } catch (e: IOException) {
+            Log.e("InventoryRepository", "Error de conexión al eliminar material", e)
+            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
+        } catch (e: Exception) {
+            Log.e("InventoryRepository", "Error inesperado al eliminar material", e)
             Result.failure(Exception("Error inesperado: ${e.message}"))
         }
     }
@@ -330,52 +594,6 @@ class InventoryRepository @Inject constructor(
             Result.failure(Exception("Fallo de conexión. Verifica tu red"))
         } catch (e: Exception) {
             Log.e("InventoryRepository", "Error inesperado al actualizar material", e)
-            Result.failure(Exception("Error inesperado: ${e.message}"))
-        }
-    }
-
-    // Función para buscar items específicos
-    suspend fun searchInventoryItems(
-        query: String,
-        page: Int = 1,
-        limit: Int = 10
-    ): Result<InventoryPaginationResponse> {
-        return try {
-            val token = tokenManager.accessTokenFlow.firstOrNull()
-            if (token.isNullOrEmpty()) {
-                return Result.failure(Exception("Token de acceso no disponible"))
-            }
-
-            Log.d("InventoryRepository", "Buscando items: '$query' - Página: $page")
-
-            // Buscar tanto en descripción como en código
-            val response = inventoryApiService.getInventoryItems(
-                token = "Bearer $token",
-                page = page,
-                limit = limit,
-                codigoMat = query, // Buscar en código
-                descripcion = query // Buscar en descripción
-            )
-
-            Log.d("InventoryRepository", "Búsqueda exitosa - Total: ${response.totalItems}")
-            Result.success(response)
-
-        } catch (e: HttpException) {
-            Log.e("InventoryRepository", "Error HTTP en búsqueda: ${e.code()}")
-            val errorBody = e.response()?.errorBody()?.string()
-            val errorResponse = errorBody?.let {
-                try {
-                    gson.fromJson(it, InventoryErrorResponse::class.java)
-                } catch (ex: Exception) {
-                    null
-                }
-            }
-            Result.failure(Exception(errorResponse?.message ?: "Error del servidor"))
-        } catch (e: IOException) {
-            Log.e("InventoryRepository", "Error de conexión en búsqueda", e)
-            Result.failure(Exception("Fallo de conexión. Verifica tu red"))
-        } catch (e: Exception) {
-            Log.e("InventoryRepository", "Error inesperado en búsqueda", e)
             Result.failure(Exception("Error inesperado: ${e.message}"))
         }
     }

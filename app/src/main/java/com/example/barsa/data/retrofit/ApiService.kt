@@ -1,10 +1,11 @@
 package com.example.barsa.data.retrofit
 
+import com.example.barsa.data.retrofit.models.ApiNotification
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.ApiWrapperResponse
-import com.example.barsa.data.retrofit.models.CreateMaterialRequest
 import com.example.barsa.data.retrofit.models.CreateMaterialResponse
+import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
 
 import com.example.barsa.data.retrofit.models.DetencionTiempoRequest
@@ -161,8 +162,24 @@ interface InventoryApiService {
         @Part("borrado") borrado: RequestBody, // Agregué este campo
         @Part imagenes: List<MultipartBody.Part>? = null // Múltiples archivos con el mismo nombre "imagenes"
     ): UpdateMaterialResponse
+
+
+    @DELETE("materia/borrar-materia/{codigoMat}")
+    suspend fun deleteMaterial(
+        @Header("Authorization") token: String,
+        @Path("codigoMat") codigoMat: String
+    ): Response<DeleteMaterialResponse>
 }
 
+
+interface NotificationApiService {
+
+    @GET("user-authentication/notificacion/lista-notificaciones")
+    suspend fun getNotifications(
+        @Header("Authorization") token: String
+    ): Response<List<ApiNotification>>
+
+}
 
 interface PapeletaApiService {
     @GET("papeleta/get-listado-papeletas")

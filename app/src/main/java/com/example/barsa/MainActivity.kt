@@ -13,6 +13,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.barsa.Navegator.MainNavigator
 import com.example.barsa.Network.NetworkMonitor
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import com.example.barsa.data.retrofit.ui.NotificationViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 import com.example.barsa.data.room.TiemposViewModel
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private val userViewModel: UserViewModel by viewModels()
     private val papeletaViewModel: PapeletaViewModel by viewModels()
     private val inventarioViewModel: InventoryViewModel by viewModels()
+    private val notificationViewModel : NotificationViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +37,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             BarsaTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    MainNavigator(tiemposViewModel, userViewModel, papeletaViewModel,inventarioViewModel )
+                    MainNavigator(tiemposViewModel, userViewModel, papeletaViewModel,inventarioViewModel,notificationViewModel
+                         )
                 }
             }
         }

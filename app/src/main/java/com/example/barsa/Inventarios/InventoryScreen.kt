@@ -353,7 +353,8 @@ fun InventoryScreen(
             adminAction == "delete" && selectedCategory != null -> {
                 DeleteInventoryScreen(
                     category = selectedCategory!!,
-                    onCancel = { adminAction = null }
+                    onCancel = { adminAction = null },
+                    inventoryViewModel = inventoryViewModel // Pasar el ViewModel
                 )
             }
 

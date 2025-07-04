@@ -141,3 +141,15 @@ data class UpdateMaterialErrorResponse(
     val message: String,
     val errors: Map<String, List<String>>? = null
 )
+
+
+data class DeleteMaterialResponse(
+    val headers: Map<String, Any> = emptyMap(),
+    val body: DeleteMaterialBody,
+    val statusCode: String,
+    val statusCodeValue: Int
+)
+
+data class DeleteMaterialBody(
+    val message: String
+)

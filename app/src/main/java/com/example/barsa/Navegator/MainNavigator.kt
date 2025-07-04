@@ -22,12 +22,14 @@ import androidx.navigation.compose.rememberNavController
 import com.example.barsa.Body.MainBody
 import com.example.barsa.Footer.Footer
 import com.example.barsa.Header.Header
+import com.example.barsa.Header.ModernNotificationBox
 import com.example.barsa.Login.LoginScreen
 import com.example.barsa.Header.Notification
-import com.example.barsa.Header.NotificationBox
+
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import com.example.barsa.data.retrofit.ui.NotificationViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 import com.example.barsa.data.room.TiemposViewModel
@@ -38,36 +40,24 @@ fun MainNavigator(
     tiemposViewModel: TiemposViewModel,
     userViewModel: UserViewModel,
     papeletaViewModel: PapeletaViewModel,
-    inventoryViewModel: InventoryViewModel
+    inventoryViewModel: InventoryViewModel,
+    notificationViewModel: NotificationViewModel
 ) {
     val navController = rememberNavController()
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     var currentRoute by remember { mutableStateOf("") }
 
-
-
-
-    if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador"))
-    {
+    if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador")) {
         currentRoute = "inventario"
-    }
-    else if (rol.equals("Produccion"))
-    {
+    } else if (rol.equals("Produccion")) {
         currentRoute = "producciones"
     }
+
     var showNotifications by remember { mutableStateOf(false) }
-    var notifications by remember { mutableStateOf(
-        listOf(
-            Notification(1, "Nuevo pedido recibido", Color.Green),
-            Notification(2, "Stock bajo en madera de roble", Color(0xFFFFA500)),
-            Notification(3, "Retraso en entrega de suministros", Color.Red),
-            Notification(4, "Recordatorio: Mantenimiento programado", Color.Blue),
-            Notification(5, "Nueva colección de muebles disponible", Color.Green),
-            Notification(6, "Actualización de precios pendiente", Color(0xFFFFA500)),
-            Notification(7, "Solicitud de cotización recibida", Color.Blue),
-            Notification(8, "Recordatorio: Reunión de equipo", Color.Green)
-        )
-    ) }
+
+    // Estados de notificaciones desde el ViewModel
+    val notificationsState by notificationViewModel.notificationsState.collectAsState()
+    val unreadCount by notificationViewModel.unreadCount.collectAsState()
 
     NavHost(
         navController = navController,
@@ -89,8 +79,9 @@ fun MainNavigator(
                         navController.navigate("main") {
                             popUpTo("login") { inclusive = true }
                             userViewModel.obtenerInfoUsuarioPersonal()
+                            // Cargar notificaciones al hacer login
+                            notificationViewModel.loadNotifications()
                         }
-
                     }
 
                     is UserViewModel.LoginState.Error -> {
@@ -98,21 +89,19 @@ fun MainNavigator(
                         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
 
-                    // NO HACER NADA EN Initial Y Loading
                     is UserViewModel.LoginState.Initial,
                     is UserViewModel.LoginState.Loading -> {
                         // No hacer nada
                     }
                 }
             }
-
         }
 
         composable("main") {
             Scaffold(
                 topBar = {
                     Header(
-                        notifications = notifications,
+                        unreadCount = unreadCount,
                         onShowNotifications = { showNotifications = true }
                     )
                 },
@@ -135,11 +124,11 @@ fun MainNavigator(
                     tiemposViewModel,
                     papeletaViewModel,
                     userViewModel,
-                    inventoryViewModel, // Pasar el InventoryViewModel aquí
-                    // PASAR LA FUNCIÓN DE LOGOUT AL MAINBODY
+                    inventoryViewModel,
                     onLogout = {
-                        // LIMPIAR TODOS LOS ESTADOS ANTES DE NAVEGAR
+                        // Limpiar todos los estados antes de navegar
                         userViewModel.clearAllStates()
+                        notificationViewModel.clearCache() // Limpiar cache de notificaciones
                         Log.d("MainNavigator", "Navegando al login desde MainNavigator")
                         navController.navigate("login") {
                             popUpTo("main") { inclusive = true }
@@ -148,19 +137,23 @@ fun MainNavigator(
                 )
 
                 if (showNotifications) {
-                    NotificationBox(
-                        notifications = notifications,
-                        onDismissNotification = { id ->
-                            notifications = notifications.filter { it.id != id }
+                    ModernNotificationBox(
+                        notificationsState = notificationsState,
+                        unreadCount = unreadCount,
+                        onDismissNotification = { notificationId ->
+                            notificationViewModel.deleteNotification(notificationId)
                         },
-                        onCloseNotifications = { showNotifications = false }
+                        onMarkAsRead = { notificationId ->
+                            notificationViewModel.markAsRead(notificationId)
+                        },
+                        onCloseNotifications = { showNotifications = false },
+                        onRefresh = { notificationViewModel.refreshNotifications() }
                     )
                 }
             }
         }
 
         // Agregando ruta de la vista de cronometro
-        //composable("cronometro") { CronometroScreen() }
         composable(
             "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
         ) { backStackEntry ->
@@ -170,7 +163,7 @@ fun MainNavigator(
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
             val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa,onNavigate = { route -> navController.navigate(route) } ,tiemposViewModel, papeletaViewModel)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel)
         }
 
         composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->
@@ -181,7 +174,7 @@ fun MainNavigator(
 
             EtapaSelector(TipoId, Folio, Fecha, Status, { etapaSeleccionada ->
                 navController.navigate("cronometro/$TipoId°$Folio°$Fecha°$Status°$etapaSeleccionada")
-            }, onNavigate = { route -> navController.navigate(route) },tiemposViewModel, papeletaViewModel, userViewModel)
+            }, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel, userViewModel)
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.barsa.data.retrofit.di
 
 import com.example.barsa.data.retrofit.InventoryApiService
+import com.example.barsa.data.retrofit.NotificationApiService
 import com.example.barsa.data.retrofit.PapeletaApiService
 import com.example.barsa.data.retrofit.UserApiService
 import com.example.barsa.data.retrofit.models.ImageInfo
@@ -60,6 +61,14 @@ object NetworkModule {
     @Singleton
     fun provideInventoryApiService(retrofit: Retrofit): InventoryApiService {
         return retrofit.create(InventoryApiService::class.java)
+    }
+
+
+    // NUEVO: Proveedor para NotificationApiService
+    @Provides
+    @Singleton
+    fun provideNotificationApiService(retrofit: Retrofit): NotificationApiService {
+        return retrofit.create(NotificationApiService::class.java)
     }
 }
 

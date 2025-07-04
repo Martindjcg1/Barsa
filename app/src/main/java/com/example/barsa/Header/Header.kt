@@ -36,7 +36,7 @@ data class Notification(val id: Int, val message: String, val color: Color)
 
 
 @Composable
-fun Header(notifications: List<Notification>, onShowNotifications: () -> Unit) {
+fun Header(unreadCount: Int, onShowNotifications: () -> Unit) {
     val primaryBrown = Color(0xFF8B4513) // Marrón oscuro del login
 
     TopAppBar(
@@ -50,7 +50,7 @@ fun Header(notifications: List<Notification>, onShowNotifications: () -> Unit) {
                         tint = Color.White
                     )
                 }
-                if (notifications.isNotEmpty()) {
+                if (unreadCount > 0) {
                     Box(
                         modifier = Modifier
                             .size(18.dp)
@@ -59,7 +59,7 @@ fun Header(notifications: List<Notification>, onShowNotifications: () -> Unit) {
                             .align(Alignment.TopEnd)
                     ) {
                         Text(
-                            text = notifications.size.toString(),
+                            text = unreadCount.toString(),
                             color = Color.White,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,

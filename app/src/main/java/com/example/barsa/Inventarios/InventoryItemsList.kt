@@ -1,5 +1,7 @@
 package com.example.barsa.Body.Inventory
 
+import android.util.Log
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,11 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.barsa.Models.InventoryCategory
 
 import com.example.barsa.data.retrofit.models.InventoryItem
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import kotlinx.coroutines.delay
 import kotlin.math.ceil
 import kotlin.math.min
 
@@ -37,70 +41,132 @@ fun InventoryItemsList(
     var isSearching by remember { mutableStateOf(false) }
     var hasLoadedInitialData by remember { mutableStateOf(false) }
 
-    // Obtener estados del ViewModel
+    // Estados del ViewModel
     val inventoryState by inventoryViewModel.inventoryState.collectAsState()
     val searchState by inventoryViewModel.searchState.collectAsState()
     val currentPage by inventoryViewModel.currentPage.collectAsState()
 
-    // Determinar qué estado usar (búsqueda o navegación normal)
-    val currentState = if (isSearching) searchState else inventoryState
-    val currentItems = when (currentState) {
-        is InventoryViewModel.InventoryState.Success -> currentState.response.data
-        is InventoryViewModel.SearchState.Success -> currentState.response.data
-        else -> emptyList()
-    }
-
-    // Obtener información de paginación
-    val paginationInfo = when (currentState) {
-        is InventoryViewModel.InventoryState.Success -> {
-            Triple(currentState.response.currentPage, currentState.response.totalPages, currentState.response.totalItems)
-        }
-        is InventoryViewModel.SearchState.Success -> {
-            Triple(currentState.response.currentPage, currentState.response.totalPages, currentState.response.totalItems)
-        }
-        else -> Triple(1, 1, 0)
-    }
-
-    // Función para obtener el filtro de categoría para la API
-    fun getCategoryFilter(): String? {
-        return when (category.name) {
-            "Todo" -> null
-            "Cubetas" -> "cubeta"
-            "Telas" -> "tela"
-            "Cascos" -> "casco"
-            "Herramientas" -> "herramienta"
-            "Bisagras y Herrajes" -> "bisagra"
-            "Pernos y Sujetadores" -> "perno"
-            "Cintas y Adhesivos" -> "cinta"
-            "Separadores y Accesorios de Cristal" -> "cristal"
-            "Cubrecantos y Acabados" -> "cubrecanto"
-            else -> null
+    // Estado derivado más estable - evita recomposiciones innecesarias
+    val stableCurrentState by remember {
+        derivedStateOf {
+            if (isSearching) searchState else inventoryState
         }
     }
 
-    // Cargar datos iniciales SOLO UNA VEZ cuando se monta el componente
-    LaunchedEffect(category.id) { // Usar category.id como key para evitar recomposiciones innecesarias
+    // Items con validación extra y estabilización
+    val stableCurrentItems by remember {
+        derivedStateOf {
+            val items = when (stableCurrentState) {
+                is InventoryViewModel.InventoryState.Success -> {
+                    (stableCurrentState as InventoryViewModel.InventoryState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                is InventoryViewModel.SearchState.Success -> {
+                    (stableCurrentState as InventoryViewModel.SearchState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                else -> emptyList()
+            }
+
+            // Filtrar items con datos válidos
+            items.filter { item ->
+                item.codigoMat.isNotBlank() &&
+                        item.descripcion.isNotBlank()
+            }
+        }
+    }
+
+    // Información de paginación estable
+    val stablePaginationInfo by remember {
+        derivedStateOf {
+            when (stableCurrentState) {
+                is InventoryViewModel.InventoryState.Success -> {
+                    Triple(
+                        maxOf(1, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.currentPage),
+                        maxOf(1, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.totalPages),
+                        maxOf(0, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.totalItems)
+                    )
+                }
+                is InventoryViewModel.SearchState.Success -> {
+                    Triple(
+                        maxOf(1, (stableCurrentState as InventoryViewModel.SearchState.Success).response.currentPage),
+                        maxOf(1, (stableCurrentState as InventoryViewModel.SearchState.Success).response.totalPages),
+                        maxOf(0, (stableCurrentState as InventoryViewModel.SearchState.Success).response.totalItems)
+                    )
+                }
+                else -> Triple(1, 1, 0)
+            }
+        }
+    }
+
+    // Función para obtener el filtro de categoría
+    val getCategoryFilter = remember {
+        {
+            when (category.name) {
+                "Todo" -> null
+                "Cubetas" -> "cubeta"
+                "Telas" -> "tela"
+                "Cascos" -> "casco"
+                "Herramientas" -> "herramienta"
+                "Bisagras y Herrajes" -> "bisagra"
+                "Pernos y Sujetadores" -> "perno"
+                "Cintas y Adhesivos" -> "cinta"
+                "Separadores y Accesorios de Cristal" -> "cristal"
+                "Cubrecantos y Acabados" -> "cubrecanto"
+                else -> null
+            }
+        }
+    }
+
+    // Función para cargar datos con debouncing
+    val loadCategoryData = remember {
+        { page: Int ->
+            val categoryFilter = getCategoryFilter()
+            inventoryViewModel.getInventoryItems(
+                page = maxOf(1, page),
+                descripcion = categoryFilter
+            )
+        }
+    }
+
+    // Debounced search para evitar llamadas excesivas
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank()) {
+            delay(300) // Debounce de 300ms
+            if (searchQuery.isNotBlank()) { // Verificar de nuevo después del delay
+                isSearching = true
+                inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
+            }
+        } else if (isSearching) {
+            // Resetear inmediatamente cuando se limpia la búsqueda
+            isSearching = false
+            inventoryViewModel.resetSearchState()
+            loadCategoryData(1)
+        }
+    }
+
+    // Cargar datos iniciales con mejor control
+    LaunchedEffect(category.id) {
         if (!hasLoadedInitialData) {
+            // Resetear estados
             isSearching = false
             searchQuery = ""
             inventoryViewModel.resetSearchState()
 
-            val categoryFilter = getCategoryFilter()
-            inventoryViewModel.getInventoryItems(
-                page = 1,
-                descripcion = categoryFilter
-            )
+            // Pequeño delay para asegurar que el reset se complete
+            delay(50)
+            loadCategoryData(1)
             hasLoadedInitialData = true
         }
     }
 
-    // Resetear el flag cuando se cambia de categoría
+    // Resetear flag cuando cambia categoría
     LaunchedEffect(category.id) {
         hasLoadedInitialData = false
     }
 
-    Column {
-        // Barra superior con botón de regreso y título
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Barra superior
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -115,25 +181,12 @@ fun InventoryItemsList(
             )
         }
 
-        // Barra de búsqueda
+        // Barra de búsqueda con manejo mejorado
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { newQuery ->
                 searchQuery = newQuery
-                if (newQuery.isNotBlank()) {
-                    // Activar modo búsqueda
-                    isSearching = true
-                    inventoryViewModel.searchInventoryItems(newQuery, page = 1)
-                } else {
-                    // Volver al modo normal con filtro de categoría
-                    isSearching = false
-                    inventoryViewModel.resetSearchState()
-                    val categoryFilter = getCategoryFilter()
-                    inventoryViewModel.getInventoryItems(
-                        page = 1,
-                        descripcion = categoryFilter
-                    )
-                }
+                // El LaunchedEffect se encarga del debouncing
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,13 +198,7 @@ fun InventoryItemsList(
                     IconButton(
                         onClick = {
                             searchQuery = ""
-                            isSearching = false
-                            inventoryViewModel.resetSearchState()
-                            val categoryFilter = getCategoryFilter()
-                            inventoryViewModel.getInventoryItems(
-                                page = 1,
-                                descripcion = categoryFilter
-                            )
+                            // El LaunchedEffect manejará el reset
                         }
                     ) {
                         Icon(Icons.Default.Clear, contentDescription = "Limpiar búsqueda")
@@ -161,8 +208,8 @@ fun InventoryItemsList(
             singleLine = true
         )
 
-        // Indicador de modo de búsqueda
-        if (isSearching) {
+        // Indicador de búsqueda
+        if (isSearching && searchQuery.isNotBlank()) {
             Text(
                 text = "Buscando: \"$searchQuery\"",
                 style = MaterialTheme.typography.bodySmall,
@@ -172,168 +219,91 @@ fun InventoryItemsList(
         }
 
         // Información de paginación
-        Text(
-            text = "Página ${paginationInfo.first} de ${paginationInfo.second} - Total: ${paginationInfo.third} items",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (stablePaginationInfo.third > 0) {
+            Text(
+                text = "Página ${stablePaginationInfo.first} de ${stablePaginationInfo.second} - Total: ${stablePaginationInfo.third} items",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-        // Contenido principal según el estado
-        when (currentState) {
+        // Contenido principal con mejor manejo de estados
+        when (stableCurrentState) {
             is InventoryViewModel.InventoryState.Loading,
             is InventoryViewModel.SearchState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                LoadingContent(isSearching = isSearching)
             }
 
             is InventoryViewModel.InventoryState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Error: ${currentState.message}")
-                        Button(
-                            onClick = {
-                                if (isSearching) {
-                                    inventoryViewModel.searchInventoryItems(searchQuery, page = 1)
-                                } else {
-                                    val categoryFilter = getCategoryFilter()
-                                    inventoryViewModel.getInventoryItems(
-                                        page = 1,
-                                        descripcion = categoryFilter
-                                    )
-                                }
-                            }
-                        ) {
-                            Text("Reintentar")
+                ErrorContent(
+                    message = (stableCurrentState as InventoryViewModel.InventoryState.Error).message,
+                    onRetry = {
+                        if (isSearching && searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
+                        } else {
+                            loadCategoryData(1)
                         }
                     }
-                }
+                )
             }
 
             is InventoryViewModel.SearchState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Error en búsqueda: ${currentState.message}")
-                        Button(
-                            onClick = {
-                                inventoryViewModel.searchInventoryItems(searchQuery, page = 1)
-                            }
-                        ) {
-                            Text("Reintentar")
+                ErrorContent(
+                    message = "Error en búsqueda: ${(stableCurrentState as InventoryViewModel.SearchState.Error).message}",
+                    onRetry = {
+                        if (searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
                         }
                     }
-                }
+                )
             }
 
             is InventoryViewModel.InventoryState.Success,
             is InventoryViewModel.SearchState.Success -> {
-                if (currentItems.isEmpty()) {
-                    // Mostrar mensaje cuando no hay resultados
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = Color.Gray
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = if (isSearching) {
-                                    "No se encontraron resultados para \"$searchQuery\""
-                                } else {
-                                    "No hay items en esta categoría"
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+                if (stableCurrentItems.isEmpty()) {
+                    EmptyContent(
+                        isSearching = isSearching,
+                        searchQuery = searchQuery
+                    )
                 } else {
-                    // Grid de items
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 250.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    // Grid con items estables
+                    StableInventoryGrid(
+                        items = stableCurrentItems,
+                        onItemClick = { item ->
+                            selectedItem = item
+                            onItemClick(item)
+                        },
                         modifier = Modifier.weight(1f)
-                    ) {
-                        items(currentItems) { item ->
-                            InventoryItemCard(
-                                item = item,
-                                onClick = {
-                                    selectedItem = item
-                                    onItemClick(item)
-                                }
-                            )
-                        }
-                    }
+                    )
 
-                    // Controles de paginación - solo mostrar si hay más de una página
-                    if (paginationInfo.second > 1) {
+                    // Controles de paginación
+                    if (stablePaginationInfo.second > 1) {
                         PaginationControls(
-                            currentPage = paginationInfo.first,
-                            totalPages = paginationInfo.second,
+                            currentPage = stablePaginationInfo.first,
+                            totalPages = stablePaginationInfo.second,
                             onPageChange = { newPage ->
-                                if (isSearching) {
-                                    inventoryViewModel.searchInventoryItems(searchQuery, page = newPage)
+                                if (isSearching && searchQuery.isNotBlank()) {
+                                    inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = newPage)
                                 } else {
-                                    val categoryFilter = getCategoryFilter()
-                                    inventoryViewModel.getInventoryItems(
-                                        page = newPage,
-                                        descripcion = categoryFilter
-                                    )
+                                    loadCategoryData(newPage)
                                 }
                             },
-                            isLoading = currentState is InventoryViewModel.InventoryState.Loading ||
-                                    currentState is InventoryViewModel.SearchState.Loading
+                            isLoading = stableCurrentState is InventoryViewModel.InventoryState.Loading ||
+                                    stableCurrentState is InventoryViewModel.SearchState.Loading
                         )
                     }
                 }
             }
 
             else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                LoadingContent(isSearching = false)
             }
         }
 
-        // Dialog para ver detalles del item
+        // Dialog de detalles
         selectedItem?.let { item ->
             ItemDetailDialog(
                 item = item,
@@ -343,6 +313,181 @@ fun InventoryItemsList(
     }
 }
 
+@Composable
+fun StableInventoryGrid(
+    items: List<InventoryItem>,
+    onItemClick: (InventoryItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Crear una lista inmutable y estable
+    val stableItems by remember(items) {
+        derivedStateOf {
+            items.toList() // Crear copia inmutable
+        }
+    }
+
+    if (stableItems.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("No hay elementos para mostrar")
+        }
+        return
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 250.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier,
+        contentPadding = PaddingValues(16.dp)
+    ) {
+        items(
+            count = stableItems.size,
+            key = { index ->
+                // Key más robusta con múltiples fallbacks
+                when {
+                    index >= 0 && index < stableItems.size -> {
+                        val item = stableItems[index]
+                        "${item.codigoMat}_${item.descripcion.take(10)}_$index"
+                    }
+                    else -> "fallback_item_$index"
+                }
+            }
+        ) { index ->
+            // Triple validación antes de renderizar
+            if (index >= 0 &&
+                index < stableItems.size &&
+                stableItems.isNotEmpty()) {
+
+                val item = stableItems.getOrNull(index)
+                if (item != null && item.codigoMat.isNotBlank()) {
+                    InventoryItemCard(
+                        item = item,
+                        onClick = { onItemClick(item) }
+                    )
+                } else {
+                    PlaceholderItemCard()
+                }
+            } else {
+                PlaceholderItemCard()
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingContent(isSearching: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = if (isSearching) "Buscando..." else "Cargando...",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+fun ErrorContent(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Clear,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onRetry) {
+                Text("Reintentar")
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyContent(
+    isSearching: Boolean,
+    searchQuery: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = if (isSearching) Icons.Default.Search else Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isSearching) {
+                    "No se encontraron resultados para \"$searchQuery\""
+                } else {
+                    "No hay items en esta categoría"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun PlaceholderItemCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp
+            )
+        }
+    }
+}
 
 @Composable
 fun PaginationControls(
@@ -363,34 +508,34 @@ fun PaginationControls(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Botón para ir a la página anterior
+            // Botón anterior
             IconButton(
-                onClick = { onPageChange(currentPage - 1) },
+                onClick = {
+                    if (currentPage > 1) {
+                        onPageChange(currentPage - 1)
+                    }
+                },
                 enabled = currentPage > 1 && !isLoading
             ) {
                 Icon(
                     Icons.Default.KeyboardArrowLeft,
-                    contentDescription = "Página anterior",
-                    tint = if (currentPage > 1 && !isLoading)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        Color.Gray
+                    contentDescription = "Página anterior"
                 )
             }
 
-            // Mostrar números de página
-            val pagesToShow = generatePaginationSequence(currentPage, totalPages)
+            // Páginas
+            val pagesToShow = remember(currentPage, totalPages) {
+                generateSafePaginationSequence(currentPage, totalPages)
+            }
 
             pagesToShow.forEach { page ->
                 if (page == -1) {
-                    // Mostrar puntos suspensivos
                     Text(
                         text = "...",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                 } else {
-                    // Mostrar número de página
                     Surface(
                         modifier = Modifier.size(40.dp),
                         shape = MaterialTheme.shapes.small,
@@ -399,85 +544,77 @@ fun PaginationControls(
                         else
                             Color.Transparent,
                         onClick = {
-                            if (!isLoading && page != currentPage) {
+                            if (!isLoading && page != currentPage && page > 0 && page <= totalPages) {
                                 onPageChange(page)
                             }
                         }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            if (isLoading && page == currentPage) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text(
-                                    text = page.toString(),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (page == currentPage) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (page == currentPage)
-                                        MaterialTheme.colorScheme.onPrimary
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
-                                )
-                            }
+                            Text(
+                                text = page.toString(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (page == currentPage)
+                                    MaterialTheme.colorScheme.onPrimary
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 }
             }
 
-            // Botón para ir a la página siguiente
+            // Botón siguiente
             IconButton(
-                onClick = { onPageChange(currentPage + 1) },
+                onClick = {
+                    if (currentPage < totalPages) {
+                        onPageChange(currentPage + 1)
+                    }
+                },
                 enabled = currentPage < totalPages && !isLoading
             ) {
                 Icon(
                     Icons.Default.KeyboardArrowRight,
-                    contentDescription = "Página siguiente",
-                    tint = if (currentPage < totalPages && !isLoading)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        Color.Gray
+                    contentDescription = "Página siguiente"
                 )
             }
         }
     }
 }
 
-// Función para generar la secuencia de páginas a mostrar
-fun generatePaginationSequence(currentPage: Int, totalPages: Int): List<Int> {
+fun generateSafePaginationSequence(currentPage: Int, totalPages: Int): List<Int> {
+    val validCurrentPage = maxOf(1, minOf(currentPage, totalPages))
+    val validTotalPages = maxOf(1, totalPages)
+
     val result = mutableListOf<Int>()
 
-    if (totalPages <= 7) {
-        // Si hay 7 o menos páginas, mostrar todas
-        for (i in 1..totalPages) {
+    if (validTotalPages <= 7) {
+        for (i in 1..validTotalPages) {
             result.add(i)
         }
     } else {
-        // Siempre mostrar la primera página
         result.add(1)
 
-        if (currentPage > 3) {
-            // Añadir puntos suspensivos después de la primera página
+        if (validCurrentPage > 3) {
             result.add(-1)
         }
 
-        // Determinar el rango de páginas alrededor de la página actual
-        val rangeStart = maxOf(2, currentPage - 1)
-        val rangeEnd = minOf(totalPages - 1, currentPage + 1)
+        val rangeStart = maxOf(2, validCurrentPage - 1)
+        val rangeEnd = minOf(validTotalPages - 1, validCurrentPage + 1)
 
         for (i in rangeStart..rangeEnd) {
-            result.add(i)
+            if (i != 1 && i != validTotalPages) {
+                result.add(i)
+            }
         }
 
-        if (currentPage < totalPages - 2) {
-            // Añadir puntos suspensivos antes de la última página
+        if (validCurrentPage < validTotalPages - 2) {
             result.add(-1)
         }
 
-        // Siempre mostrar la última página
-        result.add(totalPages)
+        if (validTotalPages > 1) {
+            result.add(validTotalPages)
+        }
     }
 
-    return result
+    return result.distinct()
 }
