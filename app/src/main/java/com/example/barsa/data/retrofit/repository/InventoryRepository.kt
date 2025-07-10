@@ -52,7 +52,6 @@ class InventoryRepository @Inject constructor(
             if (token.isNullOrEmpty()) {
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
-
             Log.d("InventoryRepository", "Obteniendo items - Página: $page, Límite: $limit, Descripción: $descripcion")
 
             val response = inventoryApiService.getInventoryItems(
@@ -66,9 +65,21 @@ class InventoryRepository @Inject constructor(
                 borrado = borrado
             )
 
-            Log.d("InventoryRepository", "Items obtenidos exitosamente - Total: ${response.totalItems}")
-            Result.success(response)
+            // NUEVO: Validar y limpiar datos usando las propiedades seguras
+            val validatedResponse = response.copy(
+                data = response.data.map { item ->
+                    // Log de validación usando propiedades seguras
+                    Log.d("InventoryRepository", "Item validado: ${item.codigoMatSafe} - ${item.descripcionSafe}")
+                    Log.d("InventoryRepository", "Estado stock: ${item.estadoStock}, Imágenes: ${item.tieneImagenes}")
+                    item
+                }
+            )
 
+            Log.d("InventoryRepository", "Items obtenidos exitosamente - Total: ${validatedResponse.totalItems}")
+            Log.d("InventoryRepository", "Items con imágenes: ${validatedResponse.data.count { it.tieneImagenes }}")
+            Log.d("InventoryRepository", "Items con stock bajo: ${validatedResponse.data.count { it.estadoStock == "Stock bajo" }}")
+
+            Result.success(validatedResponse)
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
@@ -101,22 +112,29 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Buscando por código: '$code' - Página: $page")
+            // NUEVO: Limpiar y validar el código de búsqueda
+            val cleanCode = code.trim().takeIf { it.isNotBlank() } ?: return Result.failure(Exception("Código de búsqueda vacío"))
+
+            Log.d("InventoryRepository", "Buscando por código: '$cleanCode' - Página: $page")
 
             val response = inventoryApiService.getInventoryItems(
                 token = "Bearer $token",
                 page = page,
                 limit = limit,
-                codigoMat = code,
+                codigoMat = cleanCode,
                 descripcion = null,
                 unidad = null,
                 proceso = null,
                 borrado = null
             )
 
+            // NUEVO: Log detallado de resultados usando propiedades seguras
+            response.data.forEach { item ->
+                Log.d("InventoryRepository", "Encontrado: ${item.codigoMatSafe} - ${item.descripcionSafe} (${item.estadoStock})")
+            }
+
             Log.d("InventoryRepository", "Búsqueda por código exitosa - Total: ${response.totalItems}")
             Result.success(response)
-
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP en búsqueda por código: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
@@ -149,22 +167,31 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Buscando por descripción: '$description' - Página: $page")
+            // NUEVO: Limpiar y validar la descripción de búsqueda
+            val cleanDescription = description.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Descripción de búsqueda vacía"))
+
+            Log.d("InventoryRepository", "Buscando por descripción: '$cleanDescription' - Página: $page")
 
             val response = inventoryApiService.getInventoryItems(
                 token = "Bearer $token",
                 page = page,
                 limit = limit,
                 codigoMat = null,
-                descripcion = description,
+                descripcion = cleanDescription,
                 unidad = null,
                 proceso = null,
                 borrado = null
             )
 
+            // NUEVO: Log detallado usando propiedades seguras
+            response.data.forEach { item ->
+                Log.d("InventoryRepository", "Encontrado: ${item.codigoMatSafe} - ${item.descripcionSafe}")
+                Log.d("InventoryRepository", "  Stock: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+            }
+
             Log.d("InventoryRepository", "Búsqueda por descripción exitosa - Total: ${response.totalItems}")
             Result.success(response)
-
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP en búsqueda por descripción: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
@@ -199,44 +226,50 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Búsqueda flexible: '$query' - Código: $searchInCode, Descripción: $searchInDescription")
+            // NUEVO: Validar query usando propiedades seguras
+            val cleanQuery = query.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Consulta de búsqueda vacía"))
+
+            Log.d("InventoryRepository", "Búsqueda flexible: '$cleanQuery' - Código: $searchInCode, Descripción: $searchInDescription")
 
             // Si solo busca en código
             if (searchInCode && !searchInDescription) {
-                return searchByCode(query, page, limit)
+                return searchByCode(cleanQuery, page, limit)
             }
 
             // Si solo busca en descripción
             if (!searchInCode && searchInDescription) {
-                return searchByDescription(query, page, limit)
+                return searchByDescription(cleanQuery, page, limit)
             }
 
             // Si busca en ambos, primero intenta por código exacto
             if (searchInCode && searchInDescription) {
                 // Primero buscar por código exacto
-                val codeResult = searchByCode(query, page, limit)
-
+                val codeResult = searchByCode(cleanQuery, page, limit)
                 codeResult.fold(
                     onSuccess = { codeResponse ->
                         if (codeResponse.data.isNotEmpty()) {
                             Log.d("InventoryRepository", "Encontrados ${codeResponse.data.size} items por código")
+                            // NUEVO: Log usando propiedades seguras
+                            codeResponse.data.forEach { item ->
+                                Log.d("InventoryRepository", "  ${item.codigoMatSafe}: ${item.descripcionSafe} (${item.estadoStock})")
+                            }
                             return Result.success(codeResponse)
                         } else {
                             // Si no hay resultados por código, buscar por descripción
                             Log.d("InventoryRepository", "No hay resultados por código, buscando por descripción")
-                            return searchByDescription(query, page, limit)
+                            return searchByDescription(cleanQuery, page, limit)
                         }
                     },
                     onFailure = {
                         // Si falla la búsqueda por código, intentar por descripción
                         Log.d("InventoryRepository", "Falló búsqueda por código, intentando por descripción")
-                        return searchByDescription(query, page, limit)
+                        return searchByDescription(cleanQuery, page, limit)
                     }
                 )
             }
 
             Result.failure(Exception("Parámetros de búsqueda inválidos"))
-
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP en búsqueda: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
@@ -274,11 +307,18 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Búsqueda avanzada - Query: '$query', Código: '$codigoMat', Descripción: '$descripcion'")
+            // NUEVO: Limpiar parámetros de búsqueda
+            val cleanQuery = query?.trim()?.takeIf { it.isNotBlank() }
+            val cleanCodigoMat = codigoMat?.trim()?.takeIf { it.isNotBlank() }
+            val cleanDescripcion = descripcion?.trim()?.takeIf { it.isNotBlank() }
+            val cleanUnidad = unidad?.trim()?.takeIf { it.isNotBlank() }
+            val cleanProceso = proceso?.trim()?.takeIf { it.isNotBlank() }
+
+            Log.d("InventoryRepository", "Búsqueda avanzada - Query: '$cleanQuery', Código: '$cleanCodigoMat', Descripción: '$cleanDescripcion'")
 
             // Si hay un query general, determinar si es código o descripción
-            val finalCodigoMat = codigoMat ?: if (query?.matches(Regex("^[A-Z0-9-]+$")) == true) query else null
-            val finalDescripcion = descripcion ?: if (query != null && finalCodigoMat == null) query else null
+            val finalCodigoMat = cleanCodigoMat ?: if (cleanQuery?.matches(Regex("^[A-Z0-9-]+$")) == true) cleanQuery else null
+            val finalDescripcion = cleanDescripcion ?: if (cleanQuery != null && finalCodigoMat == null) cleanQuery else null
 
             val response = inventoryApiService.getInventoryItems(
                 token = "Bearer $token",
@@ -286,14 +326,20 @@ class InventoryRepository @Inject constructor(
                 limit = limit,
                 codigoMat = finalCodigoMat,
                 descripcion = finalDescripcion,
-                unidad = unidad,
-                proceso = proceso,
+                unidad = cleanUnidad,
+                proceso = cleanProceso,
                 borrado = borrado
             )
 
+            // NUEVO: Log detallado de resultados usando propiedades seguras
             Log.d("InventoryRepository", "Búsqueda avanzada exitosa - Total: ${response.totalItems}")
-            Result.success(response)
+            response.data.forEach { item ->
+                Log.d("InventoryRepository", "  ${item.codigoMatSafe}: ${item.descripcionSafe}")
+                Log.d("InventoryRepository", "    Stock: ${item.existenciaFormateada}, Precio: ${item.precioFormateado}")
+                Log.d("InventoryRepository", "    Estado: ${item.estadoStock}, Proceso: ${item.procesoSafe}")
+            }
 
+            Result.success(response)
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP en búsqueda avanzada: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
@@ -322,12 +368,16 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Eliminando material: $codigoMat")
+            // NUEVO: Validar código usando propiedades seguras
+            val cleanCodigoMat = codigoMat.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Código de material vacío"))
+
+            Log.d("InventoryRepository", "Eliminando material: $cleanCodigoMat")
 
             // AQUÍ ESTABA EL ERROR - Ahora se pasa el token
             val response = inventoryApiService.deleteMaterial(
                 token = "Bearer $token",  // ← ESTA LÍNEA FALTABA
-                codigoMat = codigoMat
+                codigoMat = cleanCodigoMat
             )
 
             if (response.isSuccessful) {
@@ -375,21 +425,39 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Creando material: $codigoMat - $descripcion")
+            // NUEVO: Validar datos usando las propiedades seguras del modelo
+            val cleanCodigoMat = codigoMat.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Código de material requerido"))
+            val cleanDescripcion = descripcion.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Descripción requerida"))
+            val cleanUnidad = unidad.trim().takeIf { it.isNotBlank() } ?: "UND"
+            val cleanUnidadEntrada = unidadEntrada.trim().takeIf { it.isNotBlank() } ?: "UND"
+            val cleanProceso = proceso.trim().takeIf { it.isNotBlank() } ?: "Sin proceso"
+
+            // Validar números usando la lógica de las propiedades seguras
+            val safePcompra = maxOf(0.0, pcompra)
+            val safeExistencia = maxOf(0.0, existencia)
+            val safeMax = maxOf(1.0, max)
+            val safeMin = maxOf(0.0, min)
+            val safeInventarioInicial = maxOf(0.0, inventarioInicial)
+            val safeCantxunidad = maxOf(1.0, cantxunidad)
+
+            Log.d("InventoryRepository", "Creando material: $cleanCodigoMat - $cleanDescripcion")
+            Log.d("InventoryRepository", "Datos validados - Precio: $safePcompra, Stock: $safeExistencia, Min: $safeMin, Max: $safeMax")
             Log.d("InventoryRepository", "Imágenes a enviar: ${imageUris.size}")
 
             // Crear RequestBody para cada campo
-            val codigoMatBody = codigoMat.toRequestBody("text/plain".toMediaTypeOrNull())
-            val descripcionBody = descripcion.toRequestBody("text/plain".toMediaTypeOrNull())
-            val unidadBody = unidad.toRequestBody("text/plain".toMediaTypeOrNull())
-            val pcompraBody = pcompra.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val existenciaBody = existencia.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val maxBody = max.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val minBody = min.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val inventarioInicialBody = inventarioInicial.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val unidadEntradaBody = unidadEntrada.toRequestBody("text/plain".toMediaTypeOrNull())
-            val cantxunidadBody = cantxunidad.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val procesoBody = proceso.toRequestBody("text/plain".toMediaTypeOrNull())
+            val codigoMatBody = cleanCodigoMat.toRequestBody("text/plain".toMediaTypeOrNull())
+            val descripcionBody = cleanDescripcion.toRequestBody("text/plain".toMediaTypeOrNull())
+            val unidadBody = cleanUnidad.toRequestBody("text/plain".toMediaTypeOrNull())
+            val pcompraBody = safePcompra.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val existenciaBody = safeExistencia.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val maxBody = safeMax.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val minBody = safeMin.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val inventarioInicialBody = safeInventarioInicial.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val unidadEntradaBody = cleanUnidadEntrada.toRequestBody("text/plain".toMediaTypeOrNull())
+            val cantxunidadBody = safeCantxunidad.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val procesoBody = cleanProceso.toRequestBody("text/plain".toMediaTypeOrNull())
 
             // Preparar archivos de imagen
             val imageParts = mutableListOf<MultipartBody.Part>()
@@ -399,7 +467,6 @@ class InventoryRepository @Inject constructor(
                     if (inputStream != null) {
                         // Obtener el nombre real del archivo si es posible
                         val fileName = getFileName(context, uri) ?: "image_$index.jpg"
-
                         // Crear archivo temporal
                         val tempFile = File(context.cacheDir, "temp_create_$fileName")
                         val outputStream = FileOutputStream(tempFile)
@@ -409,12 +476,10 @@ class InventoryRepository @Inject constructor(
 
                         // Determinar el tipo MIME
                         val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-
                         // Crear RequestBody y MultipartBody.Part
                         val requestFile = tempFile.asRequestBody(mimeType.toMediaTypeOrNull())
                         val imagePart = MultipartBody.Part.createFormData("files", fileName, requestFile)
                         imageParts.add(imagePart)
-
                         Log.d("InventoryRepository", "Imagen $index preparada: $fileName")
                     }
                 } catch (e: Exception) {
@@ -423,7 +488,6 @@ class InventoryRepository @Inject constructor(
             }
 
             Log.d("InventoryRepository", "Enviando request con ${imageParts.size} imágenes")
-
             val response = inventoryApiService.createMaterial(
                 token = "Bearer $token",
                 codigoMat = codigoMatBody,
@@ -449,14 +513,18 @@ class InventoryRepository @Inject constructor(
                 }
             }
 
+            // NUEVO: Log del resultado usando propiedades seguras si hay data
+            response.data?.let { item ->
+                Log.d("InventoryRepository", "Material creado - Código: ${item.codigoMatSafe}, Descripción: ${item.descripcionSafe}")
+                Log.d("InventoryRepository", "Stock inicial: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+            }
+
             Log.d("InventoryRepository", "Material creado exitosamente: ${response.message}")
             Result.success(response)
-
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP al crear material: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
             Log.e("InventoryRepository", "Error body: $errorBody")
-
             val errorResponse = errorBody?.let {
                 try {
                     gson.fromJson(it, CreateMaterialErrorResponse::class.java)
@@ -497,20 +565,38 @@ class InventoryRepository @Inject constructor(
                 return Result.failure(Exception("Token de acceso no disponible"))
             }
 
-            Log.d("InventoryRepository", "Actualizando material: $codigoMat - $descripcion")
+            // NUEVO: Validar datos usando las propiedades seguras del modelo
+            val cleanCodigoMat = codigoMat.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Código de material requerido"))
+            val cleanDescripcion = descripcion.trim().takeIf { it.isNotBlank() }
+                ?: return Result.failure(Exception("Descripción requerida"))
+            val cleanUnidad = unidad.trim().takeIf { it.isNotBlank() } ?: "UND"
+            val cleanUnidadEntrada = unidadEntrada.trim().takeIf { it.isNotBlank() } ?: "UND"
+            val cleanProceso = proceso.trim().takeIf { it.isNotBlank() } ?: "Sin proceso"
+
+            // Validar números usando la lógica de las propiedades seguras
+            val safePcompra = maxOf(0.0, pcompra)
+            val safeExistencia = maxOf(0.0, existencia)
+            val safeMax = maxOf(1.0, max)
+            val safeMin = maxOf(0.0, min)
+            val safeInventarioInicial = maxOf(0.0, inventarioInicial)
+            val safeCantxunidad = maxOf(1.0, cantxunidad)
+
+            Log.d("InventoryRepository", "Actualizando material: $cleanCodigoMat - $cleanDescripcion")
+            Log.d("InventoryRepository", "Datos validados - Precio: $safePcompra, Stock: $safeExistencia, Min: $safeMin, Max: $safeMax")
             Log.d("InventoryRepository", "Nuevas imágenes: ${newImageUris.size}")
 
             // Crear RequestBody para cada campo (nombres exactos como en la imagen)
-            val descripcionBody = descripcion.toRequestBody("text/plain".toMediaTypeOrNull())
-            val unidadBody = unidad.toRequestBody("text/plain".toMediaTypeOrNull())
-            val pcompraBody = pcompra.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val existenciaBody = existencia.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val maxBody = max.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val minBody = min.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val inventarioInicialBody = inventarioInicial.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val unidadEntradaBody = unidadEntrada.toRequestBody("text/plain".toMediaTypeOrNull())
-            val cantxunidadBody = cantxunidad.toString().toRequestBody("text/plain".toMediaTypeOrNull())
-            val procesoBody = proceso.toRequestBody("text/plain".toMediaTypeOrNull())
+            val descripcionBody = cleanDescripcion.toRequestBody("text/plain".toMediaTypeOrNull())
+            val unidadBody = cleanUnidad.toRequestBody("text/plain".toMediaTypeOrNull())
+            val pcompraBody = safePcompra.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val existenciaBody = safeExistencia.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val maxBody = safeMax.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val minBody = safeMin.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val inventarioInicialBody = safeInventarioInicial.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val unidadEntradaBody = cleanUnidadEntrada.toRequestBody("text/plain".toMediaTypeOrNull())
+            val cantxunidadBody = safeCantxunidad.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+            val procesoBody = cleanProceso.toRequestBody("text/plain".toMediaTypeOrNull())
             val borradoBody = borrado.toString().toRequestBody("text/plain".toMediaTypeOrNull())
 
             // Preparar archivos de imagen - todos con el nombre "imagenes"
@@ -521,7 +607,6 @@ class InventoryRepository @Inject constructor(
                     if (inputStream != null) {
                         // Obtener el nombre real del archivo si es posible
                         val fileName = getFileName(context, uri) ?: "image_$index.jpg"
-
                         // Crear archivo temporal
                         val tempFile = File(context.cacheDir, "temp_update_$fileName")
                         val outputStream = FileOutputStream(tempFile)
@@ -531,13 +616,11 @@ class InventoryRepository @Inject constructor(
 
                         // Determinar el tipo MIME
                         val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-
                         // Crear RequestBody y MultipartBody.Part
                         val requestFile = tempFile.asRequestBody(mimeType.toMediaTypeOrNull())
                         // Todos los archivos usan el mismo nombre de campo "imagenes"
                         val imagePart = MultipartBody.Part.createFormData("imagenes", fileName, requestFile)
                         imageParts.add(imagePart)
-
                         Log.d("InventoryRepository", "Imagen $index preparada: $fileName")
                     }
                 } catch (e: Exception) {
@@ -546,10 +629,9 @@ class InventoryRepository @Inject constructor(
             }
 
             Log.d("InventoryRepository", "Enviando actualización con ${imageParts.size} imágenes")
-
             val response = inventoryApiService.updateMaterial(
                 token = "Bearer $token",
-                codigoMat = codigoMat,
+                codigoMat = cleanCodigoMat,
                 descripcion = descripcionBody,
                 unidad = unidadBody,
                 pcompra = pcompraBody,
@@ -573,14 +655,19 @@ class InventoryRepository @Inject constructor(
                 }
             }
 
+            // NUEVO: Log del resultado usando propiedades seguras si hay data
+            response.data?.let { item ->
+                Log.d("InventoryRepository", "Material actualizado - Código: ${item.codigoMatSafe}, Descripción: ${item.descripcionSafe}")
+                Log.d("InventoryRepository", "Stock actualizado: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+                Log.d("InventoryRepository", "Precio: ${item.precioFormateado}, Rango: ${item.rangoStockFormateado}")
+            }
+
             Log.d("InventoryRepository", "Material actualizado exitosamente: ${response.message}")
             Result.success(response)
-
         } catch (e: HttpException) {
             Log.e("InventoryRepository", "Error HTTP al actualizar material: ${e.code()}")
             val errorBody = e.response()?.errorBody()?.string()
             Log.e("InventoryRepository", "Error body: $errorBody")
-
             val errorResponse = errorBody?.let {
                 try {
                     gson.fromJson(it, UpdateMaterialErrorResponse::class.java)
@@ -602,7 +689,14 @@ class InventoryRepository @Inject constructor(
     suspend fun getAllInventoryItems(): Result<List<InventoryItem>> {
         return try {
             val response = getInventoryItems(page = 1, limit = 1000) // Límite alto para obtener todos
-            response.map { it.data }
+            response.map { paginationResponse ->
+                // NUEVO: Log usando propiedades seguras
+                Log.d("InventoryRepository", "Todos los items obtenidos: ${paginationResponse.data.size}")
+                paginationResponse.data.forEach { item ->
+                    Log.d("InventoryRepository", "  ${item.codigoMatSafe}: ${item.descripcionSafe} (${item.estadoStock})")
+                }
+                paginationResponse.data
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

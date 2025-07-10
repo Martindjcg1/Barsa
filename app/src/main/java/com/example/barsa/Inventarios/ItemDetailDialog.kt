@@ -127,18 +127,18 @@ fun ItemDetailDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                DetailItem("Código", item.codigoMat)
-                DetailItem("Descripción", item.descripcion)
-                DetailItem("Unidad", item.unidad)
-                DetailItem("Precio Compra", String.format("%.2f", item.pcompra))
-                DetailItem("Existencia", String.format("%.2f", item.existencia))
+                DetailItem("Código", item.codigoMatSafe)
+                DetailItem("Descripción", item.descripcionSafe)
+                DetailItem("Unidad", item.unidadSafe)
+                DetailItem("Precio Compra", String.format("%.2f", item.pcompraSafe))
+                DetailItem("Existencia", String.format("%.2f", item.existenciaSafe))
                 DetailItem("Máximo", String.format("%.2f", item.max))
                 DetailItem("Mínimo", String.format("%.2f", item.min))
-                DetailItem("Inventario Inicial", String.format("%.2f", item.inventarioInicial))
-                DetailItem("Unidad Entrada", item.unidadEntrada)
+                DetailItem("Inventario Inicial", String.format("%.2f", item.inventarioInicialSafe))
+                DetailItem("Unidad Entrada", item.unidadEntradaSafe)
                 DetailItem("Cantidad por Unidad", String.format("%.2f", item.cantXUnidad))
-                DetailItem("Proceso", item.proceso)
-                DetailItem("Estado", if (item.borrado) "Borrado" else "Activo")
+                DetailItem("Proceso", item.procesoSafe)
+                DetailItem("Estado", if (item.borradoSafe) "Borrado" else "Activo")
                 if (item.imagenes.isNotEmpty()) {
                     DetailItem("Imágenes", "${item.imagenes.size} imagen(es)")
                 }

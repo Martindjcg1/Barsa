@@ -55,7 +55,7 @@ fun CategoryList(
                             inventoryState.response.data.size
                         } else {
                             inventoryState.response.data.count {
-                                categorizarMaterial(it.descripcion) == category.name
+                                categorizarMaterial(it.descripcionSafe) == category.name
                             }
                         }
                     }

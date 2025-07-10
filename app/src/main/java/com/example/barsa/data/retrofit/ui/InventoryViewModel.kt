@@ -18,13 +18,13 @@ import android.net.Uri
 import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
 import com.example.barsa.data.retrofit.models.UpdateMaterialResponse
 
-
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     val tokenManager: TokenManager
 ) : ViewModel() {
 
+    // ==================== SEALED CLASSES ====================
     sealed class InventoryState {
         object Initial : InventoryState()
         object Loading : InventoryState()
@@ -60,6 +60,7 @@ class InventoryViewModel @Inject constructor(
         data class Error(val message: String) : DeleteMaterialState()
     }
 
+    // ==================== STATE FLOWS ====================
     private val _inventoryState = MutableStateFlow<InventoryState>(InventoryState.Initial)
     val inventoryState: StateFlow<InventoryState> = _inventoryState
 
@@ -85,6 +86,20 @@ class InventoryViewModel @Inject constructor(
     private val _itemsPerPage = MutableStateFlow(10)
     val itemsPerPage: StateFlow<Int> = _itemsPerPage
 
+    // ==================== FUNCIONES AUXILIARES PARA MANEJO SEGURO DE NULLS ====================
+    private fun String?.safeTrim(): String {
+        return this?.trim() ?: ""
+    }
+
+    private fun String?.safeIsNotBlank(): Boolean {
+        return this?.isNotBlank() == true
+    }
+
+    private fun String?.safeToCleanString(): String? {
+        return this?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    // ==================== FUNCIONES PRINCIPALES ====================
     fun getInventoryItems(
         page: Int = 1,
         limit: Int = 10,
@@ -103,15 +118,28 @@ class InventoryViewModel @Inject constructor(
                 val result = inventoryRepository.getInventoryItems(
                     page = page,
                     limit = limit,
-                    codigoMat = codigoMat,
-                    descripcion = descripcion,
-                    unidad = unidad,
-                    proceso = proceso,
-                    borrado = borrado
+                    codigoMat = codigoMat.safeToCleanString(),
+                    descripcion = descripcion.safeToCleanString(),
+                    unidad = unidad.safeToCleanString(),
+                    proceso = proceso.safeToCleanString(),
+                    borrado = borrado.safeToCleanString()
                 )
 
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "GetInventoryItems exitoso - ${response.data.size} items")
+                    // Log detallado usando propiedades seguras
+                    response.data.forEach { item ->
+                        Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "    Stock: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+                        Log.d("InventoryViewModel", "    Precio: ${item.precioFormateado}, Imágenes: ${if (item.tieneImagenes) "Sí" else "No"}")
+                    }
+
+                    // Estadísticas usando propiedades seguras
+                    val itemsConImagenes = response.data.count { it.tieneImagenes }
+                    val itemsStockBajo = response.data.count { it.estadoStock == "Stock bajo" }
+                    val itemsSinStock = response.data.count { it.estadoStock == "Sin stock" }
+                    Log.d("InventoryViewModel", "Estadísticas - Con imágenes: $itemsConImagenes, Stock bajo: $itemsStockBajo, Sin stock: $itemsSinStock")
+
                     _inventoryState.value = InventoryState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "GetInventoryItems falló: ${error.message}")
@@ -126,20 +154,28 @@ class InventoryViewModel @Inject constructor(
 
     // Búsqueda mejorada con opciones flexibles
     fun searchInventoryItems(
-        query: String,
+        query: String?,
         page: Int = 1,
         limit: Int = 10,
         searchInCode: Boolean = true,
         searchInDescription: Boolean = true
     ) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Buscando items: '$query' - Página: $page")
+            // Validar query de forma segura
+            val cleanQuery = query.safeToCleanString()
+            if (cleanQuery == null) {
+                Log.w("InventoryViewModel", "Query de búsqueda vacío o null")
+                _searchState.value = SearchState.Error("Consulta de búsqueda vacía")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Buscando items: '$cleanQuery' - Página: $page")
             Log.d("InventoryViewModel", "Buscar en código: $searchInCode, Buscar en descripción: $searchInDescription")
             _searchState.value = SearchState.Loading
 
             try {
                 val result = inventoryRepository.searchInventoryItems(
-                    query = query,
+                    query = cleanQuery,
                     page = page,
                     limit = limit,
                     searchInCode = searchInCode,
@@ -148,6 +184,12 @@ class InventoryViewModel @Inject constructor(
 
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda exitosa - ${response.data.size} items encontrados")
+                    // Log detallado de resultados usando propiedades seguras
+                    response.data.forEach { item ->
+                        Log.d("InventoryViewModel", "  Encontrado: ${item.codigoMatSafe} - ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "    Stock: ${item.existenciaFormateada} (${item.estadoStock})")
+                        Log.d("InventoryViewModel", "    Precio: ${item.precioFormateado}, Proceso: ${item.procesoSafe}")
+                    }
                     _searchState.value = SearchState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "Búsqueda falló: ${error.message}")
@@ -162,7 +204,7 @@ class InventoryViewModel @Inject constructor(
 
     // Función de búsqueda simplificada que busca en ambos campos por defecto
     fun searchInventoryItemsSimple(
-        query: String,
+        query: String?,
         page: Int = 1,
         limit: Int = 10
     ) {
@@ -177,19 +219,30 @@ class InventoryViewModel @Inject constructor(
 
     // Función para búsqueda específica por código
     fun searchByCode(
-        code: String,
+        code: String?,
         page: Int = 1,
         limit: Int = 10
     ) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Buscando por código: '$code'")
+            // Validar código de forma segura
+            val cleanCode = code.safeToCleanString()
+            if (cleanCode == null) {
+                Log.w("InventoryViewModel", "Código de búsqueda vacío o null")
+                _searchState.value = SearchState.Error("Código de búsqueda vacío")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Buscando por código: '$cleanCode'")
             _searchState.value = SearchState.Loading
 
             try {
-                val result = inventoryRepository.searchByCode(code, page, limit)
-
+                val result = inventoryRepository.searchByCode(cleanCode, page, limit)
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda por código exitosa - ${response.data.size} items encontrados")
+                    // Log usando propiedades seguras
+                    response.data.forEach { item ->
+                        Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe} (${item.estadoStock})")
+                    }
                     _searchState.value = SearchState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "Búsqueda por código falló: ${error.message}")
@@ -204,19 +257,31 @@ class InventoryViewModel @Inject constructor(
 
     // Función para búsqueda específica por descripción
     fun searchByDescription(
-        description: String,
+        description: String?,
         page: Int = 1,
         limit: Int = 10
     ) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Buscando por descripción: '$description'")
+            // Validar descripción de forma segura
+            val cleanDescription = description.safeToCleanString()
+            if (cleanDescription == null) {
+                Log.w("InventoryViewModel", "Descripción de búsqueda vacía o null")
+                _searchState.value = SearchState.Error("Descripción de búsqueda vacía")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Buscando por descripción: '$cleanDescription'")
             _searchState.value = SearchState.Loading
 
             try {
-                val result = inventoryRepository.searchByDescription(description, page, limit)
-
+                val result = inventoryRepository.searchByDescription(cleanDescription, page, limit)
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda por descripción exitosa - ${response.data.size} items encontrados")
+                    // Log usando propiedades seguras
+                    response.data.forEach { item ->
+                        Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "    Stock: ${item.existenciaFormateada}, Precio: ${item.precioFormateado}")
+                    }
                     _searchState.value = SearchState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "Búsqueda por descripción falló: ${error.message}")
@@ -246,18 +311,24 @@ class InventoryViewModel @Inject constructor(
 
             try {
                 val result = inventoryRepository.advancedSearch(
-                    query = query,
-                    codigoMat = codigoMat,
-                    descripcion = descripcion,
-                    unidad = unidad,
-                    proceso = proceso,
-                    borrado = borrado,
+                    query = query.safeToCleanString(),
+                    codigoMat = codigoMat.safeToCleanString(),
+                    descripcion = descripcion.safeToCleanString(),
+                    unidad = unidad.safeToCleanString(),
+                    proceso = proceso.safeToCleanString(),
+                    borrado = borrado.safeToCleanString(),
                     page = page,
                     limit = limit
                 )
 
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda avanzada exitosa - ${response.data.size} items encontrados")
+                    // Log detallado usando propiedades seguras
+                    response.data.forEach { item ->
+                        Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "    Unidad: ${item.unidadSafe}, Proceso: ${item.procesoSafe}")
+                        Log.d("InventoryViewModel", "    Stock: ${item.existenciaFormateada} (${item.estadoStock})")
+                    }
                     _searchState.value = SearchState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "Búsqueda avanzada falló: ${error.message}")
@@ -271,36 +342,75 @@ class InventoryViewModel @Inject constructor(
     }
 
     // Función para búsqueda local (en datos ya cargados) - útil para filtrado rápido
-    fun searchInCurrentData(query: String): List<InventoryItem> {
+    fun searchInCurrentData(query: String?): List<InventoryItem> {
         val currentData = getCurrentInventoryData()
-        return if (query.isBlank()) {
+        val cleanQuery = query.safeToCleanString()
+
+        return if (cleanQuery == null) {
             currentData
         } else {
-            currentData.filter { item ->
-                item.codigoMat.contains(query, ignoreCase = true) ||
-                        item.descripcion.contains(query, ignoreCase = true)
+            val filteredItems = currentData.filter { item ->
+                // Usar propiedades seguras para la búsqueda
+                item.codigoMatSafe.contains(cleanQuery, ignoreCase = true) ||
+                        item.descripcionSafe.contains(cleanQuery, ignoreCase = true) ||
+                        item.procesoSafe.contains(cleanQuery, ignoreCase = true) ||
+                        item.unidadSafe.contains(cleanQuery, ignoreCase = true)
             }
+
+            // Log de resultados de búsqueda local
+            Log.d("InventoryViewModel", "Búsqueda local '$cleanQuery' - ${filteredItems.size} de ${currentData.size} items")
+            filteredItems.forEach { item ->
+                Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe}")
+            }
+            filteredItems
         }
     }
 
     fun createMaterial(
         context: Context,
-        codigoMat: String,
-        descripcion: String,
-        unidad: String,
+        codigoMat: String?,
+        descripcion: String?,
+        unidad: String?,
         pcompra: Double,
         existencia: Double,
         max: Double,
         min: Double,
         inventarioInicial: Double,
-        unidadEntrada: String,
+        unidadEntrada: String?,
         cantxunidad: Double,
-        proceso: String,
+        proceso: String?,
         imageUris: List<Uri> = emptyList()
     ) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Iniciando createMaterial - Código: $codigoMat")
-            Log.d("InventoryViewModel", "Datos: descripcion=$descripcion, unidad=$unidad, pcompra=$pcompra, existencia=$existencia, max=$max, min=$min, inventarioInicial=$inventarioInicial, unidadEntrada=$unidadEntrada, cantxunidad=$cantxunidad, proceso=$proceso")
+            // Validar datos de forma segura
+            val cleanCodigoMat = codigoMat.safeToCleanString()
+            val cleanDescripcion = descripcion.safeToCleanString()
+
+            if (cleanCodigoMat == null) {
+                Log.e("InventoryViewModel", "Código de material requerido")
+                _createMaterialState.value = CreateMaterialState.Error("Código de material requerido")
+                return@launch
+            }
+
+            if (cleanDescripcion == null) {
+                Log.e("InventoryViewModel", "Descripción requerida")
+                _createMaterialState.value = CreateMaterialState.Error("Descripción requerida")
+                return@launch
+            }
+
+            // Aplicar validaciones de las propiedades seguras
+            val safePcompra = maxOf(0.0, pcompra)
+            val safeExistencia = maxOf(0.0, existencia)
+            val safeMax = maxOf(1.0, max)
+            val safeMin = maxOf(0.0, min)
+            val safeInventarioInicial = maxOf(0.0, inventarioInicial)
+            val safeCantxunidad = maxOf(1.0, cantxunidad)
+            val cleanUnidad = unidad.safeToCleanString() ?: "UND"
+            val cleanUnidadEntrada = unidadEntrada.safeToCleanString() ?: "UND"
+            val cleanProceso = proceso.safeToCleanString() ?: "Sin proceso"
+
+            Log.d("InventoryViewModel", "Iniciando createMaterial - Código: $cleanCodigoMat")
+            Log.d("InventoryViewModel", "Datos validados: descripcion=$cleanDescripcion, unidad=$cleanUnidad, pcompra=$safePcompra, existencia=$safeExistencia, max=$safeMax, min=$safeMin, inventarioInicial=$safeInventarioInicial, unidadEntrada=$cleanUnidadEntrada, cantxunidad=$safeCantxunidad, proceso=$cleanProceso")
             Log.d("InventoryViewModel", "Imágenes recibidas: ${imageUris.size}")
 
             _createMaterialState.value = CreateMaterialState.Loading
@@ -308,22 +418,28 @@ class InventoryViewModel @Inject constructor(
             try {
                 val result = inventoryRepository.createMaterial(
                     context = context,
-                    codigoMat = codigoMat,
-                    descripcion = descripcion,
-                    unidad = unidad,
-                    pcompra = pcompra,
-                    existencia = existencia,
-                    max = max,
-                    min = min,
-                    inventarioInicial = inventarioInicial,
-                    unidadEntrada = unidadEntrada,
-                    cantxunidad = cantxunidad,
-                    proceso = proceso,
+                    codigoMat = cleanCodigoMat,
+                    descripcion = cleanDescripcion,
+                    unidad = cleanUnidad,
+                    pcompra = safePcompra,
+                    existencia = safeExistencia,
+                    max = safeMax,
+                    min = safeMin,
+                    inventarioInicial = safeInventarioInicial,
+                    unidadEntrada = cleanUnidadEntrada,
+                    cantxunidad = safeCantxunidad,
+                    proceso = cleanProceso,
                     imageUris = imageUris
                 )
 
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "CreateMaterial exitoso: ${response.message}")
+                    // Log del item creado usando propiedades seguras
+                    response.data?.let { item ->
+                        Log.d("InventoryViewModel", "Material creado: ${item.codigoMatSafe} - ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "Stock inicial: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+                        Log.d("InventoryViewModel", "Precio: ${item.precioFormateado}, Rango: ${item.rangoStockFormateado}")
+                    }
                     _createMaterialState.value = CreateMaterialState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "CreateMaterial falló: ${error.message}")
@@ -338,23 +454,50 @@ class InventoryViewModel @Inject constructor(
 
     fun updateMaterial(
         context: Context,
-        codigoMat: String,
-        descripcion: String,
-        unidad: String,
+        codigoMat: String?,
+        descripcion: String?,
+        unidad: String?,
         pcompra: Double,
         existencia: Double,
         max: Double,
         min: Double,
         inventarioInicial: Double,
-        unidadEntrada: String,
+        unidadEntrada: String?,
         cantxunidad: Double,
-        proceso: String,
+        proceso: String?,
         borrado: Boolean = false,
         newImageUris: List<Uri> = emptyList()
     ) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Iniciando updateMaterial - Código: $codigoMat")
-            Log.d("InventoryViewModel", "Datos: descripcion=$descripcion, unidad=$unidad, pcompra=$pcompra, existencia=$existencia, max=$max, min=$min, inventarioInicial=$inventarioInicial, unidadEntrada=$unidadEntrada, cantxunidad=$cantxunidad, proceso=$proceso, borrado=$borrado")
+            // Validar datos de forma segura
+            val cleanCodigoMat = codigoMat.safeToCleanString()
+            val cleanDescripcion = descripcion.safeToCleanString()
+
+            if (cleanCodigoMat == null) {
+                Log.e("InventoryViewModel", "Código de material requerido")
+                _updateMaterialState.value = UpdateMaterialState.Error("Código de material requerido")
+                return@launch
+            }
+
+            if (cleanDescripcion == null) {
+                Log.e("InventoryViewModel", "Descripción requerida")
+                _updateMaterialState.value = UpdateMaterialState.Error("Descripción requerida")
+                return@launch
+            }
+
+            // Aplicar validaciones de las propiedades seguras
+            val safePcompra = maxOf(0.0, pcompra)
+            val safeExistencia = maxOf(0.0, existencia)
+            val safeMax = maxOf(1.0, max)
+            val safeMin = maxOf(0.0, min)
+            val safeInventarioInicial = maxOf(0.0, inventarioInicial)
+            val safeCantxunidad = maxOf(1.0, cantxunidad)
+            val cleanUnidad = unidad.safeToCleanString() ?: "UND"
+            val cleanUnidadEntrada = unidadEntrada.safeToCleanString() ?: "UND"
+            val cleanProceso = proceso.safeToCleanString() ?: "Sin proceso"
+
+            Log.d("InventoryViewModel", "Iniciando updateMaterial - Código: $cleanCodigoMat")
+            Log.d("InventoryViewModel", "Datos validados: descripcion=$cleanDescripcion, unidad=$cleanUnidad, pcompra=$safePcompra, existencia=$safeExistencia, max=$safeMax, min=$safeMin, inventarioInicial=$safeInventarioInicial, unidadEntrada=$cleanUnidadEntrada, cantxunidad=$safeCantxunidad, proceso=$cleanProceso, borrado=$borrado")
             Log.d("InventoryViewModel", "Nuevas imágenes: ${newImageUris.size}")
 
             _updateMaterialState.value = UpdateMaterialState.Loading
@@ -362,23 +505,29 @@ class InventoryViewModel @Inject constructor(
             try {
                 val result = inventoryRepository.updateMaterial(
                     context = context,
-                    codigoMat = codigoMat,
-                    descripcion = descripcion,
-                    unidad = unidad,
-                    pcompra = pcompra,
-                    existencia = existencia,
-                    max = max,
-                    min = min,
-                    inventarioInicial = inventarioInicial,
-                    unidadEntrada = unidadEntrada,
-                    cantxunidad = cantxunidad,
-                    proceso = proceso,
+                    codigoMat = cleanCodigoMat,
+                    descripcion = cleanDescripcion,
+                    unidad = cleanUnidad,
+                    pcompra = safePcompra,
+                    existencia = safeExistencia,
+                    max = safeMax,
+                    min = safeMin,
+                    inventarioInicial = safeInventarioInicial,
+                    unidadEntrada = cleanUnidadEntrada,
+                    cantxunidad = safeCantxunidad,
+                    proceso = cleanProceso,
                     borrado = borrado,
                     newImageUris = newImageUris
                 )
 
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "UpdateMaterial exitoso: ${response.message}")
+                    // Log del item actualizado usando propiedades seguras
+                    response.data?.let { item ->
+                        Log.d("InventoryViewModel", "Material actualizado: ${item.codigoMatSafe} - ${item.descripcionSafe}")
+                        Log.d("InventoryViewModel", "Stock actualizado: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
+                        Log.d("InventoryViewModel", "Precio: ${item.precioFormateado}, Rango: ${item.rangoStockFormateado}")
+                    }
                     _updateMaterialState.value = UpdateMaterialState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "UpdateMaterial falló: ${error.message}")
@@ -391,14 +540,21 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
-    fun deleteMaterial(codigoMat: String) {
+    fun deleteMaterial(codigoMat: String?) {
         viewModelScope.launch {
-            Log.d("InventoryViewModel", "Iniciando deleteMaterial - Código: $codigoMat")
+            // Validar código de forma segura
+            val cleanCodigoMat = codigoMat.safeToCleanString()
+            if (cleanCodigoMat == null) {
+                Log.e("InventoryViewModel", "Código de material requerido para eliminar")
+                _deleteMaterialState.value = DeleteMaterialState.Error("Código de material requerido")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Iniciando deleteMaterial - Código: $cleanCodigoMat")
             _deleteMaterialState.value = DeleteMaterialState.Loading
 
             try {
-                val result = inventoryRepository.deleteMaterial(codigoMat)
-
+                val result = inventoryRepository.deleteMaterial(cleanCodigoMat)
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "DeleteMaterial exitoso: ${response.body.message}")
                     _deleteMaterialState.value = DeleteMaterialState.Success(response)
@@ -419,9 +575,26 @@ class InventoryViewModel @Inject constructor(
             try {
                 val result = inventoryRepository.getAllInventoryItems()
                 _allItemsState.value = result
-
                 result.onSuccess { items ->
                     Log.d("InventoryViewModel", "Todos los items obtenidos exitosamente - ${items.size} items")
+                    // Estadísticas usando propiedades seguras
+                    val itemsConImagenes = items.count { it.tieneImagenes }
+                    val itemsStockBajo = items.count { it.estadoStock == "Stock bajo" }
+                    val itemsSinStock = items.count { it.estadoStock == "Sin stock" }
+                    val itemsStockNormal = items.count { it.estadoStock == "Stock normal" }
+                    val itemsStockAlto = items.count { it.estadoStock == "Stock alto" }
+
+                    Log.d("InventoryViewModel", "Estadísticas generales:")
+                    Log.d("InventoryViewModel", "  Con imágenes: $itemsConImagenes")
+                    Log.d("InventoryViewModel", "  Sin stock: $itemsSinStock")
+                    Log.d("InventoryViewModel", "  Stock bajo: $itemsStockBajo")
+                    Log.d("InventoryViewModel", "  Stock normal: $itemsStockNormal")
+                    Log.d("InventoryViewModel", "  Stock alto: $itemsStockAlto")
+
+                    // Log de algunos items usando propiedades seguras
+                    items.take(5).forEach { item ->
+                        Log.d("InventoryViewModel", "  ${item.codigoMatSafe}: ${item.descripcionSafe} (${item.estadoStock})")
+                    }
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "Error al obtener todos los items: ${error.message}")
                 }
@@ -432,6 +605,7 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
+    // ==================== FUNCIONES DE PAGINACIÓN ====================
     fun changePage(page: Int) {
         _currentPage.value = page
         getInventoryItems(page = page, limit = _itemsPerPage.value)
@@ -442,6 +616,7 @@ class InventoryViewModel @Inject constructor(
         getInventoryItems(page = 1, limit = limit) // Resetear a página 1
     }
 
+    // ==================== FUNCIONES DE RESET ====================
     fun resetInventoryState() {
         _inventoryState.value = InventoryState.Initial
     }
@@ -477,7 +652,7 @@ class InventoryViewModel @Inject constructor(
         _itemsPerPage.value = 10
     }
 
-    // Funciones auxiliares para obtener datos actuales
+    // ==================== FUNCIONES AUXILIARES ====================
     fun getCurrentInventoryData(): List<InventoryItem> {
         return when (val currentState = _inventoryState.value) {
             is InventoryState.Success -> currentState.response.data
@@ -500,9 +675,36 @@ class InventoryViewModel @Inject constructor(
         return _searchState.value is SearchState.Success
     }
 
-    fun getItemByCode(codigoMat: String): InventoryItem? {
+    fun getItemByCode(codigoMat: String?): InventoryItem? {
         val currentData = getCurrentInventoryData()
-        return currentData.find { it.codigoMat == codigoMat }
+        val cleanCode = codigoMat.safeToCleanString() ?: return null
+
+        return currentData.find { it.codigoMatSafe.equals(cleanCode, ignoreCase = true) }
+    }
+
+    // Función para obtener items por estado de stock
+    fun getItemsByStockStatus(status: String): List<InventoryItem> {
+        val currentData = getCurrentInventoryData()
+        return currentData.filter { it.estadoStock == status }
+    }
+
+    // Función para obtener items con imágenes
+    fun getItemsWithImages(): List<InventoryItem> {
+        val currentData = getCurrentInventoryData()
+        return currentData.filter { it.tieneImagenes }
+    }
+
+    // Función para obtener estadísticas de inventario
+    fun getInventoryStats(): Map<String, Int> {
+        val currentData = getCurrentInventoryData()
+        return mapOf(
+            "total" to currentData.size,
+            "conImagenes" to currentData.count { it.tieneImagenes },
+            "sinStock" to currentData.count { it.estadoStock == "Sin stock" },
+            "stockBajo" to currentData.count { it.estadoStock == "Stock bajo" },
+            "stockNormal" to currentData.count { it.estadoStock == "Stock normal" },
+            "stockAlto" to currentData.count { it.estadoStock == "Stock alto" }
+        )
     }
 
     // Función para recargar datos después de operaciones CRUD

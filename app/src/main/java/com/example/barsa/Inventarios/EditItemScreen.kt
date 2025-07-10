@@ -40,25 +40,27 @@ fun EditItemScreen(
     onSave: (InventoryItem) -> Unit,
     inventoryViewModel: InventoryViewModel
 ) {
-    var codigoMat by remember { mutableStateOf(item.codigoMat) }
-    var descripcion by remember { mutableStateOf(item.descripcion) }
-    var unidad by remember { mutableStateOf(item.unidad) }
-    var pCompra by remember { mutableStateOf(item.pcompra.toString()) }
-    var existencia by remember { mutableStateOf(item.existencia.toString()) }
-    var max by remember { mutableStateOf(item.max.toString()) }
-    var min by remember { mutableStateOf(item.min.toString()) }
-    var inventarioInicial by remember { mutableStateOf(item.inventarioInicial.toString()) }
-    var unidadEntrada by remember { mutableStateOf(item.unidadEntrada) }
-    var cantXUnidad by remember { mutableStateOf(item.cantXUnidad.toString()) }
-    var proceso by remember { mutableStateOf(item.proceso) }
+    // CORREGIDO: Usar propiedades seguras para inicializar los estados
+    var codigoMat by remember { mutableStateOf(item.codigoMatSafe) }
+    var descripcion by remember { mutableStateOf(item.descripcionSafe) }
+    var unidad by remember { mutableStateOf(item.unidadSafe) }
+    var pCompra by remember { mutableStateOf(item.pcompraSafe.toString()) }
+    var existencia by remember { mutableStateOf(item.existenciaSafe.toString()) }
+    var max by remember { mutableStateOf(item.maxSafe.toString()) }
+    var min by remember { mutableStateOf(item.minSafe.toString()) }
+    var inventarioInicial by remember { mutableStateOf(item.inventarioInicialSafe.toString()) }
+    var unidadEntrada by remember { mutableStateOf(item.unidadEntradaSafe) }
+    var cantXUnidad by remember { mutableStateOf(item.cantXUnidadSafe.toString()) }
+    var proceso by remember { mutableStateOf(item.procesoSafe) }
+
     var showUnidadDropdown by remember { mutableStateOf(false) }
     var showUnidadEntradaDropdown by remember { mutableStateOf(false) }
 
-    // Opciones para unidades
-    val unidadOptions = listOf("PZA", "PZAS", "MTR", "KG", "LT", "M2", "M3")
+    // Opciones para unidades - MEJORADO: Agregada "UND" como opción por defecto
+    val unidadOptions = listOf("PZA", "PZAS", "MTR", "KG", "LT", "M2", "M3", "UND")
 
     // Para manejar imágenes - usar las URLs directamente de item.imagenes (List<String>)
-    var existingImages by remember { mutableStateOf(item.imagenes) } // Ya es List<String>
+    var existingImages by remember { mutableStateOf(item.imagenes) } // Ya es List<String> y maneja nulls
     var newImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val context = LocalContext.current
 
@@ -140,7 +142,6 @@ fun EditItemScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
-
             IconButton(
                 onClick = onCancel,
                 modifier = Modifier
@@ -178,7 +179,6 @@ fun EditItemScreen(
                     readOnly = true,
                     enabled = false
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Descripción
@@ -190,7 +190,6 @@ fun EditItemScreen(
                     singleLine = true,
                     enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Unidad y Precio de Compra
@@ -221,7 +220,6 @@ fun EditItemScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-
                         DropdownMenu(
                             expanded = showUnidadDropdown,
                             onDismissRequest = { showUnidadDropdown = false },
@@ -238,7 +236,6 @@ fun EditItemScreen(
                             }
                         }
                     }
-
                     OutlinedTextField(
                         value = pCompra,
                         onValueChange = { pCompra = it },
@@ -249,7 +246,6 @@ fun EditItemScreen(
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Existencia y Unidad de Entrada
@@ -266,7 +262,6 @@ fun EditItemScreen(
                         singleLine = true,
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
-
                     // Unidad de Entrada (Dropdown)
                     Box(
                         modifier = Modifier.weight(1f)
@@ -290,7 +285,6 @@ fun EditItemScreen(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-
                         DropdownMenu(
                             expanded = showUnidadEntradaDropdown,
                             onDismissRequest = { showUnidadEntradaDropdown = false },
@@ -308,7 +302,6 @@ fun EditItemScreen(
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Máximo y Mínimo
@@ -325,7 +318,6 @@ fun EditItemScreen(
                         singleLine = true,
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
-
                     OutlinedTextField(
                         value = min,
                         onValueChange = { min = it },
@@ -336,7 +328,6 @@ fun EditItemScreen(
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Inventario Inicial y Cantidad por Unidad
@@ -353,7 +344,6 @@ fun EditItemScreen(
                         singleLine = true,
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
-
                     OutlinedTextField(
                         value = cantXUnidad,
                         onValueChange = { cantXUnidad = it },
@@ -364,7 +354,6 @@ fun EditItemScreen(
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Proceso (Radio buttons)
@@ -373,7 +362,6 @@ fun EditItemScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
-
                 // Primera fila de radio buttons
                 Row(
                     modifier = Modifier
@@ -387,9 +375,7 @@ fun EditItemScreen(
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Manufactura (M)", modifier = Modifier.padding(start = 4.dp))
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     RadioButton(
                         selected = proceso == "E",
                         onClick = { proceso = "E" },
@@ -397,7 +383,6 @@ fun EditItemScreen(
                     )
                     Text("Ensamble (E)", modifier = Modifier.padding(start = 4.dp))
                 }
-
                 // Segunda fila de radio buttons
                 Row(
                     modifier = Modifier
@@ -411,9 +396,7 @@ fun EditItemScreen(
                         enabled = updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading
                     )
                     Text("Terminado (T)", modifier = Modifier.padding(start = 4.dp))
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     RadioButton(
                         selected = proceso == "P",
                         onClick = { proceso = "P" },
@@ -421,7 +404,6 @@ fun EditItemScreen(
                     )
                     Text("Preparación (P)", modifier = Modifier.padding(start = 4.dp))
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Sección de imágenes existentes
@@ -431,9 +413,7 @@ fun EditItemScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -460,7 +440,6 @@ fun EditItemScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
-
                                 // Botón para eliminar imagen (solo si no está cargando)
                                 if (updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading) {
                                     IconButton(
@@ -486,7 +465,6 @@ fun EditItemScreen(
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
@@ -496,7 +474,6 @@ fun EditItemScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Botón para seleccionar imágenes
@@ -512,7 +489,6 @@ fun EditItemScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Seleccionar Imágenes")
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Mostrar imágenes seleccionadas
@@ -521,9 +497,7 @@ fun EditItemScreen(
                         text = "${newImages.size} imagen(es) nueva(s) seleccionada(s)",
                         style = MaterialTheme.typography.bodyMedium
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -550,7 +524,6 @@ fun EditItemScreen(
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
-
                                 // Botón para eliminar imagen (solo si no está cargando)
                                 if (updateMaterialState !is InventoryViewModel.UpdateMaterialState.Loading) {
                                     IconButton(
@@ -593,29 +566,26 @@ fun EditItemScreen(
             ) {
                 Text("Cancelar")
             }
-
             Spacer(modifier = Modifier.width(8.dp))
-
             Button(
                 onClick = {
-                    // Validar campos obligatorios
-                    if (descripcion.isNotBlank() && unidad.isNotBlank()) {
-                        // Llamar a la función de actualización del ViewModel
-                        // Solo pasamos las nuevas imágenes, no las existentes
+                    // MEJORADO: Validar campos obligatorios con trim
+                    if (descripcion.trim().isNotBlank() && unidad.trim().isNotBlank()) {
+                        // MEJORADO: Conversiones más seguras con valores por defecto
                         inventoryViewModel.updateMaterial(
                             context = context,
-                            codigoMat = codigoMat,
-                            descripcion = descripcion,
-                            unidad = unidad,
-                            pcompra = pCompra.toDoubleOrNull() ?: 0.0,
-                            existencia = existencia.toDoubleOrNull() ?: 0.0,
-                            max = max.toDoubleOrNull() ?: 0.0,
-                            min = min.toDoubleOrNull() ?: 0.0,
-                            inventarioInicial = inventarioInicial.toDoubleOrNull() ?: 0.0,
-                            unidadEntrada = unidadEntrada,
-                            cantxunidad = cantXUnidad.toDoubleOrNull() ?: 1.0,
-                            proceso = proceso,
-                            borrado = item.borrado, // Mantener el estado actual de borrado
+                            codigoMat = codigoMat.trim().takeIf { it.isNotBlank() },
+                            descripcion = descripcion.trim().takeIf { it.isNotBlank() },
+                            unidad = unidad.trim().takeIf { it.isNotBlank() },
+                            pcompra = pCompra.trim().toDoubleOrNull() ?: 0.0,
+                            existencia = existencia.trim().toDoubleOrNull() ?: 0.0,
+                            max = max.trim().toDoubleOrNull() ?: 1.0,
+                            min = min.trim().toDoubleOrNull() ?: 0.0,
+                            inventarioInicial = inventarioInicial.trim().toDoubleOrNull() ?: 0.0,
+                            unidadEntrada = unidadEntrada.trim().takeIf { it.isNotBlank() },
+                            cantxunidad = cantXUnidad.trim().toDoubleOrNull() ?: 1.0,
+                            proceso = proceso.trim().takeIf { it.isNotBlank() },
+                            borrado = item.borradoSafe, // CORREGIDO: Usar propiedad segura
                             newImageUris = newImages // Solo las nuevas imágenes
                         )
                     } else {

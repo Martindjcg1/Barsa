@@ -1,5 +1,6 @@
 package com.example.barsa.Body.Inventory
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import coil.request.ImageRequest
 import com.example.barsa.Models.InventoryCategory
 import com.example.barsa.data.retrofit.models.InventoryItem
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import kotlinx.coroutines.delay
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,52 +39,136 @@ fun EditInventoryScreen(
     inventoryViewModel: InventoryViewModel
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var hasLoadedInitialData by remember { mutableStateOf(false) }
 
-    // Observar el estado del inventario
+    // Estados del ViewModel - IGUAL que en InventoryItemsList y DeleteInventoryScreen
     val inventoryState by inventoryViewModel.inventoryState.collectAsState()
+    val searchState by inventoryViewModel.searchState.collectAsState()
 
-    // Cargar datos cuando se abre la pantalla
-    LaunchedEffect(category) {
-        val categoryFilter = when (category.name) {
-            "Todo" -> null
-            "Cubetas" -> "cubeta"
-            "Telas" -> "tela"
-            "Cascos" -> "casco"
-            "Herramientas" -> "herramienta"
-            "Bisagras y Herrajes" -> "bisagra"
-            "Pernos y Sujetadores" -> "perno"
-            "Cintas y Adhesivos" -> "cinta"
-            "Separadores y Accesorios de Cristal" -> "cristal"
-            "Cubrecantos y Acabados" -> "cubrecanto"
-            else -> null
+    // Estado derivado más estable - evita recomposiciones innecesarias
+    val stableCurrentState by remember {
+        derivedStateOf {
+            if (isSearching) searchState else inventoryState
         }
-        inventoryViewModel.getInventoryItems(page = 1, limit = 100, descripcion = categoryFilter)
     }
 
-    // Obtener items y filtrarlos
-    val allItems = when (inventoryState) {
-        is InventoryViewModel.InventoryState.Success -> (inventoryState as InventoryViewModel.InventoryState.Success).response.data
-        else -> emptyList()
-    }
-
-    val filteredItems = remember(allItems, searchQuery, category) {
-        if (searchQuery.isEmpty()) {
-            if (category.name == "Todo") {
-                allItems
-            } else {
-                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
+    // Items con validación extra y estabilización MEJORADA
+    val stableCurrentItems by remember {
+        derivedStateOf {
+            val items = when (stableCurrentState) {
+                is InventoryViewModel.InventoryState.Success -> {
+                    (stableCurrentState as InventoryViewModel.InventoryState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                is InventoryViewModel.SearchState.Success -> {
+                    (stableCurrentState as InventoryViewModel.SearchState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                else -> emptyList()
             }
-        } else {
-            val baseItems = if (category.name == "Todo") {
-                allItems
-            } else {
-                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
-            }
-            baseItems.filter { item ->
-                item.descripcion.contains(searchQuery, ignoreCase = true) ||
-                        item.codigoMat.contains(searchQuery, ignoreCase = true)
+            // MEJORADO: Filtrar items usando la función isValid() del modelo actualizado
+            items.filter { item ->
+                try {
+                    // Usar la nueva función isValid() que maneja todos los nulls internamente
+                    item.isValid()
+                } catch (e: Exception) {
+                    Log.e("EditInventoryScreen", "Error validando item: ${e.message}")
+                    false
+                }
             }
         }
+    }
+
+    // Información de paginación estable
+    val stablePaginationInfo by remember {
+        derivedStateOf {
+            when (stableCurrentState) {
+                is InventoryViewModel.InventoryState.Success -> {
+                    Triple(
+                        maxOf(1, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.currentPage),
+                        maxOf(1, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.totalPages),
+                        maxOf(0, (stableCurrentState as InventoryViewModel.InventoryState.Success).response.totalItems)
+                    )
+                }
+                is InventoryViewModel.SearchState.Success -> {
+                    Triple(
+                        maxOf(1, (stableCurrentState as InventoryViewModel.SearchState.Success).response.currentPage),
+                        maxOf(1, (stableCurrentState as InventoryViewModel.SearchState.Success).response.totalPages),
+                        maxOf(0, (stableCurrentState as InventoryViewModel.SearchState.Success).response.totalItems)
+                    )
+                }
+                else -> Triple(1, 1, 0)
+            }
+        }
+    }
+
+    // Función para obtener el filtro de categoría
+    val getCategoryFilter = remember {
+        {
+            when (category.name) {
+                "Todo" -> null
+                "Cubetas" -> "cubeta"
+                "Telas" -> "tela"
+                "Cascos" -> "casco"
+                "Herramientas" -> "herramienta"
+                "Bisagras y Herrajes" -> "bisagra"
+                "Pernos y Sujetadores" -> "perno"
+                "Cintas y Adhesivos" -> "cinta"
+                "Separadores y Accesorios de Cristal" -> "cristal"
+                "Cubrecantos y Acabados" -> "cubrecanto"
+                else -> null
+            }
+        }
+    }
+
+    // Función para cargar datos con debouncing
+    val loadCategoryData = remember {
+        { page: Int ->
+            val categoryFilter = getCategoryFilter()
+            inventoryViewModel.getInventoryItems(
+                page = maxOf(1, page),
+                limit = 100,
+                descripcion = categoryFilter
+            )
+        }
+    }
+
+    // Debounced search mejorado con manejo seguro de nulls - AUMENTADO A 800ms
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.trim().isNotBlank()) {
+            delay(800) // Debounce de 800ms para que el usuario termine de escribir
+            if (searchQuery.trim().isNotBlank()) { // Verificar de nuevo después del delay
+                isSearching = true
+                // Pasar el query de forma segura
+                inventoryViewModel.searchInventoryItems(
+                    query = searchQuery.trim().takeIf { it.isNotBlank() },
+                    page = 1
+                )
+            }
+        } else if (isSearching) {
+            // Resetear inmediatamente cuando se limpia la búsqueda
+            isSearching = false
+            inventoryViewModel.resetSearchState()
+            loadCategoryData(1)
+        }
+    }
+
+    // Cargar datos iniciales con mejor control
+    LaunchedEffect(category.id) {
+        if (!hasLoadedInitialData) {
+            // Resetear estados
+            isSearching = false
+            searchQuery = ""
+            inventoryViewModel.resetSearchState()
+            // Pequeño delay para asegurar que el reset se complete
+            delay(50)
+            loadCategoryData(1)
+            hasLoadedInitialData = true
+        }
+    }
+
+    // Resetear flag cuando cambia categoría
+    LaunchedEffect(category.id) {
+        hasLoadedInitialData = false
     }
 
     Column(
@@ -110,7 +196,6 @@ fun EditInventoryScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
             IconButton(
                 onClick = onCancel,
                 modifier = Modifier
@@ -128,10 +213,13 @@ fun EditInventoryScreen(
             }
         }
 
-        // Barra de búsqueda
+        // Barra de búsqueda con manejo mejorado
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = { newQuery ->
+                searchQuery = newQuery
+                // El LaunchedEffect se encarga del debouncing
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
@@ -139,164 +227,235 @@ fun EditInventoryScreen(
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
+                    IconButton(
+                        onClick = {
+                            searchQuery = ""
+                            // El LaunchedEffect manejará el reset
+                        }
+                    ) {
                         Icon(Icons.Default.Clear, contentDescription = "Limpiar búsqueda")
                     }
                 }
             },
             singleLine = true,
-            enabled = inventoryState !is InventoryViewModel.InventoryState.Loading
+            enabled = stableCurrentState !is InventoryViewModel.InventoryState.Loading &&
+                    stableCurrentState !is InventoryViewModel.SearchState.Loading
         )
 
-        // Mostrar contador de items
-        if (inventoryState is InventoryViewModel.InventoryState.Success) {
+        // Indicador de búsqueda
+        if (isSearching && searchQuery.isNotBlank()) {
             Text(
-                text = "${filteredItems.size} item(s) encontrado(s)",
+                text = "Buscando: \"$searchQuery\"",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+
+        // Mostrar contador de items
+        if (stablePaginationInfo.third > 0) {
+            Text(
+                text = "${stableCurrentItems.size} item(s) encontrado(s) - Total: ${stablePaginationInfo.third}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
 
-        // Contenido principal
-        when (inventoryState) {
-            is InventoryViewModel.InventoryState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Cargando inventario...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+        // Contenido principal con mejor manejo de estados
+        when (stableCurrentState) {
+            is InventoryViewModel.InventoryState.Loading,
+            is InventoryViewModel.SearchState.Loading -> {
+                LoadingContentEdit(isSearching = isSearching)
             }
-
             is InventoryViewModel.InventoryState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Error al cargar el inventario",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = (inventoryState as InventoryViewModel.InventoryState.Error).message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                val categoryFilter = when (category.name) {
-                                    "Todo" -> null
-                                    "Cubetas" -> "cubeta"
-                                    "Telas" -> "tela"
-                                    "Cascos" -> "casco"
-                                    "Herramientas" -> "herramienta"
-                                    "Bisagras y Herrajes" -> "bisagra"
-                                    "Pernos y Sujetadores" -> "perno"
-                                    "Cintas y Adhesivos" -> "cinta"
-                                    "Separadores y Accesorios de Cristal" -> "cristal"
-                                    "Cubrecantos y Acabados" -> "cubrecanto"
-                                    else -> null
-                                }
-                                inventoryViewModel.getInventoryItems(page = 1, limit = 100, descripcion = categoryFilter)
-                            }
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Reintentar")
+                ErrorContentEdit(
+                    message = (stableCurrentState as InventoryViewModel.InventoryState.Error).message,
+                    onRetry = {
+                        if (isSearching && searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
+                            )
+                        } else {
+                            loadCategoryData(1)
                         }
                     }
-                }
+                )
             }
-
-            is InventoryViewModel.InventoryState.Success -> {
-                if (filteredItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = Color.Gray
+            is InventoryViewModel.SearchState.Error -> {
+                ErrorContentEdit(
+                    message = "Error en búsqueda: ${(stableCurrentState as InventoryViewModel.SearchState.Error).message}",
+                    onRetry = {
+                        if (searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = if (searchQuery.isEmpty()) {
-                                    "No se encontraron items en esta categoría"
-                                } else {
-                                    "No se encontraron items que coincidan con \"$searchQuery\""
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
-                            )
-                            if (searchQuery.isNotEmpty()) {
-                                Text(
-                                    text = "Intenta con otros términos de búsqueda",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.Gray,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                            }
                         }
                     }
+                )
+            }
+            is InventoryViewModel.InventoryState.Success,
+            is InventoryViewModel.SearchState.Success -> {
+                if (stableCurrentItems.isEmpty()) {
+                    EmptyContentEdit(
+                        isSearching = isSearching,
+                        searchQuery = searchQuery
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(filteredItems) { item ->
-                            EditableItemCard(
-                                item = item,
-                                onClick = { onItemSelected(item) }
-                            )
+                        items(
+                            count = stableCurrentItems.size,
+                            key = { index ->
+                                // Key más robusta usando propiedades seguras
+                                when {
+                                    index >= 0 && index < stableCurrentItems.size -> {
+                                        val item = stableCurrentItems[index]
+                                        try {
+                                            "${item.getSummary()}_edit_$index"
+                                        } catch (e: Exception) {
+                                            "fallback_edit_item_$index"
+                                        }
+                                    }
+                                    else -> "fallback_edit_item_$index"
+                                }
+                            }
+                        ) { index ->
+                            // Triple validación antes de renderizar
+                            if (index >= 0 &&
+                                index < stableCurrentItems.size &&
+                                stableCurrentItems.isNotEmpty()) {
+                                val item = stableCurrentItems.getOrNull(index)
+                                if (item != null && item.isValid()) {
+                                    EditableItemCard(
+                                        item = item,
+                                        onClick = { onItemSelected(item) }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-
             else -> {
-                // Estado inicial - no debería llegar aquí debido al LaunchedEffect
+                LoadingContentEdit(isSearching = false)
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingContentEdit(isSearching: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isSearching) "Buscando..." else "Cargando inventario...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun ErrorContentEdit(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Error al cargar el inventario",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onRetry) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Reintentar")
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyContentEdit(
+    isSearching: Boolean,
+    searchQuery: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = Color.Gray
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isSearching) {
+                    "No se encontraron items que coincidan con \"$searchQuery\""
+                } else {
+                    "No se encontraron items en esta categoría"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+            if (isSearching) {
+                Text(
+                    text = "Intenta con otros términos de búsqueda",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
         }
     }
@@ -329,14 +488,13 @@ fun EditableItemCard(
                         .data(item.imagenes.first())
                         .crossfade(true)
                         .build(),
-                    contentDescription = item.descripcion,
+                    contentDescription = item.descripcionSafe,
                     modifier = Modifier
                         .size(60.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentScale = ContentScale.Crop
                 )
-
                 Spacer(modifier = Modifier.width(12.dp))
             } else {
                 // Placeholder cuando no hay imagen
@@ -362,62 +520,54 @@ fun EditableItemCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = item.codigoMat,
+                    text = item.codigoMatSafe,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-
                 Text(
-                    text = item.descripcion,
+                    text = item.descripcionSafe,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Indicador de stock con color
                     val stockColor = when {
-                        item.existencia >= item.max -> Color(0xFF4CAF50) // Verde
-                        item.existencia >= item.min -> Color(0xFFFF9800) // Naranja
-                        item.existencia > 0 -> Color(0xFFFF5722) // Rojo claro
+                        item.existenciaSafe >= item.maxSafe -> Color(0xFF4CAF50) // Verde
+                        item.existenciaSafe >= item.minSafe -> Color(0xFFFF9800) // Naranja
+                        item.existenciaSafe > 0 -> Color(0xFFFF5722) // Rojo claro
                         else -> Color(0xFFF44336) // Rojo
                     }
-
                     Box(
                         modifier = Modifier
                             .size(8.dp)
                             .background(stockColor, CircleShape)
                     )
-
                     Spacer(modifier = Modifier.width(6.dp))
-
                     Text(
-                        text = "Stock: ${item.existencia.toInt()}",
+                        text = "Stock: ${item.existenciaSafe.toInt()}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = stockColor
                     )
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     Text(
-                        text = "Precio: $${String.format("%.2f", item.pcompra)}",
+                        text = "Precio: $${String.format("%.2f", item.pcompraSafe)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
                 // Segunda fila de información
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = item.unidad,
+                        text = item.unidadSafe,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
@@ -427,32 +577,28 @@ fun EditableItemCard(
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
-
-                    if (item.proceso.isNotBlank()) {
+                    if (item.procesoSafe.isNotBlank()) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Proceso: ${item.proceso}",
+                            text = "Proceso: ${item.procesoSafe}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-
                 // Información de rango de stock
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Min: ${item.min.toInt()}",
+                        text = "Min: ${item.minSafe.toInt()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
                     Spacer(modifier = Modifier.width(12.dp))
-
                     Text(
-                        text = "Max: ${item.max.toInt()}",
+                        text = "Max: ${item.maxSafe.toInt()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -479,4 +625,3 @@ fun EditableItemCard(
         }
     }
 }
-

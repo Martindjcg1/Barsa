@@ -30,17 +30,17 @@ fun InventoryItemCard(
 
     // Determinar el color basado en el nivel de stock
     val stockColor = when {
-        item.existencia >= item.max -> Color(0xFF2196F3) // Azul - Buen stock
-        item.existencia >= item.min -> Color(0xFFFFC107) // Amarillo - Stock moderado
-        item.existencia > 0 -> Color(0xFFFF9800)         // Naranja - Poco stock
+        item.existenciaSafe >= item.maxSafe -> Color(0xFF2196F3) // Azul - Buen stock
+        item.existenciaSafe >= item.minSafe -> Color(0xFFFFC107) // Amarillo - Stock moderado
+        item.existenciaSafe > 0 -> Color(0xFFFF9800)         // Naranja - Poco stock
         else -> Color(0xFFF44336)                        // Rojo - Sin stock
     }
 
     // Determinar el texto de estado del stock
     val stockStatus = when {
-        item.existencia >= item.max -> "Buen stock"
-        item.existencia >= item.min -> "Stock moderado"
-        item.existencia > 0 -> "Stock bajo"
+        item.existenciaSafe >= item.maxSafe -> "Buen stock"
+        item.existenciaSafe >= item.minSafe -> "Stock moderado"
+        item.existenciaSafe > 0 -> "Stock bajo"
         else -> "Sin stock"
     }
 
@@ -124,12 +124,12 @@ fun InventoryItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = item.codigoMat,
+                    text = item.codigoMatSafe,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = item.unidad,
+                    text = item.unidadSafe,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -138,7 +138,7 @@ fun InventoryItemCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = item.descripcion,
+                text = item.descripcionSafe,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
@@ -186,7 +186,7 @@ fun InventoryItemCard(
             }
 
             // Información adicional del proceso
-            if (item.proceso.isNotBlank()) {
+            if (item.procesoSafe.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Proceso: ${item.proceso}",
@@ -196,7 +196,7 @@ fun InventoryItemCard(
             }
 
             // Añadir botón de reabastecimiento si el stock está bajo o no hay stock
-            if (item.existencia < item.min) {
+            if (item.existenciaSafe < item.minSafe) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = { /* Funcionalidad de reabastecimiento */ },

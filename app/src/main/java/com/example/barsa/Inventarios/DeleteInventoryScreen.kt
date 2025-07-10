@@ -1,5 +1,6 @@
 package com.example.barsa.Body.Inventory
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import coil.request.ImageRequest
 import com.example.barsa.Models.InventoryCategory
 import com.example.barsa.data.retrofit.models.InventoryItem
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,27 +43,112 @@ fun DeleteInventoryScreen(
     var successMessage by remember { mutableStateOf("") }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var hasLoadedInitialData by remember { mutableStateOf(false) }
 
-    // Observar estados del ViewModel
+    // Observar estados del ViewModel - IGUAL QUE InventoryItemsList
     val inventoryState by inventoryViewModel.inventoryState.collectAsState()
+    val searchState by inventoryViewModel.searchState.collectAsState()
     val deleteMaterialState by inventoryViewModel.deleteMaterialState.collectAsState()
 
-    // Cargar datos cuando se abre la pantalla
-    LaunchedEffect(category) {
-        val categoryFilter = when (category.name) {
-            "Todo" -> null
-            "Cubetas" -> "cubeta"
-            "Telas" -> "tela"
-            "Cascos" -> "casco"
-            "Herramientas" -> "herramienta"
-            "Bisagras y Herrajes" -> "bisagra"
-            "Pernos y Sujetadores" -> "perno"
-            "Cintas y Adhesivos" -> "cinta"
-            "Separadores y Accesorios de Cristal" -> "cristal"
-            "Cubrecantos y Acabados" -> "cubrecanto"
-            else -> null
+    // Estado derivado más estable - IGUAL QUE InventoryItemsList
+    val stableCurrentState by remember {
+        derivedStateOf {
+            if (isSearching) searchState else inventoryState
         }
-        inventoryViewModel.getInventoryItems(page = 1, limit = 100, descripcion = categoryFilter)
+    }
+
+    // Items con validación - IGUAL QUE InventoryItemsList
+    val stableCurrentItems by remember {
+        derivedStateOf {
+            val items = when (stableCurrentState) {
+                is InventoryViewModel.InventoryState.Success -> {
+                    (stableCurrentState as InventoryViewModel.InventoryState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                is InventoryViewModel.SearchState.Success -> {
+                    (stableCurrentState as InventoryViewModel.SearchState.Success).response.data?.filterNotNull() ?: emptyList()
+                }
+                else -> emptyList()
+            }
+            // Filtrar items usando la función isValid() del modelo actualizado
+            items.filter { item ->
+                try {
+                    item.isValid()
+                } catch (e: Exception) {
+                    Log.e("DeleteInventoryScreen", "Error validando item: ${e.message}")
+                    false
+                }
+            }
+        }
+    }
+
+    // Función para obtener el filtro de categoría - IGUAL QUE InventoryItemsList
+    val getCategoryFilter = remember {
+        {
+            when (category.name) {
+                "Todo" -> null
+                "Cubetas" -> "cubeta"
+                "Telas" -> "tela"
+                "Cascos" -> "casco"
+                "Herramientas" -> "herramienta"
+                "Bisagras y Herrajes" -> "bisagra"
+                "Pernos y Sujetadores" -> "perno"
+                "Cintas y Adhesivos" -> "cinta"
+                "Separadores y Accesorios de Cristal" -> "cristal"
+                "Cubrecantos y Acabados" -> "cubrecanto"
+                else -> null
+            }
+        }
+    }
+
+    // Función para cargar datos - IGUAL QUE InventoryItemsList
+    val loadCategoryData = remember {
+        { page: Int ->
+            val categoryFilter = getCategoryFilter()
+            inventoryViewModel.getInventoryItems(
+                page = maxOf(1, page),
+                descripcion = categoryFilter
+            )
+        }
+    }
+
+    // Debounced search - IGUAL QUE InventoryItemsList
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.trim().isNotBlank()) {
+            delay(800) // Debounce de 300ms
+            if (searchQuery.trim().isNotBlank()) { // Verificar de nuevo después del delay
+                isSearching = true
+                // Pasar el query de forma segura
+                inventoryViewModel.searchInventoryItems(
+                    query = searchQuery.trim().takeIf { it.isNotBlank() },
+                    page = 1
+                )
+            }
+        } else if (isSearching) {
+            // Resetear inmediatamente cuando se limpia la búsqueda
+            isSearching = false
+            inventoryViewModel.resetSearchState()
+            loadCategoryData(1)
+        }
+    }
+
+    // Cargar datos iniciales - IGUAL QUE InventoryItemsList
+    LaunchedEffect(category.id) {
+        if (!hasLoadedInitialData) {
+            // Resetear estados
+            isSearching = false
+            searchQuery = ""
+            inventoryViewModel.resetSearchState()
+            // Pequeño delay para asegurar que el reset se complete
+            delay(50)
+            loadCategoryData(1)
+            hasLoadedInitialData = true
+        }
+    }
+
+    // Resetear flag cuando cambia categoría
+    LaunchedEffect(category.id) {
+        hasLoadedInitialData = false
     }
 
     // Manejar el resultado de la eliminación
@@ -72,22 +159,15 @@ fun DeleteInventoryScreen(
                 showSuccessDialog = true
                 showDeleteDialog = false
                 itemToDelete = null
-
                 // Recargar datos después de eliminar
-                val categoryFilter = when (category.name) {
-                    "Todo" -> null
-                    "Cubetas" -> "cubeta"
-                    "Telas" -> "tela"
-                    "Cascos" -> "casco"
-                    "Herramientas" -> "herramienta"
-                    "Bisagras y Herrajes" -> "bisagra"
-                    "Pernos y Sujetadores" -> "perno"
-                    "Cintas y Adhesivos" -> "cinta"
-                    "Separadores y Accesorios de Cristal" -> "cristal"
-                    "Cubrecantos y Acabados" -> "cubrecanto"
-                    else -> null
+                if (isSearching && searchQuery.isNotBlank()) {
+                    inventoryViewModel.searchInventoryItems(
+                        query = searchQuery.trim().takeIf { it.isNotBlank() },
+                        page = 1
+                    )
+                } else {
+                    loadCategoryData(1)
                 }
-                inventoryViewModel.getInventoryItems(page = 1, limit = 100, descripcion = categoryFilter)
                 inventoryViewModel.resetDeleteMaterialState()
             }
             is InventoryViewModel.DeleteMaterialState.Error -> {
@@ -96,32 +176,6 @@ fun DeleteInventoryScreen(
                 showDeleteDialog = false
             }
             else -> { /* No hacer nada */ }
-        }
-    }
-
-    // Obtener items y filtrarlos
-    val allItems = when (inventoryState) {
-        is InventoryViewModel.InventoryState.Success -> (inventoryState as InventoryViewModel.InventoryState.Success).response.data
-        else -> emptyList()
-    }
-
-    val filteredItems = remember(allItems, searchQuery, category) {
-        if (searchQuery.isEmpty()) {
-            if (category.name == "Todo") {
-                allItems
-            } else {
-                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
-            }
-        } else {
-            val baseItems = if (category.name == "Todo") {
-                allItems
-            } else {
-                allItems.filter { categorizarMaterial(it.descripcion) == category.name }
-            }
-            baseItems.filter { item ->
-                item.descripcion.contains(searchQuery, ignoreCase = true) ||
-                        item.codigoMat.contains(searchQuery, ignoreCase = true)
-            }
         }
     }
 
@@ -150,7 +204,6 @@ fun DeleteInventoryScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
-
             IconButton(
                 onClick = onCancel,
                 modifier = Modifier
@@ -195,171 +248,130 @@ fun DeleteInventoryScreen(
             }
         }
 
-        // Barra de búsqueda
+        // Barra de búsqueda - IGUAL QUE InventoryItemsList
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = { newQuery ->
+                searchQuery = newQuery
+                // El LaunchedEffect se encarga del debouncing
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            placeholder = { Text("Buscar por código o descripción...") },
+            placeholder = { Text("Buscar en ${category.name}...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
+                    IconButton(
+                        onClick = {
+                            searchQuery = ""
+                            // El LaunchedEffect manejará el reset
+                        }
+                    ) {
                         Icon(Icons.Default.Clear, contentDescription = "Limpiar búsqueda")
                     }
                 }
             },
             singleLine = true,
-            enabled = inventoryState !is InventoryViewModel.InventoryState.Loading &&
+            enabled = stableCurrentState !is InventoryViewModel.InventoryState.Loading &&
+                    stableCurrentState !is InventoryViewModel.SearchState.Loading &&
                     deleteMaterialState !is InventoryViewModel.DeleteMaterialState.Loading
         )
 
-        // Mostrar contador de items
-        if (inventoryState is InventoryViewModel.InventoryState.Success) {
+        // Indicador de búsqueda - IGUAL QUE InventoryItemsList
+        if (isSearching && searchQuery.isNotBlank()) {
             Text(
-                text = "${filteredItems.size} item(s) encontrado(s)",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "Buscando: \"$searchQuery\"",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
 
-        // Contenido principal
-        when (inventoryState) {
-            is InventoryViewModel.InventoryState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(48.dp),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Cargando inventario...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+        // Mostrar contador de items
+        Text(
+            text = "${stableCurrentItems.size} item(s) encontrado(s)",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
+        // Contenido principal - IGUAL QUE InventoryItemsList
+        when (stableCurrentState) {
+            is InventoryViewModel.InventoryState.Loading,
+            is InventoryViewModel.SearchState.Loading -> {
+                LoadingContent(isSearching = isSearching)
+            }
             is InventoryViewModel.InventoryState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Error al cargar el inventario",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = (inventoryState as InventoryViewModel.InventoryState.Error).message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                val categoryFilter = when (category.name) {
-                                    "Todo" -> null
-                                    "Cubetas" -> "cubeta"
-                                    "Telas" -> "tela"
-                                    "Cascos" -> "casco"
-                                    "Herramientas" -> "herramienta"
-                                    "Bisagras y Herrajes" -> "bisagra"
-                                    "Pernos y Sujetadores" -> "perno"
-                                    "Cintas y Adhesivos" -> "cinta"
-                                    "Separadores y Accesorios de Cristal" -> "cristal"
-                                    "Cubrecantos y Acabados" -> "cubrecanto"
-                                    else -> null
-                                }
-                                inventoryViewModel.getInventoryItems(page = 1, limit = 100, descripcion = categoryFilter)
-                            }
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Reintentar")
+                ErrorContent(
+                    message = (stableCurrentState as InventoryViewModel.InventoryState.Error).message,
+                    onRetry = {
+                        if (isSearching && searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
+                            )
+                        } else {
+                            loadCategoryData(1)
                         }
                     }
-                }
+                )
             }
-
-            is InventoryViewModel.InventoryState.Success -> {
-                if (filteredItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = Color.Gray
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = if (searchQuery.isEmpty()) {
-                                    "No se encontraron items en esta categoría"
-                                } else {
-                                    "No se encontraron items que coincidan con \"$searchQuery\""
-                                },
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center
+            is InventoryViewModel.SearchState.Error -> {
+                ErrorContent(
+                    message = "Error en búsqueda: ${(stableCurrentState as InventoryViewModel.SearchState.Error).message}",
+                    onRetry = {
+                        if (searchQuery.isNotBlank()) {
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
                             )
                         }
                     }
+                )
+            }
+            is InventoryViewModel.InventoryState.Success,
+            is InventoryViewModel.SearchState.Success -> {
+                if (stableCurrentItems.isEmpty()) {
+                    EmptyContent(
+                        isSearching = isSearching,
+                        searchQuery = searchQuery
+                    )
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(filteredItems) { item ->
-                            DeletableItemCard(
-                                item = item,
-                                onDeleteClick = {
-                                    itemToDelete = item
-                                    showDeleteDialog = true
-                                },
-                                isDeleting = deleteMaterialState is InventoryViewModel.DeleteMaterialState.Loading
-                            )
+                        items(
+                            count = stableCurrentItems.size,
+                            key = { index ->
+                                // Key segura usando propiedades seguras
+                                if (index >= 0 && index < stableCurrentItems.size) {
+                                    val item = stableCurrentItems[index]
+                                    "${item.getSummary()}_delete_$index"
+                                } else {
+                                    "delete_item_$index"
+                                }
+                            }
+                        ) { index ->
+                            if (index >= 0 && index < stableCurrentItems.size) {
+                                val item = stableCurrentItems[index]
+                                DeletableItemCard(
+                                    item = item,
+                                    onDeleteClick = {
+                                        itemToDelete = item
+                                        showDeleteDialog = true
+                                    },
+                                    isDeleting = deleteMaterialState is InventoryViewModel.DeleteMaterialState.Loading,
+                                    searchQuery = searchQuery.trim()
+                                )
+                            }
                         }
                     }
                 }
             }
-
             else -> {
-                // Estado inicial
+                LoadingContent(isSearching = false)
             }
         }
     }
@@ -392,11 +404,11 @@ fun DeleteInventoryScreen(
                     Text("¿Está seguro que desea eliminar el siguiente item?")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Código: ${itemToDelete?.codigoMat}",
+                        text = "Código: ${itemToDelete?.codigoMatSafe ?: "N/A"}",
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Descripción: ${itemToDelete?.descripcion}",
+                        text = "Descripción: ${itemToDelete?.descripcionSafe ?: "N/A"}",
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -411,7 +423,7 @@ fun DeleteInventoryScreen(
                 Button(
                     onClick = {
                         itemToDelete?.let { item ->
-                            inventoryViewModel.deleteMaterial(item.codigoMat)
+                            inventoryViewModel.deleteMaterial(item.codigoMatSafe)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -507,7 +519,8 @@ fun DeleteInventoryScreen(
 fun DeletableItemCard(
     item: InventoryItem,
     onDeleteClick: () -> Unit,
-    isDeleting: Boolean = false
+    isDeleting: Boolean = false,
+    searchQuery: String = ""
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -532,7 +545,7 @@ fun DeletableItemCard(
                         .data(item.imagenes.first())
                         .crossfade(true)
                         .build(),
-                    contentDescription = item.descripcion,
+                    contentDescription = item.descripcionSafe,
                     modifier = Modifier
                         .size(60.dp)
                         .clip(RoundedCornerShape(8.dp))
@@ -563,25 +576,33 @@ fun DeletableItemCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
+                // Código con highlighting si hay búsqueda
                 Text(
-                    text = item.codigoMat,
+                    text = item.codigoMatSafe,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (isDeleting)
+                    color = if (isDeleting) {
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    else
+                    } else if (searchQuery.isNotEmpty() && item.codigoMatSafe.contains(searchQuery, ignoreCase = true)) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
                         MaterialTheme.colorScheme.onSurface
+                    }
                 )
 
+                // Descripción con highlighting si hay búsqueda
                 Text(
-                    text = item.descripcion,
+                    text = item.descripcionSafe,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (isDeleting)
+                    color = if (isDeleting) {
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    else
+                    } else if (searchQuery.isNotEmpty() && item.descripcionSafe.contains(searchQuery, ignoreCase = true)) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
 
                 Row(
@@ -590,12 +611,11 @@ fun DeletableItemCard(
                 ) {
                     // Indicador de stock con color
                     val stockColor = when {
-                        item.existencia >= item.max -> Color(0xFF4CAF50)
-                        item.existencia >= item.min -> Color(0xFFFF9800)
-                        item.existencia > 0 -> Color(0xFFFF5722)
+                        item.existenciaSafe >= item.maxSafe -> Color(0xFF4CAF50)
+                        item.existenciaSafe >= item.minSafe -> Color(0xFFFF9800)
+                        item.existenciaSafe > 0 -> Color(0xFFFF5722)
                         else -> Color(0xFFF44336)
                     }
-
                     Box(
                         modifier = Modifier
                             .size(8.dp)
@@ -604,19 +624,15 @@ fun DeletableItemCard(
                                 CircleShape
                             )
                     )
-
                     Spacer(modifier = Modifier.width(6.dp))
-
                     Text(
-                        text = "Stock: ${item.existencia.toInt()}",
+                        text = "Stock: ${item.existenciaSafe.toInt()}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (isDeleting) stockColor.copy(alpha = 0.6f) else stockColor
                     )
-
                     Spacer(modifier = Modifier.width(16.dp))
-
                     Text(
-                        text = "Precio: $${String.format("%.2f", item.pcompra)}",
+                        text = "Precio: $${String.format("%.2f", item.pcompraSafe)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (isDeleting)
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -624,19 +640,21 @@ fun DeletableItemCard(
                             MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-
                 // Segunda fila de información
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = item.unidad,
+                        text = item.unidadSafe,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isDeleting)
+                        color = if (isDeleting) {
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                        else
-                            MaterialTheme.colorScheme.primary,
+                        } else if (searchQuery.isNotEmpty() && item.unidadSafe.contains(searchQuery, ignoreCase = true)) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        },
                         modifier = Modifier
                             .background(
                                 if (isDeleting)
@@ -647,16 +665,18 @@ fun DeletableItemCard(
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
-
-                    if (item.proceso.isNotBlank()) {
+                    if (item.procesoSafe.isNotBlank()) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Proceso: ${item.proceso}",
+                            text = "Proceso: ${item.procesoSafe}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isDeleting)
+                            color = if (isDeleting) {
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            else
+                            } else if (searchQuery.isNotEmpty() && item.procesoSafe.contains(searchQuery, ignoreCase = true)) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
                 }

@@ -53,7 +53,7 @@ fun InventoryItemsList(
         }
     }
 
-    // Items con validación extra y estabilización
+    // Items con validación extra y estabilización MEJORADA
     val stableCurrentItems by remember {
         derivedStateOf {
             val items = when (stableCurrentState) {
@@ -66,10 +66,15 @@ fun InventoryItemsList(
                 else -> emptyList()
             }
 
-            // Filtrar items con datos válidos
+            // MEJORADO: Filtrar items usando la función isValid() del modelo actualizado
             items.filter { item ->
-                item.codigoMat.isNotBlank() &&
-                        item.descripcion.isNotBlank()
+                try {
+                    // Usar la nueva función isValid() que maneja todos los nulls internamente
+                    item.isValid()
+                } catch (e: Exception) {
+                    Log.e("InventoryItemsList", "Error validando item: ${e.message}")
+                    false
+                }
             }
         }
     }
@@ -127,13 +132,17 @@ fun InventoryItemsList(
         }
     }
 
-    // Debounced search para evitar llamadas excesivas
+    // Debounced search mejorado con manejo seguro de nulls
     LaunchedEffect(searchQuery) {
-        if (searchQuery.isNotBlank()) {
+        if (searchQuery.trim().isNotBlank()) {
             delay(300) // Debounce de 300ms
-            if (searchQuery.isNotBlank()) { // Verificar de nuevo después del delay
+            if (searchQuery.trim().isNotBlank()) { // Verificar de nuevo después del delay
                 isSearching = true
-                inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
+                // Pasar el query de forma segura
+                inventoryViewModel.searchInventoryItems(
+                    query = searchQuery.trim().takeIf { it.isNotBlank() },
+                    page = 1
+                )
             }
         } else if (isSearching) {
             // Resetear inmediatamente cuando se limpia la búsqueda
@@ -150,7 +159,6 @@ fun InventoryItemsList(
             isSearching = false
             searchQuery = ""
             inventoryViewModel.resetSearchState()
-
             // Pequeño delay para asegurar que el reset se complete
             delay(50)
             loadCategoryData(1)
@@ -236,31 +244,34 @@ fun InventoryItemsList(
             is InventoryViewModel.SearchState.Loading -> {
                 LoadingContent(isSearching = isSearching)
             }
-
             is InventoryViewModel.InventoryState.Error -> {
                 ErrorContent(
                     message = (stableCurrentState as InventoryViewModel.InventoryState.Error).message,
                     onRetry = {
                         if (isSearching && searchQuery.isNotBlank()) {
-                            inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
+                            )
                         } else {
                             loadCategoryData(1)
                         }
                     }
                 )
             }
-
             is InventoryViewModel.SearchState.Error -> {
                 ErrorContent(
                     message = "Error en búsqueda: ${(stableCurrentState as InventoryViewModel.SearchState.Error).message}",
                     onRetry = {
                         if (searchQuery.isNotBlank()) {
-                            inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = 1)
+                            inventoryViewModel.searchInventoryItems(
+                                query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                page = 1
+                            )
                         }
                     }
                 )
             }
-
             is InventoryViewModel.InventoryState.Success,
             is InventoryViewModel.SearchState.Success -> {
                 if (stableCurrentItems.isEmpty()) {
@@ -279,14 +290,17 @@ fun InventoryItemsList(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Controles de paginación
+                    // Controles de paginación (manteniendo tu implementación exacta)
                     if (stablePaginationInfo.second > 1) {
                         PaginationControls(
                             currentPage = stablePaginationInfo.first,
                             totalPages = stablePaginationInfo.second,
                             onPageChange = { newPage ->
                                 if (isSearching && searchQuery.isNotBlank()) {
-                                    inventoryViewModel.searchInventoryItems(searchQuery.trim(), page = newPage)
+                                    inventoryViewModel.searchInventoryItems(
+                                        query = searchQuery.trim().takeIf { it.isNotBlank() },
+                                        page = newPage
+                                    )
                                 } else {
                                     loadCategoryData(newPage)
                                 }
@@ -297,7 +311,6 @@ fun InventoryItemsList(
                     }
                 }
             }
-
             else -> {
                 LoadingContent(isSearching = false)
             }
@@ -346,11 +359,16 @@ fun StableInventoryGrid(
         items(
             count = stableItems.size,
             key = { index ->
-                // Key más robusta con múltiples fallbacks
+                // Key más robusta usando propiedades seguras y la función getSummary()
                 when {
                     index >= 0 && index < stableItems.size -> {
                         val item = stableItems[index]
-                        "${item.codigoMat}_${item.descripcion.take(10)}_$index"
+                        try {
+                            // Usar getSummary() que maneja internamente todos los nulls
+                            "${item.getSummary()}_$index"
+                        } catch (e: Exception) {
+                            "fallback_safe_item_$index"
+                        }
                     }
                     else -> "fallback_item_$index"
                 }
@@ -360,9 +378,9 @@ fun StableInventoryGrid(
             if (index >= 0 &&
                 index < stableItems.size &&
                 stableItems.isNotEmpty()) {
-
                 val item = stableItems.getOrNull(index)
-                if (item != null && item.codigoMat.isNotBlank()) {
+                // MEJORADO: Usar isValid() que maneja todos los nulls
+                if (item != null && item.isValid()) {
                     InventoryItemCard(
                         item = item,
                         onClick = { onItemClick(item) }
@@ -581,39 +599,46 @@ fun PaginationControls(
     }
 }
 
+// Función mejorada con mejor manejo de edge cases (manteniendo tu implementación)
 fun generateSafePaginationSequence(currentPage: Int, totalPages: Int): List<Int> {
     val validCurrentPage = maxOf(1, minOf(currentPage, totalPages))
     val validTotalPages = maxOf(1, totalPages)
-
     val result = mutableListOf<Int>()
 
-    if (validTotalPages <= 7) {
-        for (i in 1..validTotalPages) {
-            result.add(i)
-        }
-    } else {
-        result.add(1)
-
-        if (validCurrentPage > 3) {
-            result.add(-1)
-        }
-
-        val rangeStart = maxOf(2, validCurrentPage - 1)
-        val rangeEnd = minOf(validTotalPages - 1, validCurrentPage + 1)
-
-        for (i in rangeStart..rangeEnd) {
-            if (i != 1 && i != validTotalPages) {
+    try {
+        if (validTotalPages <= 7) {
+            for (i in 1..validTotalPages) {
                 result.add(i)
             }
-        }
+        } else {
+            result.add(1)
 
-        if (validCurrentPage < validTotalPages - 2) {
-            result.add(-1)
-        }
+            if (validCurrentPage > 3) {
+                result.add(-1)
+            }
 
-        if (validTotalPages > 1) {
-            result.add(validTotalPages)
+            val rangeStart = maxOf(2, validCurrentPage - 1)
+            val rangeEnd = minOf(validTotalPages - 1, validCurrentPage + 1)
+
+            for (i in rangeStart..rangeEnd) {
+                if (i != 1 && i != validTotalPages) {
+                    result.add(i)
+                }
+            }
+
+            if (validCurrentPage < validTotalPages - 2) {
+                result.add(-1)
+            }
+
+            if (validTotalPages > 1) {
+                result.add(validTotalPages)
+            }
         }
+    } catch (e: Exception) {
+        // Fallback en caso de error
+        Log.e("PaginationControls", "Error generando secuencia de paginación", e)
+        result.clear()
+        result.add(validCurrentPage)
     }
 
     return result.distinct()
