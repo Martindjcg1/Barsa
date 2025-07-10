@@ -4,6 +4,8 @@ import com.example.barsa.data.retrofit.models.ApiNotification
 import com.example.barsa.data.retrofit.models.ChangePasswordRequest
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
 import com.example.barsa.data.retrofit.models.ApiWrapperResponse
+import com.example.barsa.data.retrofit.models.BitacoraListadoInventario
+import com.example.barsa.data.retrofit.models.BitacoraListadoProduccion
 import com.example.barsa.data.retrofit.models.CreateMaterialResponse
 import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
@@ -111,6 +113,32 @@ interface UserApiService {
         @Header("Authorization") token: String,
         @Path("id") userId: String
     ): ToggleUserStatusResponse
+
+    @GET("bitacora/listado-produccion")
+    suspend fun getListadoProduccion(
+        @Header("Authorization") token: String,
+        @Query("fechaInicio") fechaInicio: String? = null,
+        @Query("fechaFin") fechaFin: String? = null,
+        @Query("id") id: Int? = null,
+        @Query("folio") folio: Int? = null,
+        @Query("etapa") etapa: String? = null,
+        @Query("movimiento") movimiento: String? = null,
+        @Query("usuario") usuario: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null
+    ): BitacoraListadoProduccion
+
+    @GET("bitacora/listado-inventario")
+    suspend fun getListadoInventario(
+        @Header("Authorization") token: String,
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("fechaInicio") fechaInicio: String? = null,
+        @Query("fechaFin") fechaFin: String? = null,
+        @Query("id") id: Int? = null,
+        @Query("codigo") borrado: String? = null
+    ): BitacoraListadoInventario
+
 }
 
 

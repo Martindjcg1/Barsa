@@ -2,6 +2,7 @@ package com.example.barsa.Producciones
 
 import android.annotation.SuppressLint
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,31 +82,6 @@ fun InformeIndividual(
         }
     }
 
-    TopAppBar(
-        title = {
-            Text("$Etapa - Finalizada", style = MaterialTheme.typography.titleMedium)
-        },
-        navigationIcon = {
-            IconButton(onClick = {
-                onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
-            }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
-            }
-        },
-        actions = {
-            if (detalle.isNotEmpty()) {
-                IconButton(
-                    onClick = { showDialog = true },
-                    colors = IconButtonDefaults.iconButtonColors(Color.Black)
-                ) {
-                    Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
-                }
-            }
-        }
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
     if (etapaState is PapeletaViewModel.TiempoEtapaState.Loading) {
         Box(
             modifier = Modifier
@@ -119,6 +95,61 @@ fun InformeIndividual(
     }
 
     val tiempo = tiempoDesdeDBA.value
+
+    if (tiempo == null)
+    {
+        TopAppBar(
+            title = {},
+            navigationIcon = {
+                IconButton(onClick = {
+                    onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
+                }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                }
+            },
+            actions = {
+                if (detalle.isNotEmpty()) {
+                    IconButton(
+                        onClick = { showDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
+                    }
+                }
+            }
+        )
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center)
+        {
+            Text("Captura de tiempo sin iniciar")
+        }
+    }
+    else
+    {
+        TopAppBar(
+            title = {
+                Text("$Etapa - ${if (tiempo.isFinished) "Finalizada" else "En curso"}", style = MaterialTheme.typography.titleMedium)
+            },
+            navigationIcon = {
+                IconButton(onClick = {
+                    onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
+                }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                }
+            },
+            actions = {
+                if (detalle.isNotEmpty()) {
+                    IconButton(
+                        onClick = { showDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
+                    }
+                }
+            }
+        )
+    }
+
+    Spacer(modifier = Modifier.height(16.dp))
 
     tiempo?.let {
         LazyColumn(

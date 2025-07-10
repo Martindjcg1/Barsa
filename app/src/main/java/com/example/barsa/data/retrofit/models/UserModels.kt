@@ -142,3 +142,43 @@ data class ToggleUserStatusResponse(
     val data: Any? = null
 )
 
+// Modelo para el get de bitacora de produccion:
+data class BitacoraListadoProduccion(
+    val totalItems: Int,
+    val totalPages: Int,
+    val currentPage: Int,
+    val data: List<ListadoProduccion>
+)
+
+data class ListadoProduccion(
+    val id: Int,
+    val movimiento: String,
+    val folio: Int,
+    val etapa: String,
+    val usuario: String,
+    val fecha: String
+)
+
+// Modelo para el get de bitacora de inventarios:
+data class BitacoraListadoInventario(
+    val totalItems: Int,
+    val totalPages: Int,
+    val currentPage: Int,
+    val data: List<ListadoInventario>
+)
+
+data class ListadoInventario(
+    val id: Int,
+    val descripcionCod: String,
+    val existAnt: Int,
+    val existNva: Int,
+    val descripcionColor: String,
+    val fecha: String,
+    val codigo: String,
+    val movimiento: String,
+    val aumenta: Boolean,
+    val cantidad: Int,
+    val noAlmacen: Int,
+    val colorId: Int
+)
+

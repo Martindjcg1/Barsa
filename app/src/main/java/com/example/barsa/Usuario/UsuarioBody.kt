@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.barsa.Inventarios.BitacoraInventario
+import com.example.barsa.Producciones.Bitacora
 import com.example.barsa.Usuario.AddUserSection
 import com.example.barsa.Usuario.AdminPanelSection
 import com.example.barsa.Usuario.ChangePasswordSection
@@ -312,7 +314,7 @@ fun UsuarioBody(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (showSection in listOf("Agregar Usuario", "Lista de Usuarios", "Eliminar Usuario", "Detalles de Usuario"))
+                        containerColor = if (showSection in listOf("Agregar Usuario", "Lista de Usuarios", "Eliminar Usuario", "Detalles de Usuario", "Bitácora Producción", "Bítacora Inventarios"))
                             goldAccent else primaryBrown,
                         titleContentColor = Color.White,
                         navigationIconContentColor = Color.White
@@ -381,6 +383,8 @@ fun UsuarioBody(
                             }
                         }
                         "Gestionar Usuarios" -> ManageUsersSection(userViewModel, accentBrown, goldAccent)
+                        "Bitácora Producción" -> Bitacora(userViewModel, onNavigate)
+                        "Bitácora Inventario" -> BitacoraInventario(userViewModel, onNavigate)
                     }
                 }
             }

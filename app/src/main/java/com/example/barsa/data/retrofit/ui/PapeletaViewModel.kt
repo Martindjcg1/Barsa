@@ -46,9 +46,10 @@ class PapeletaViewModel @Inject constructor(
     val currentPage: StateFlow<Int> = _currentPage
 
     fun getListadoPapeletas(page: Int = _currentPage.value, folio: String? = null) {
+        Log.d("PapeletaViewModel","currentpage ${_currentPage.value} y page $page")
         _currentPage.value = page
         viewModelScope.launch {
-            Log.d("PapeletaViewModel","Llamada a la API")
+            Log.d("PapeletaViewModel","Llamada a la API con pagina $page")
             _papeletaState.value = PapeletaState.Loading
             try {
                 val result = if (folio != null) {

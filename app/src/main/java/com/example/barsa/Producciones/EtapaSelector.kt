@@ -66,6 +66,7 @@ fun EtapaSelector(
     val etapaState by papeletaViewModel.etapasState.collectAsState()
     val desactivacionState by papeletaViewModel.desactivacionState.collectAsState()
     val nombreUsuario by userViewModel.tokenManager.accessNombreUsuario.collectAsState(initial = "")
+    val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
 
     LaunchedEffect(Folio) {
         papeletaViewModel.cargarInfoEtapasPorFolio(Folio)
@@ -202,7 +203,7 @@ fun EtapaSelector(
                             if (nombreUsuario != tiempoActivo.usuario) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "\nEn uso por: ${tiempoActivo.usuario}",
+                                    text = " En uso por: ${tiempoActivo.usuario}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.Gray
                                 )

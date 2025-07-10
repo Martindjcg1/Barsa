@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.barsa.Stores.TokenManager
 import com.example.barsa.data.retrofit.models.ChangePasswordResponse
+import com.example.barsa.data.retrofit.models.ListadoInventario
+import com.example.barsa.data.retrofit.models.ListadoProduccion
 
 import com.example.barsa.data.retrofit.models.LoginResponse
 import com.example.barsa.data.retrofit.models.UsuarioInfoResponse
@@ -430,4 +432,160 @@ class UserViewModel @Inject constructor(
         _updateUserState.value = UpdateUserState.Idle
         _toggleUserStatusState.value = ToggleUserStatusState.Idle
     }
+
+    sealed class BitacoraState {
+        object Loading : BitacoraState()
+        data class Success(
+            val response: List<ListadoProduccion>,
+            val totalPages: Int,
+            val currentPage: Int
+        ) : BitacoraState()
+        data class Error(val message: String) : BitacoraState()
+    }
+
+    private val _bitacoraState = MutableStateFlow<BitacoraState>(BitacoraState.Loading)
+    val bitacoraState: StateFlow<BitacoraState> = _bitacoraState
+
+    private var totalPagesBitacora = 1
+
+    private val _currentBitacoraPage = MutableStateFlow(1)
+    val currentBitacoraPage: StateFlow<Int> = _currentBitacoraPage
+
+    fun resetBitacoraState() {
+        _bitacoraState.value = BitacoraState.Loading
+    }
+
+    fun getListadoBitacoraProduccion(
+        page: Int = _currentBitacoraPage.value,
+        folio: String? = null,
+        usuario: String? = null,
+        movimiento: String? = null,
+        etapa: String? = null,
+        fechaInicio: String? = null,
+        fechaFin: String? = null,
+        limit: Int? = null,
+        id: Int? = null
+    ) {
+        _currentBitacoraPage.value = page
+        viewModelScope.launch {
+            Log.d("BitacoraViewModel", "Llamada a la API con página $page")
+            _bitacoraState.value = BitacoraState.Loading
+            try {
+                val result = userRepository.getListadoBitacoraProduccion(
+                    fechaInicio = fechaInicio,
+                    fechaFin = fechaFin,
+                    id = id,
+                    folio = folio?.toIntOrNull(),
+                    etapa = etapa,
+                    movimiento = movimiento,
+                    usuario = usuario,
+                    page = page,
+                    limit = limit
+                )
+                result.onSuccess { response ->
+                    totalPagesBitacora = response.totalPages
+                    _bitacoraState.value = BitacoraState.Success(
+                        response = response.data,
+                        totalPages = totalPagesBitacora,
+                        currentPage = _currentBitacoraPage.value
+                    )
+                }.onFailure { error ->
+                    _bitacoraState.value = BitacoraState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                _bitacoraState.value = BitacoraState.Error("Error inesperado")
+            }
+        }
+    }
+
+    fun nextBitacoraPage() {
+        if (_currentBitacoraPage.value < totalPagesBitacora) {
+            getListadoBitacoraProduccion(_currentBitacoraPage.value + 1)
+            Log.d("BitacoraViewModel", "Siguiente página")
+        }
+    }
+
+    fun previousBitacoraPage() {
+        if (_currentBitacoraPage.value > 1) {
+            getListadoBitacoraProduccion(_currentBitacoraPage.value - 1)
+            Log.d("BitacoraViewModel", "Página anterior")
+        }
+    }
+
+    //////////////////////////////
+
+    sealed class BitacoraInventarioState {
+        object Loading : BitacoraInventarioState()
+        data class Success(
+            val response: List<ListadoInventario>,
+            val totalPages: Int,
+            val currentPage: Int
+        ) : BitacoraInventarioState()
+        data class Error(val message: String) : BitacoraInventarioState()
+    }
+
+    private val _bitacoraInventarioState = MutableStateFlow<BitacoraInventarioState>(BitacoraInventarioState.Loading)
+    val bitacoraInventarioState: StateFlow<BitacoraInventarioState> = _bitacoraInventarioState
+
+    private var totalPagesInventario = 1
+
+    private val _currentInventarioPage = MutableStateFlow(1)
+    val currentInventarioPage: StateFlow<Int> = _currentInventarioPage
+
+    fun resetBitacoraInventarioState() {
+        _bitacoraInventarioState.value = BitacoraInventarioState.Loading
+    }
+
+    fun getListadoBitacoraInventario(
+        page: Int = _currentInventarioPage.value,
+        fechaInicio: String? = null,
+        fechaFin: String? = null,
+        id: Int? = null,
+        codigo: String? = null,
+        limit: Int? = null
+    ) {
+        _currentInventarioPage.value = page
+        viewModelScope.launch {
+            Log.d("BitacoraInventarioVM", "Llamada a API Inventario página $page")
+            _bitacoraInventarioState.value = BitacoraInventarioState.Loading
+            try {
+                val result = userRepository.getListadoBitacoraInventario(
+                    page = page,
+                    limit = limit,
+                    fechaInicio = fechaInicio,
+                    fechaFin = fechaFin,
+                    id = id,
+                    codigo = codigo
+                )
+
+                result.onSuccess { response ->
+                    totalPagesInventario = response.totalPages
+                    _bitacoraInventarioState.value = BitacoraInventarioState.Success(
+                        response = response.data,
+                        totalPages = totalPagesInventario,
+                        currentPage = _currentInventarioPage.value
+                    )
+                }.onFailure { error ->
+                    _bitacoraInventarioState.value = BitacoraInventarioState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                _bitacoraInventarioState.value = BitacoraInventarioState.Error("Error inesperado")
+            }
+        }
+    }
+
+    fun nextInventarioPage() {
+        if (_currentInventarioPage.value < totalPagesInventario) {
+            getListadoBitacoraInventario(_currentInventarioPage.value + 1)
+            Log.d("BitacoraInventarioVM", "Siguiente página")
+        }
+    }
+
+    fun previousInventarioPage() {
+        if (_currentInventarioPage.value > 1) {
+            getListadoBitacoraInventario(_currentInventarioPage.value - 1)
+            Log.d("BitacoraInventarioVM", "Página anterior")
+        }
+    }
+
 }
