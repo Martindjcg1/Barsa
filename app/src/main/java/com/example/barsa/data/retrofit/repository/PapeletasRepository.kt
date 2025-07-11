@@ -74,11 +74,11 @@ class PapeletaRepository @Inject constructor(
         }
     }
 
-    suspend fun getTiemposPorPeriodo(fechaInicio: String, fechaFin: String): Result<ListadoTiemposResponse> {
+    suspend fun getTiemposPorPeriodo(fechaInicio: String, fechaFin: String, page: Int): Result<ListadoTiemposResponse> {
         return try {
             val token = tokenManager.accessTokenFlow.firstOrNull()
             if (token.isNullOrEmpty()) return Result.failure(Exception("No se encontró un token válido"))
-            val response = papeletaApiService.obtenerTiemposPorPeriodo("Bearer $token", fechaInicio, fechaFin)
+            val response = papeletaApiService.obtenerTiemposPorPeriodo("Bearer $token", fechaInicio, fechaFin, page)
             Result.success(response)
         } catch (e: HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
@@ -91,6 +91,7 @@ class PapeletaRepository @Inject constructor(
             Result.failure(Exception("Error inesperado"))
         }
     }
+
 
 
     suspend fun getUltimaDetencion(folio: Int): Result<DetencionRemota?> {

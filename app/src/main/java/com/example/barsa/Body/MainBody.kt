@@ -15,11 +15,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.barsa.Body.Inventory.InventoryScreen
 import com.example.barsa.Body.Usuario.UsuarioBody
+import com.example.barsa.Network.NetworkMonitor
 
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.InformeFolio
 import com.example.barsa.Producciones.InformeIndividual
+import com.example.barsa.Producciones.InformePeriodo
 import com.example.barsa.Producciones.ProduccionesScreen
 import com.example.barsa.R
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
@@ -37,7 +39,8 @@ fun MainBody(
     papeletaViewModel: PapeletaViewModel,
     userViewModel: UserViewModel,
     inventoryViewModel: InventoryViewModel,
-    onLogout: () -> Unit // NUEVO PARÁMETRO
+    onLogout: () -> Unit, // NUEVO PARÁMETRO
+    networkMonitor: NetworkMonitor
 ) {
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     Log.d("MainBody", "$rol")
@@ -70,7 +73,7 @@ fun MainBody(
                     }
 
                     currentRoute == "producciones" -> {
-                        ProduccionesScreen(onNavigate, papeletaViewModel)
+                        ProduccionesScreen(onNavigate, papeletaViewModel, userViewModel)
                     }
 
                     currentRoute == "usuario" -> {
@@ -93,7 +96,8 @@ fun MainBody(
                                 Etapa,
                                 onNavigate,
                                 tiemposViewModel,
-                                papeletaViewModel
+                                papeletaViewModel,
+                                networkMonitor
                             )
                         } else {
                             Text("Error: Datos incompletos para el cronómetro")
@@ -187,13 +191,31 @@ fun MainBody(
                         }
                     }
 
+                    currentRoute.startsWith("informePeriodo/") -> {
+                        val parts = currentRoute.removePrefix("informePeriodo/").split("°")
+                        //if (parts.size == 5) {
+                        if (parts.size == 2) {
+                            val fechaInicio = parts[0]
+                            val fechaFin = parts[1]
+                            InformePeriodo(
+                                fechaInicio,
+                                fechaFin,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
                 }
+
             }
             else if(rol.equals("Produccion"))
             {
                 when{
                 currentRoute == "producciones" -> {
-                    ProduccionesScreen(onNavigate, papeletaViewModel)
+                    ProduccionesScreen(onNavigate, papeletaViewModel, userViewModel)
                 }
                     currentRoute.startsWith("cronometro/") -> {
                         val parts = currentRoute.removePrefix("cronometro/").split("°")
@@ -211,7 +233,8 @@ fun MainBody(
                                 Etapa,
                                 onNavigate,
                                 tiemposViewModel,
-                                papeletaViewModel
+                                papeletaViewModel,
+                                networkMonitor
                             )
                         } else {
                             Text("Error: Datos incompletos para el cronómetro")
@@ -276,6 +299,23 @@ fun MainBody(
                                 Fecha,
                                 Status,
                                 //Etapa,
+                                onNavigate,
+                                papeletaViewModel
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
+                    currentRoute.startsWith("informePeriodo/") -> {
+                        val parts = currentRoute.removePrefix("informePeriodo/").split("°")
+                        //if (parts.size == 5) {
+                        if (parts.size == 2) {
+                            val fechaInicio = parts[0]
+                            val fechaFin = parts[1]
+                            InformePeriodo(
+                                fechaInicio,
+                                fechaFin,
                                 onNavigate,
                                 papeletaViewModel
                             )

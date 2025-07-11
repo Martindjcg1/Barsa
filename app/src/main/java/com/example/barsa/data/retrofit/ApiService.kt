@@ -296,7 +296,9 @@ interface PapeletaApiService {
     suspend fun obtenerTiemposPorPeriodo(
         @Header("Authorization") authToken: String,
         @Query("fechaInicio") fechaInicio: String,
-        @Query("fechaFin") fechaFin: String
+        @Query("fechaFin") fechaFin: String,
+        @Query("page") page: Int
     ): ListadoTiemposResponse
+
 }
 

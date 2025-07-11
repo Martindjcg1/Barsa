@@ -18,128 +18,45 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.barsa.R
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
+import com.example.barsa.data.retrofit.ui.UserViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-/*
-@Composable
-fun ProduccionesScreen(onNavigate: (String) -> Unit, papeletaViewModel: PapeletaViewModel) {
-    var query by remember { mutableStateOf("") }
-    var selectedTipo by remember { mutableStateOf("Todos") }
-    var selectedOrden by remember { mutableStateOf("Recientes") }
-    val listState = rememberLazyListState()
 
-    val papeletas = remember { generarPapeletas() }
-
-    val dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
-
-    val filteredPapeletas by remember(query, selectedTipo, selectedOrden, papeletas) {
-        derivedStateOf {
-            papeletas
-                .filter { papeleta ->
-                    // Filtrar por Folio y TipoId
-                    papeleta.Folio.toString().contains(query, ignoreCase = true) &&
-                            (selectedTipo == "Todos" || papeleta.Tipold == selectedTipo)
-                }
-                .sortedBy { LocalDate.parse(it.Fecha, dateFormatter) } // Ordenar por fecha
-                .let { if (selectedOrden == "Recientes") it.reversed() else it } // Invertir si es reciente
-        }
-    }
-
-    // Resetear la posición al cambiar filtros
-    LaunchedEffect(selectedTipo, selectedOrden) {
-        listState.scrollToItem(0)
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        Text(
-            text = "Papeletas",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(18.dp)
-        )
-
-        Row(
-            Modifier.fillMaxWidth().padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            FiltroDropdown(
-                onTipoSelected = { selectedTipo = it },
-                onOrdenSelected = { selectedOrden = it }
-            )
-            SearchBar(
-                query = query,
-                onQueryChange = { query = it }
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            state = listState,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(
-                items = filteredPapeletas,
-                key = { it.Folio }
-            ) { papeleta ->
-                // Pasar la lista completa de detalles (papeleta.detalles)
-                PapeletaCard(papeleta, papeleta.detalles, onNavigate)
-            }
-
-            if (filteredPapeletas.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillParentMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No se encontraron papeletas.",
-                            color = Color.Gray
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
- */
 @OptIn(FlowPreview::class)
 @Composable
 fun ProduccionesScreen(
     onNavigate: (String) -> Unit,
-    papeletaViewModel: PapeletaViewModel
+    papeletaViewModel: PapeletaViewModel,
+    userViewModel: UserViewModel
 ) {
     var query by remember { mutableStateOf("") }
     var selectedTipo by remember { mutableStateOf("Todos") }
     var selectedOrden by remember { mutableStateOf("Recientes") }
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    var lastQuery by remember { mutableStateOf("") }
 
     val papeletaState by papeletaViewModel.papeletaState.collectAsState()
 
     val currentPage by papeletaViewModel.currentPage.collectAsState()
-
-    /*LaunchedEffect(currentPage) {
-
+    var showDateDialog by remember { mutableStateOf(false) }
+    val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
+    LaunchedEffect(Unit) {
         if (papeletaState !is PapeletaViewModel.PapeletaState.Success) {
-            papeletaViewModel.getListadoPapeletas(page = currentPage)
+            papeletaViewModel.getListadoPapeletas(page = 1)
         }
-    }*/
+    }
 
 
     LaunchedEffect(papeletaState) {
         (papeletaState as? PapeletaViewModel.PapeletaState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetPapeletaState()
         }
     }
 
@@ -147,7 +64,6 @@ fun ProduccionesScreen(
         bottomBar = {
             if (papeletaState is PapeletaViewModel.PapeletaState.Success) {
                 val successState = papeletaState as PapeletaViewModel.PapeletaState.Success
-                //val currentPage = successState.currentPage
                 val totalPages = successState.totalPages
 
                 Row(
@@ -157,7 +73,6 @@ fun ProduccionesScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Botón anterior
                     IconButton(
                         onClick = { papeletaViewModel.previousPage() },
                         enabled = currentPage > 1
@@ -165,7 +80,6 @@ fun ProduccionesScreen(
                         Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Anterior")
                     }
 
-                    // Calcular rango dinámico de páginas a mostrar
                     val maxVisiblePages = 4
                     val halfRange = maxVisiblePages / 2
 
@@ -213,12 +127,43 @@ fun ProduccionesScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            Text(
-                text = "Papeletas",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(18.dp)
-            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Papeletas",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 18.dp)
+                )
+                if(rol.equals("Administrador") || rol.equals("SuperAdministrador"))
+                {
+                    IconButton(
+                        onClick = { showDateDialog = true },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.detalles), // Usa un ícono que tengas o un ícono por defecto
+                            contentDescription = "Informe por Periodo",
+                            tint = Color.Black
+                        )
+                    }
+                    if (showDateDialog) {
+                        InformePeriodoDialog(
+                            onDismiss = { showDateDialog = false },
+                            onAceptar = { fechaInicio, fechaFin ->
+                                showDateDialog = false
+                                // Aquí navegas a la composable de informe de periodo
+                                onNavigate("informePeriodo/${fechaInicio}°${fechaFin}")
+                            }
+                        )
+                    }
+                }
+            }
 
             Row(
                 Modifier
@@ -240,9 +185,12 @@ fun ProduccionesScreen(
                 // Debounce: espera 300ms antes de hacer la búsqueda
                 LaunchedEffect(query) {
                     snapshotFlow { query }
-                        .debounce(300) // tiempo en milisegundos
+                        .debounce(300)
                         .collectLatest { folio ->
-                            papeletaViewModel.getListadoPapeletas(page = 1, folio = folio)
+                            if (folio != lastQuery) {
+                                lastQuery = folio
+                                papeletaViewModel.getListadoPapeletas(page = 1, folio = folio)
+                            }
                         }
                 }
             }
@@ -275,16 +223,29 @@ fun ProduccionesScreen(
                 }
 
                 is PapeletaViewModel.PapeletaState.Error -> {
-                    /*val message = (papeletaState as PapeletaViewModel.PapeletaState.Error).message
-                    LaunchedEffect(message) {
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                    }*/
+                    //val errorMessage = (papeletaState as PapeletaViewModel.PapeletaState.Error).message
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        //Text(text = errorMessage, color = Color.Red, fontWeight = FontWeight.Bold)
+                        //Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = {
+                            papeletaViewModel.resetPapeletaState()
+                            papeletaViewModel.getListadoPapeletas(page = 1)
+                        }) {
+                            Text("Reintentar")
+                        }
+                    }
                 }
             }
         }
     }
 }
-
 
 
 

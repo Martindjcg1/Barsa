@@ -34,11 +34,13 @@ import com.example.barsa.Header.Header
 import com.example.barsa.Header.ModernNotificationBox
 import com.example.barsa.Login.LoginScreen
 import com.example.barsa.Header.Notification
+import com.example.barsa.Network.NetworkMonitor
 
 import com.example.barsa.Producciones.CronometroScreen
 import com.example.barsa.Producciones.EtapaSelector
 import com.example.barsa.Producciones.InformeFolio
 import com.example.barsa.Producciones.InformeIndividual
+import com.example.barsa.Producciones.InformePeriodo
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
 import com.example.barsa.data.retrofit.ui.NotificationViewModel
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
@@ -53,7 +55,8 @@ fun MainNavigator(
     userViewModel: UserViewModel,
     papeletaViewModel: PapeletaViewModel,
     inventoryViewModel: InventoryViewModel,
-    notificationViewModel: NotificationViewModel
+    notificationViewModel: NotificationViewModel,
+    networkMonitor: NetworkMonitor
 ) {
     val navController = rememberNavController()
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
@@ -225,7 +228,8 @@ fun MainNavigator(
                         navController.navigate("login") {
                             popUpTo("main") { inclusive = true }
                         }
-                    }
+                    },
+                    networkMonitor
                 )
 
                 if (showNotifications) {
@@ -255,7 +259,7 @@ fun MainNavigator(
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
             val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel, networkMonitor)
         }
 
         composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->
@@ -291,6 +295,16 @@ fun MainNavigator(
 
             InformeFolio(TipoId, Folio, Fecha, Status, onNavigate = { route -> navController.navigate(route) }, papeletaViewModel)
         }
+
+        composable(
+            "informePeriodo/{fechaInicio}/{fechaFin}"
+        ) { backStackEntry ->
+            val fechaInicio = backStackEntry.arguments?.getString("fechaInicio") ?: ""
+            val fechaFin = backStackEntry.arguments?.getString("fechaFin") ?: ""
+
+            InformePeriodo(fechaInicio, fechaFin, onNavigate = { route -> navController.navigate(route) }, papeletaViewModel)
+        }
+
     }
 }
 

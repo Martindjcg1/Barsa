@@ -51,6 +51,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation(libs.androidx.compose.material)
     implementation(libs.firebase.crashlytics.buildtools)
+    implementation(libs.androidx.runtime.livedata)
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     // Coroutines para manejar procesos en segundo plano
@@ -66,6 +67,7 @@ dependencies {
     implementation ("com.patrykandpatrick.vico:compose:2.1.3")
     implementation ("com.patrykandpatrick.vico:compose-m3:2.1.3")
     implementation("com.patrykandpatrick.vico:core:2.1.3")
+    implementation("io.github.ehsannarmani:compose-charts:0.1.7")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

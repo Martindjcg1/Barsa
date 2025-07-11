@@ -92,6 +92,18 @@ class TiemposViewModel @Inject constructor(
                 Log.e("getEtapaDisponible", "Error...", e)
             }
 
+    fun getTiemposIsRunningTrue(folio: Int): Flow<List<String>> =
+        tiemposRepository.getAllTiempoStream(folio)
+            .map { tiempos ->
+                tiempos.filter { it.isRunning }
+                    .map { it.etapa }
+            }
+            .catch { e ->
+                Log.e("getTiemposIsRunningTrue", "Error al obtener tiempos isRunning=true", e)
+                emit(emptyList()) // Devuelve una lista vacía en caso de error
+            }
+
+
 
     fun getEtapasFinalizadas(folio: Int): Flow<Set<String>> =
         tiemposRepository.getAllTiempoStream(folio)
@@ -189,6 +201,7 @@ class TiemposViewModel @Inject constructor(
             val tiempoId = getTiempoId(folio, etapa).firstOrNull()
             if (tiempoId != null) {
                 tiemposRepository.updateTiempo(tiempoId, etapa, nuevoTiempo)
+                Log.d("TiemposViewModel", "UpdateTiempoRoom $tiempoId, $etapa, $nuevoTiempo")
                 //Log.d("updateTiempo", "Tiempo actualizado correctamente")
             } else {
                 //Log.e("updateTiempo", "No se encontró el tiempo para actualizar")

@@ -39,6 +39,7 @@ data class TiempoRemoto(
     val tiempo: Int,
     val fechaInicio: String?,
     val fechaFin: String?,
+    val fechaPausa: String?,
     val isRunning: Boolean,
     val isFinished: Boolean,
     val usuario: String
@@ -63,7 +64,8 @@ data class IniciarTiempoRequest(
 data class PausarTiempoRequest(
     val folio: Int,
     val etapa: String,
-    val tiempo: Int
+    val tiempo: Int,
+    val fechaPausa: String
 )
 
 data class ReiniciarTiempoRequest(
@@ -116,11 +118,33 @@ data class TiemposPeriodo(
     val tiempo: Int,
     val fechaInicio: String?,
     val fechaFin: String?,
+    val fechaPausa: String?,
     val isRunning: Boolean,
     val isFinished: Boolean,
     val usuario: String,
     val detenciones: List<DetencionRemota>
 )
+
+data class InformePeriodo(
+    val totalPapeletas: Int,
+    val tiempoPromedioPorEtapa: Map<String, Float>,
+    val detencionesInfo: DetencionesInfo,
+    val tiemposRaw: List<TiemposPeriodo>,
+    val etapasFinalizadas: EtapasFinalizadasInfo
+)
+
+
+data class DetencionesInfo(
+    val total: Int,
+    val activas: Int,
+    val inactivas: Int
+)
+
+data class EtapasFinalizadasInfo(
+    val totalFinalizadas: Int,
+    val totalSinFinalizar: Int
+)
+
 
 
 
