@@ -35,6 +35,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -59,13 +62,13 @@ fun Bitacora(
 
     val listState = rememberLazyListState()
 
-    // Manejo de errores con Toast
+    /* Manejo de errores con Toast
     LaunchedEffect(bitacoraState) {
         (bitacoraState as? UserViewModel.BitacoraState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
             userViewModel.resetBitacoraState()
         }
-    }
+    }*/
 
     LaunchedEffect(Unit) {
         userViewModel.getListadoBitacoraProduccion()
@@ -89,7 +92,7 @@ fun Bitacora(
                         onClick = { userViewModel.previousBitacoraPage() },
                         enabled = currentPage > 1
                     ) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Anterior")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Anterior")
                     }
 
                     val maxVisiblePages = 4
@@ -126,7 +129,7 @@ fun Bitacora(
                         onClick = { userViewModel.nextBitacoraPage() },
                         enabled = currentPage < totalPages
                     ) {
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Siguiente")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Siguiente")
                     }
                 }
             }
@@ -223,7 +226,20 @@ fun Bitacora(
                 }
 
                 is UserViewModel.BitacoraState.Error -> {
-                    // El Toast ya lo muestra el LaunchedEffect
+                    val errorMessage = (bitacoraState as UserViewModel.BitacoraState.Error).message
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Button(onClick = {
+                            userViewModel.resetBitacoraState()
+                            userViewModel.getListadoBitacoraProduccion()
+                        }) {
+                            androidx.compose.material3.Text("Reintentar")
+                        }
+                    }
                 }
             }
             if (showDialog) {

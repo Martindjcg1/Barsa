@@ -82,21 +82,24 @@ fun MainBody(
 
                     currentRoute.startsWith("cronometro/") -> {
                         val parts = currentRoute.removePrefix("cronometro/").split("°")
-                        if (parts.size == 5) {
+                        if (parts.size == 6) {
                             val TipoId = parts[0]
                             val Folio = parts[1].toIntOrNull() ?: 0
                             val Fecha = parts[2]
                             val Status = parts[3]
                             val Etapa = parts[4]
+                            val isRun = parts[5].toBooleanStrictOrNull() ?: false
                             CronometroScreen(
                                 TipoId,
                                 Folio,
                                 Fecha,
                                 Status,
                                 Etapa,
+                                isRun,
                                 onNavigate,
                                 tiemposViewModel,
                                 papeletaViewModel,
+                                userViewModel,
                                 networkMonitor
                             )
                         } else {
@@ -219,21 +222,24 @@ fun MainBody(
                 }
                     currentRoute.startsWith("cronometro/") -> {
                         val parts = currentRoute.removePrefix("cronometro/").split("°")
-                        if (parts.size == 5) {
+                        if (parts.size == 6) {
                             val TipoId = parts[0]
                             val Folio = parts[1].toIntOrNull() ?: 0
                             val Fecha = parts[2]
                             val Status = parts[3]
                             val Etapa = parts[4]
+                            val isRun = parts[5].toBooleanStrictOrNull() ?: false
                             CronometroScreen(
                                 TipoId,
                                 Folio,
                                 Fecha,
                                 Status,
                                 Etapa,
+                                isRun,
                                 onNavigate,
                                 tiemposViewModel,
                                 papeletaViewModel,
+                                userViewModel,
                                 networkMonitor
                             )
                         } else {

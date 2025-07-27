@@ -35,13 +35,13 @@ object NetworkModule {
             .create()
     }
 
-
     @Provides
     @Singleton
     fun provideRetrofit(gson: Gson): Retrofit {
         return Retrofit.Builder()
             .baseUrl("http://192.168.1.95:3000/")
-            //.baseUrl("https://kind-positively-zebra.ngrok-free.app/")
+            //.baseUrl("http://192.168.88.88:3000/")
+            //.baseUrl("https://tahr-useful-specially.ngrok-free.app")
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
     }

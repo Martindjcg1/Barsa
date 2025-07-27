@@ -1,5 +1,6 @@
 package com.example.barsa.Producciones
 
+import android.text.Layout
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.remember
@@ -68,6 +70,14 @@ import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import java.time.LocalDate
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.Typeface
+import androidx.compose.ui.unit.sp
+import com.example.barsa.R
+import com.patrykandpatrick.vico.core.common.component.TextComponent
 import ir.ehsannarmani.compose_charts.PieChart
 import ir.ehsannarmani.compose_charts.models.Pie
 
@@ -83,7 +93,7 @@ fun InformePeriodo(fechaInicio: String, fechaFin: String, onNavigate: (String) -
         title = { Text("Información $fechaInicio - $fechaFin", style = MaterialTheme.typography.titleMedium) },
         navigationIcon = {
             IconButton(onClick = { onNavigate("producciones") }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
             }
         }
     )
@@ -143,13 +153,13 @@ fun InformePeriodo(fechaInicio: String, fechaFin: String, onNavigate: (String) -
 
             LazyColumn(modifier = Modifier.padding(16.dp)) {
                 item {
-                    Button(
-                        onClick = {
-                            generarPDFInformePeriodo(context, fechaInicio, fechaFin, informe.tiemposRaw)
-                        },
-                        modifier = Modifier.padding(vertical = 16.dp)
+                    IconButton(
+                        onClick = { generarPDFInformePeriodo(context, fechaInicio, fechaFin, informe.tiemposRaw) },
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Text("Exportar PDF")
+                        Icon(painterResource(id = R.drawable.ic_aranceles), contentDescription = "Exportar PDF", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
 
                     // 📄 Total de papeletas
@@ -279,6 +289,14 @@ fun LineChartTiemposRaw(tiemposRaw: List<TiemposPeriodo>) {
         } ?: "s/f"
     }
 
+    val axisTextComponent = TextComponent(
+        color = android.graphics.Color.BLACK,
+        typeface = android.graphics.Typeface.DEFAULT,
+        textSizeSp = 10f,
+        textAlignment = Layout.Alignment.ALIGN_CENTER,
+    )
+
+
     LaunchedEffect(tiemposRaw) {
         modelProducer.runTransaction {
             lineSeries { series(x, y) }
@@ -311,9 +329,11 @@ fun LineChartTiemposRaw(tiemposRaw: List<TiemposPeriodo>) {
             bottomAxis = HorizontalAxis.rememberBottom(
                 itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() },
                 valueFormatter = CartesianValueFormatter { _, value, _ ->
-                    etiquetasX.getOrNull(value.toInt()) ?: "" // 🎯 Aquí aplicamos las etiquetas
-                }
+                    etiquetasX.getOrNull(value.toInt()) ?: ""
+                },
+                label = axisTextComponent // 🎯 Aquí aplicas tu estilo
             )
+
         ),
         modelProducer = modelProducer,
         modifier = Modifier
@@ -434,6 +454,13 @@ fun PromedioPorEtapaBarChart(tiempoPromedioPorEtapa: Map<String, Float>) {
         etiquetas.getOrNull(x.toInt()) ?: ""
     }
 
+    val axisTextComponent = TextComponent(
+        color = android.graphics.Color.BLACK,
+        typeface = android.graphics.Typeface.DEFAULT,
+        textSizeSp = 10f,
+        textAlignment = Layout.Alignment.ALIGN_CENTER,
+    )
+
     val tiempoSmartFormatter = DefaultCartesianMarker.ValueFormatter { _, targets ->
         val column = (targets.firstOrNull() as? ColumnCartesianLayerMarkerTarget)?.columns?.firstOrNull()
         val tiempoSegundos = column?.entry?.y?.toInt() ?: 0
@@ -464,7 +491,8 @@ fun PromedioPorEtapaBarChart(tiempoPromedioPorEtapa: Map<String, Float>) {
             ),
             bottomAxis = HorizontalAxis.rememberBottom(
                 itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() },
-                valueFormatter = axisFormatter
+                valueFormatter = axisFormatter,
+                label = axisTextComponent
             ),
             marker = rememberDefaultCartesianMarker(
                 label = rememberTextComponent(),

@@ -37,26 +37,6 @@ class CronometroService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        /*val prefs = getSharedPreferences("cronometros_prefs", Context.MODE_PRIVATE)
-        val allEntries = prefs.all
-
-        allEntries.forEach { entry ->
-            val keyParts = entry.key.split("_")
-            if (keyParts.size >= 2 && entry.key.endsWith("_tiempo")) {
-                val id = keyParts[0].toIntOrNull() ?: return@forEach
-                val etapa = keyParts[1]
-                val tiempoGuardado = entry.value as? Long ?: 0L
-                val key = id to etapa
-                cronometros[key] = tiempoGuardado
-
-                val isRunning = prefs.getBoolean("${id}_${etapa}_isRunning", false)
-                if (isRunning) {
-                    startTimes[key] = System.currentTimeMillis() / 1000
-                    startCheckpointJob(id, etapa)
-                }
-            }
-        }*/
-
         if (startTimes.isNotEmpty()) {
             startForeground(1, createGeneralNotification())
         }
@@ -75,7 +55,8 @@ class CronometroService : Service() {
 
                     serviceScope.launch {
                         tiemposRepository.updateTiempo(id, etapa, tiempoFinal.toInt())
-                        tiemposRepository.updateIsRunning(id, false)
+                        //tiemposRepository.updateIsRunning(id, false)
+                        tiemposRepository.updateIsRunningConInicio(id, false, null)
                         tiemposRepositoryA.pausarTiempo(PausarTiempoRequest(folio, etapa, tiempoFinal.toInt(), fechaPausa))
                         removeFromSharedPreferences(id, etapa)
                     }.invokeOnCompletion {
@@ -90,8 +71,14 @@ class CronometroService : Service() {
             else -> {
                 val id = intent?.getIntExtra("id", -1) ?: return START_NOT_STICKY
                 val folio = intent.getIntExtra("folio", -1)
-                val etapa = intent.getStringExtra("etapa") ?: return START_NOT_STICKY
+                val etapa = intent.getStringExtra("etapa") ?: ""
+                val tipoId = intent.getStringExtra("tipoId") ?: ""
+                val fecha = intent.getStringExtra("fecha") ?: ""
+                val status = intent.getStringExtra("status") ?: ""
+                val isRun = intent.getBooleanExtra("isRun", false)
                 val tiempoInicial = intent.getLongExtra("tiempoInicial", 0L)
+                val fechaPausa = intent.getStringExtra("fechaPausa") ?: ""
+
 
                 val key = id to etapa
                     cronometros[key] = tiempoInicial
@@ -106,7 +93,7 @@ class CronometroService : Service() {
                     startForeground(1, createGeneralNotification())
                 }
 
-                updateIndividualNotification(id, folio, etapa)
+                updateIndividualNotification(id, folio, etapa, tipoId, fecha, status, isRun, fechaPausa)
             }
         }
 
@@ -141,7 +128,7 @@ class CronometroService : Service() {
             .build()
     }
 
-    private fun updateIndividualNotification(id: Int, folio: Int, etapa: String) {
+    private fun updateIndividualNotification(id: Int, folio: Int, etapa: String, tipoId:String, fecha:String, status:String, isRun:Boolean, fechaPausa:String) {
         val channelId = "cronometro_individual_channel"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(channelId, "Cronómetro por etapa", NotificationManager.IMPORTANCE_DEFAULT)
@@ -154,18 +141,40 @@ class CronometroService : Service() {
             putExtra("etapa", etapa)
         }
 
+        val abrirPantallaIntent = Intent(this, MainActivity::class.java).apply {
+            action = "ABRIR_CRONOMETRO"
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("tipoId", tipoId)
+            putExtra("folio", folio)
+            putExtra("fecha", fecha)
+            putExtra("status", status)
+            putExtra("etapa", etapa)
+            putExtra("isRun", isRun)
+        }
+
+
+
         val requestCode = (id.toString() + etapa).hashCode()
+
         val pausePendingIntent = PendingIntent.getService(
             this, requestCode, pauseIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val abrirPantallaPendingIntent = PendingIntent.getActivity(
+            this,
+            requestCode,
+            abrirPantallaIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Folio $folio - $etapa")
             .setContentText("Cronómetro en ejecución")
             .setSmallIcon(android.R.drawable.ic_popup_sync)
+            .setContentIntent(abrirPantallaPendingIntent)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .addAction(android.R.drawable.ic_media_pause, "Pausar", pausePendingIntent)
+            //.addAction(android.R.drawable.ic_media_pause, "Pausar", pausePendingIntent)
             .build()
 
         notificationManager.notify(requestCode, notification)
@@ -252,7 +261,7 @@ class CronometroService : Service() {
         return 0L
     }
 
-    suspend fun stopCronometrosPorFolio(procesoFolio: Int, fechaPausa: String) {
+    suspend fun stopCronometrosPorFolio(procesoFolio: Int, fechaPausa: String, time: Int) {
         val tiempos = tiemposRepository.getAllTiempoStream(procesoFolio).first() // Obtenemos los tiempos una sola vez
 
         for (tiempo in tiempos) {
@@ -260,14 +269,53 @@ class CronometroService : Service() {
 
             if (key in cronometros) {
                 val tiempoAcumulado = calculateCurrentTime(key)
-
-                // Actualiza en Room y Access
-                tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, tiempoAcumulado.toInt())
-                //saveToSharedPreferences(tiempo.id, tiempo.etapa, tiempoAcumulado)
-                tiemposRepository.updateIsRunning(tiempo.id, false)
-                tiemposRepositoryA.pausarTiempo(
-                    PausarTiempoRequest(tiempo.procesoFolio, tiempo.etapa, tiempoAcumulado.toInt(), fechaPausa)
-                )
+                if(tiempoAcumulado == 0L && time > 0) {
+                    tiemposRepositoryA.pausarTiempo(
+                        PausarTiempoRequest(
+                            tiempo.procesoFolio,
+                            tiempo.etapa,
+                            time,
+                            fechaPausa
+                        )
+                    )
+                    tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, time)
+                    //saveToSharedPreferences(tiempo.id, tiempo.etapa, tiempoAcumulado)
+                    //tiemposRepository.updateIsRunning(tiempo.id, false)
+                    tiemposRepository.updateIsRunningConInicio(tiempo.id, false, null)
+                    Log.d("CronometroService", "StopCronometro id=${tiempo.id}, etapa=${tiempo.etapa}, tiempo=$time")
+                }
+                else if (tiempoAcumulado > 0L)
+                {
+                    tiemposRepositoryA.pausarTiempo(
+                        PausarTiempoRequest(
+                            tiempo.procesoFolio,
+                            tiempo.etapa,
+                            tiempoAcumulado.toInt(),
+                            fechaPausa
+                        )
+                    )
+                    tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, tiempoAcumulado.toInt())
+                    //saveToSharedPreferences(tiempo.id, tiempo.etapa, tiempoAcumulado)
+                    //tiemposRepository.updateIsRunning(tiempo.id, false)
+                    tiemposRepository.updateIsRunningConInicio(tiempo.id, false, null)
+                    Log.d("CronometroService", "StopCronometro id=${tiempo.id}, etapa=${tiempo.etapa}, tiempo=$tiempoAcumulado")
+                }
+                else if(tiempoAcumulado == 0L && time == 0)
+                {
+                    tiemposRepositoryA.pausarTiempo(
+                        PausarTiempoRequest(
+                            tiempo.procesoFolio,
+                            tiempo.etapa,
+                            tiempoAcumulado.toInt(),
+                            fechaPausa
+                        )
+                    )
+                    tiemposRepository.updateTiempo(tiempo.id, tiempo.etapa, tiempoAcumulado.toInt())
+                    //saveToSharedPreferences(tiempo.id, tiempo.etapa, tiempoAcumulado)
+                    //tiemposRepository.updateIsRunning(tiempo.id, false)
+                    tiemposRepository.updateIsRunningConInicio(tiempo.id, false, null)
+                    Log.d("CronometroService", "StopCronometro id=${tiempo.id}, etapa=${tiempo.etapa}, tiempo=$tiempoAcumulado")
+                }
 
                 // Limpieza en memoria
                 cronometros.remove(key)
@@ -281,8 +329,6 @@ class CronometroService : Service() {
                 // Cancelar notificación individual
                 val notificationId = (tiempo.id.toString() + tiempo.etapa).hashCode()
                 (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(notificationId)
-
-                Log.d("CronometroService", "StopCronometro id=${tiempo.id}, etapa=${tiempo.etapa}, tiempo=$tiempoAcumulado")
             }
         }
 
@@ -293,3 +339,25 @@ class CronometroService : Service() {
         }
     }
 }
+
+
+/* Estaba en onCreate
+val prefs = getSharedPreferences("cronometros_prefs", Context.MODE_PRIVATE)
+val allEntries = prefs.all
+
+allEntries.forEach { entry ->
+    val keyParts = entry.key.split("_")
+    if (keyParts.size >= 2 && entry.key.endsWith("_tiempo")) {
+        val id = keyParts[0].toIntOrNull() ?: return@forEach
+        val etapa = keyParts[1]
+        val tiempoGuardado = entry.value as? Long ?: 0L
+        val key = id to etapa
+        cronometros[key] = tiempoGuardado
+
+        val isRunning = prefs.getBoolean("${id}_${etapa}_isRunning", false)
+        if (isRunning) {
+            startTimes[key] = System.currentTimeMillis() / 1000
+            startCheckpointJob(id, etapa)
+        }
+    }
+}*/

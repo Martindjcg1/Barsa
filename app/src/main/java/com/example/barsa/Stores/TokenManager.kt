@@ -23,6 +23,8 @@ class TokenManager @Inject constructor(
         val NOMBRE = stringPreferencesKey("nombre")
         val NOMBRE_USUARIO = stringPreferencesKey("nombreUsuario")
         val ROL = stringPreferencesKey("rol")
+        val EXCLUSION_BATERIA_SOLICITADA = booleanPreferencesKey("exclusion_bateria_solicitada")
+
     }
 
     // TOKENS DE ACCESO
@@ -73,6 +75,16 @@ class TokenManager @Inject constructor(
             prefs.remove(ROL)
         }
     }
+
+    val exclusionBateriaSolicitadaFlow: Flow<Boolean> = dataStore.data
+        .map { prefs -> prefs[EXCLUSION_BATERIA_SOLICITADA] ?: false }
+
+    suspend fun marcarExclusionBateriaSolicitada() {
+        dataStore.edit { prefs ->
+            prefs[EXCLUSION_BATERIA_SOLICITADA] = true
+        }
+    }
+
 
 }
 

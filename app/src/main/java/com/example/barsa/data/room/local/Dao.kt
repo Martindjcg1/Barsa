@@ -33,6 +33,10 @@ interface TiempoDao {
     @Query("SELECT * FROM tiempos WHERE procesoFolio = :procesoFolio ORDER BY fechaInicio ASC")
     fun getAllTiempo(procesoFolio: Int): Flow<List<Tiempo>>
 
+    // Obtener todos los tiempos ordenados por fechaInicio donde isRunning sea true
+    @Query("SELECT * FROM tiempos WHERE isRunning = 1 ORDER BY fechaInicio ASC")
+    fun getAllTiempoIsRunning(): Flow<List<Tiempo>>
+
     // Obtener el estado isRunning de un tiempo específico
     @Query("SELECT isRunning FROM tiempos WHERE id = :id")
     fun getIsRunning(id: Int): Flow<Boolean>
@@ -40,6 +44,10 @@ interface TiempoDao {
     // Actualizar el estado isRunning de un tiempo específico
     @Query("UPDATE tiempos SET isRunning = :isRunning WHERE id = :id")
     suspend fun updateIsRunning(id: Int, isRunning: Boolean)
+
+    // Actualiza isRunning e inicioTiempo al mismo tiempo
+    @Query("UPDATE tiempos SET isRunning = :isRunning, inicioTiempo = :inicioTiempo WHERE id = :id")
+    suspend fun updateIsRunningConInicio(id: Int, isRunning: Boolean, inicioTiempo: Long?)
 
     // Actualizar la duración total del tiempo en segundos
     @Query("UPDATE tiempos SET tiempo = :nuevoTiempo WHERE id = :id AND etapa = :etapa AND isFinished = 0")
@@ -54,6 +62,7 @@ interface TiempoDao {
     fun getIsFinished(id: Int): Flow<Boolean>
 }
 
+/*
 @Dao
 interface DetencionDao {
 
@@ -89,4 +98,4 @@ interface DetencionDao {
     LIMIT 1
 """)
     fun getUltimaDetencionActiva(folioPapeleta: Int): Flow<Detencion?>
-}
+}*/

@@ -1,6 +1,6 @@
 package com.example.barsa.data.room.di
 
-import com.example.barsa.data.room.local.DetencionDao
+//import com.example.barsa.data.room.local.DetencionDao
 //import com.example.barsa.data.room.local.ProcesoDao
 import com.example.barsa.data.room.local.TiempoDao
 import com.example.barsa.data.room.repository.OfflineTiemposRepository
@@ -18,7 +18,9 @@ object RepositoryModule {
     fun provideTiemposRepository(
         //procesoDao: ProcesoDao,
         tiempoDao: TiempoDao,
-        detencionDao: DetencionDao
+        //detencionDao: DetencionDao
     ): TiemposRepository = OfflineTiemposRepository(//procesoDao,
-        tiempoDao, detencionDao)
+        tiempoDao
+        //detencionDao
+    )
 }

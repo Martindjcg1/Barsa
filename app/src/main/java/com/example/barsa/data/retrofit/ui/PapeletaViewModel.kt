@@ -3,6 +3,8 @@ package com.example.barsa.data.retrofit.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.barsa.CronometroService
+import com.example.barsa.Producciones.formatearFechaActual
 import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.DetencionRemota
 import com.example.barsa.data.retrofit.models.DetencionesInfo
@@ -14,12 +16,14 @@ import com.example.barsa.data.retrofit.models.PausarTiempoRequest
 import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.models.TiemposPeriodo
 import com.example.barsa.data.retrofit.repository.PapeletaRepository
+import com.example.barsa.data.room.repository.TiemposRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -27,7 +31,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PapeletaViewModel @Inject constructor(
-    private val papeletaRepository: PapeletaRepository
+    private val papeletaRepository: PapeletaRepository,
+   // private val tiemposRepository: TiemposRepository
 ) : ViewModel() {
 
     sealed class PapeletaState {
@@ -288,6 +293,46 @@ class PapeletaViewModel @Inject constructor(
         }
     }
 
+    sealed class TiemposFolioMapState {
+        object Loading : TiemposFolioMapState()
+        data class Success(val mapa: Map<Int, List<TiempoRemoto>>) : TiemposFolioMapState()
+        data class Error(val message: String) : TiemposFolioMapState()
+    }
+
+    private val _tiemposMapFolioState = MutableStateFlow<TiemposFolioMapState>(TiemposFolioMapState.Loading)
+    val tiemposMapFolioState: StateFlow<TiemposFolioMapState> = _tiemposMapFolioState
+
+
+    fun resetTiemposMapFolioState() {
+        _tiemposMapFolioState.value = TiemposFolioMapState.Loading
+    }
+
+    fun cargarTiemposPorFolioMap(folio: Int) {
+        viewModelScope.launch {
+            val currentMap = when (val state = _tiemposMapFolioState.value) {
+                is TiemposFolioMapState.Success -> state.mapa.toMutableMap()
+                else -> mutableMapOf()
+            }
+
+            try {
+                val result = papeletaRepository.getTiemposPorFolio(folio)
+                result.onSuccess { lista ->
+                    currentMap[folio] = lista // Actualiza solo este folio
+                    _tiemposMapFolioState.value = TiemposFolioMapState.Success(currentMap)
+                }.onFailure { error ->
+                    _tiemposMapFolioState.value = TiemposFolioMapState.Error(
+                        error.message ?: "Error al obtener los tiempos del folio $folio"
+                    )
+                }
+            } catch (e: Exception) {
+                _tiemposMapFolioState.value = TiemposFolioMapState.Error(
+                    "Error inesperado al obtener los tiempos del folio $folio"
+                )
+            }
+        }
+    }
+
+
     ///////////////////////////////////////7
 
     sealed class DetencionesFolioState {
@@ -511,7 +556,7 @@ class PapeletaViewModel @Inject constructor(
     val reiniciarTiempoResult: StateFlow<Result<String>?> = _reiniciarTiempoResult
 
     fun resetReiniciarTiempoResult() {
-        _pausarTiempoResult.value = null
+        _reiniciarTiempoResult.value = null
     }
 
     fun reiniciarTiempo(folio: Int, etapa: String) {
@@ -585,6 +630,44 @@ class PapeletaViewModel @Inject constructor(
     fun setDetalleActual(detalle: List<DetallePapeleta>) {
         _detalleActual.value = detalle
     }
+
+    /*
+    private val _hayInconsistencias = MutableStateFlow(false)
+    val hayInconsistencias: StateFlow<Boolean> = _hayInconsistencias
+
+    private val _cambiarIsRunning = MutableStateFlow(false)
+    val cambiarIsRunning: StateFlow<Boolean> = _cambiarIsRunning
+
+    fun sethayInconsistencias(valor: Boolean)
+    {
+        _hayInconsistencias.value = valor
+    }
+
+    fun verificarYCorregirInconsistencias(cronometroService: CronometroService?) {
+        viewModelScope.launch {
+            tiemposRepository.getAllTiempoIsRunning()
+                .collectLatest { tiemposCorriendo ->
+                    tiemposCorriendo.forEach { tiempo ->
+                        val estaCorriendoEnService = cronometroService?.isRunning(tiempo.id, tiempo.etapa) ?: false
+
+                        if (!estaCorriendoEnService) {
+                            val fechaActual = formatearFechaActual()
+                            Log.d("Sync", "⚠️ Inconsistencia: ${tiempo.procesoFolio} - ${tiempo.etapa}, pausando...")
+
+                            pausarTiempo(
+                                PausarTiempoRequest(
+                                    folio = tiempo.procesoFolio,
+                                    etapa = tiempo.etapa,
+                                    tiempo = tiempo.tiempo,
+                                    fechaPausa = fechaActual
+                                )
+                            )
+                        }
+                    }
+                }
+        }
+    }*/
+
 }
 
 /*private val _etapasDisponibles = MutableStateFlow<List<String>>(emptyList())

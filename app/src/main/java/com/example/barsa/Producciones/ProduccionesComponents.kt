@@ -1,7 +1,9 @@
 package com.example.barsa.Producciones
 
 import android.app.DatePickerDialog
+import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,8 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,7 +23,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
@@ -33,7 +36,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,10 +55,10 @@ import androidx.compose.ui.window.Dialog
 import com.example.barsa.R
 import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.Papeleta
+import com.example.barsa.data.retrofit.models.TiempoRemoto
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 /*
@@ -350,14 +352,26 @@ fun PapeletaCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if(papeleta.isRunning)
+                    {
+                        Text(
+                            text = "Etapa(s) activas",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF2196F3)
+                            )
+                        )
+                    }
                 }
                 Row {
                     IconButton(
                         onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
                     IconButton(
                         onClick = {
                             papeletaViewModel.setDetalleActual(detalles)
@@ -365,9 +379,11 @@ fun PapeletaCard(
                                 "selector/${papeleta.tipoId}°${papeleta.folio}°${papeleta.fecha}°${papeleta.status}"
                             onNavigate(route)
                         },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos", tint = Color.Black, modifier = Modifier.background(Color.White))
+                        Icon(painter = painterResource(id = R.drawable.cronometro), contentDescription = "Tiempos", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
                 }
             }

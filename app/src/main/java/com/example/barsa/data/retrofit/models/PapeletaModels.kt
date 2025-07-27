@@ -8,6 +8,7 @@ data class ListadoPapeletasResponse(
 )
 
 data class Papeleta(
+    val isRunning: Boolean,
     val detallepapeleta: List<DetallePapeleta>,
     val status: String,
     val folio: Int,

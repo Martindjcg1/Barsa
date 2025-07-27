@@ -55,12 +55,12 @@ fun BitacoraInventario(
 
     val listState = rememberLazyListState()
 
-    LaunchedEffect(bitacoraInventarioState) {
+    /*LaunchedEffect(bitacoraInventarioState) {
         (bitacoraInventarioState as? UserViewModel.BitacoraInventarioState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
             userViewModel.resetBitacoraInventarioState()
         }
-    }
+    }*/
 
     LaunchedEffect(Unit) {
         userViewModel.getListadoBitacoraInventario()
@@ -188,7 +188,22 @@ fun BitacoraInventario(
                     }
                 }
 
-                is UserViewModel.BitacoraInventarioState.Error -> Unit
+                is UserViewModel.BitacoraInventarioState.Error -> {
+                    val errorMessage = (bitacoraInventarioState as UserViewModel.BitacoraInventarioState.Error).message
+                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Button(onClick = {
+                            userViewModel.resetBitacoraInventarioState()
+                            userViewModel.getListadoBitacoraInventario()
+                        }) {
+                            androidx.compose.material3.Text("Reintentar")
+                        }
+                    }
+                }
             }
 
             if (showDialog) {

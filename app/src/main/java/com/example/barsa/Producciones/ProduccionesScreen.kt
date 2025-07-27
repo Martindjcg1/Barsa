@@ -1,17 +1,18 @@
 package com.example.barsa.Producciones
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,10 +48,10 @@ fun ProduccionesScreen(
     val currentPage by papeletaViewModel.currentPage.collectAsState()
     var showDateDialog by remember { mutableStateOf(false) }
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
+
     LaunchedEffect(Unit) {
-        if (papeletaState !is PapeletaViewModel.PapeletaState.Success) {
-            papeletaViewModel.getListadoPapeletas(page = 1)
-        }
+        papeletaViewModel.resetPapeletaState()
+        papeletaViewModel.getListadoPapeletas(currentPage)
     }
 
 
@@ -77,7 +78,7 @@ fun ProduccionesScreen(
                         onClick = { papeletaViewModel.previousPage() },
                         enabled = currentPage > 1
                     ) {
-                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Anterior")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Anterior")
                     }
 
                     val maxVisiblePages = 4
@@ -115,7 +116,7 @@ fun ProduccionesScreen(
                         onClick = { papeletaViewModel.nextPage() },
                         enabled = currentPage < totalPages
                     ) {
-                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Siguiente")
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Siguiente")
                     }
                 }
 
@@ -144,12 +145,15 @@ fun ProduccionesScreen(
                 {
                     IconButton(
                         onClick = { showDateDialog = true },
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White)
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.detalles), // Usa un ícono que tengas o un ícono por defecto
+                            painter = painterResource(id = R.drawable.barras),
                             contentDescription = "Informe por Periodo",
-                            tint = Color.Black
+                            tint = Color.Black,
+                            modifier = Modifier.size(30.dp)
                         )
                     }
                     if (showDateDialog) {

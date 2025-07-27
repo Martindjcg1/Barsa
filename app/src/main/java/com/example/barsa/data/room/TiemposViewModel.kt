@@ -1,9 +1,13 @@
 package com.example.barsa.data.room
 
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.barsa.data.room.local.Detencion
+//import com.example.barsa.data.room.local.Detencion
 //import com.example.barsa.data.room.local.Proceso
 import com.example.barsa.data.room.local.Tiempo
 import com.example.barsa.data.room.repository.TiemposRepository
@@ -166,6 +170,18 @@ class TiemposViewModel @Inject constructor(
         }
     }
 
+    fun updateIsRunningConInicioByFolio(folio: Int, etapa: String, isRunning: Boolean, inicioTiempo: Long? = null) {
+        viewModelScope.launch {
+            val tiempoId = getTiempoId(folio, etapa).firstOrNull()
+            if (tiempoId != null) {
+                tiemposRepository.updateIsRunningConInicio(tiempoId, isRunning, inicioTiempo)
+            } else {
+                //Log.e("updateIsRunningConInicio", "Tiempo no encontrado para folio=$folio, etapa=$etapa")
+            }
+        }
+    }
+
+
     /*fun upsertProceso(proceso: Proceso) {
         //Log.d("upsertProceso", "Insertando proceso: $proceso")
         viewModelScope.launch {
@@ -235,7 +251,7 @@ class TiemposViewModel @Inject constructor(
         }
     }
 
-    fun getDetencionId(folioTiempo: Int, etapa: String): Flow<Int?> {
+    /*fun getDetencionId(folioTiempo: Int, etapa: String): Flow<Int?> {
         //Log.d("getDetencionId", "Obteniendo ID para id=$id")
         return tiemposRepository.getOneDetencionStream(folioTiempo, etapa)
             .map {
@@ -297,7 +313,7 @@ class TiemposViewModel @Inject constructor(
             Log.d("updateIsActiva", "ID encontrado: $id, isActiva: $isActiva")
             tiemposRepository.setActiva(id, isActiva)
         }
-    }
+    }*/
 
 }
 

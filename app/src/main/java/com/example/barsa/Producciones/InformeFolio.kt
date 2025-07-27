@@ -1,5 +1,6 @@
 package com.example.barsa.Producciones
 
+import android.text.Layout
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,9 +68,14 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.DetencionRemota
 import com.example.barsa.data.retrofit.models.TiempoRemoto
+import com.patrykandpatrick.vico.core.common.component.TextComponent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,22 +127,25 @@ fun InformeFolio(
         navigationIcon = {
             Row {
                 IconButton(onClick = { onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}") }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
                 }
-                if (tiempos.isNotEmpty() && detenciones.isNotEmpty()) {
+                if (tiempos.isNotEmpty()) {
                     IconButton(
                         onClick = { generarPDF(context, Folio, tiempos, detenciones) },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White)
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Icon(painterResource(id = R.drawable.ic_aranceles), contentDescription = "Exportar PDF")
+                        Icon(painterResource(id = R.drawable.ic_aranceles), contentDescription = "Exportar PDF", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
                 }
             }
         },
         actions = {
-            if (detalle.isNotEmpty()) {
-                IconButton(onClick = { showDialog = true }) {
-                    Icon(painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
+            if (detalle.isNotEmpty() && tiempos.isNotEmpty()) {
+                IconButton(onClick = { showDialog = true }, modifier = Modifier
+                    .border(.6.dp, Color(0x11000000), shape = CircleShape), colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)) {
+                    Icon(painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                 }
             }
         }
@@ -212,6 +220,13 @@ fun InformeFolioContenido(
         context.model.extraStore[labelKey].getOrNull(x.toInt()) ?: ""
     }
 
+    val axisTextComponent = TextComponent(
+        color = android.graphics.Color.BLACK,
+        typeface = android.graphics.Typeface.DEFAULT,
+        textSizeSp = 10f,
+        textAlignment = Layout.Alignment.ALIGN_CENTER,
+    )
+
     val tiempoSmartFormatter = DefaultCartesianMarker.ValueFormatter { _, targets ->
         val column = (targets.first() as ColumnCartesianLayerMarkerTarget).columns.first()
         val tiempoSegundos = column.entry.y.toInt()
@@ -233,7 +248,7 @@ fun InformeFolioContenido(
                         )
                     ),
                     startAxis = VerticalAxis.rememberStart(valueFormatter = { _, y, _ -> formatTiempoSmart(y.toInt()) }),
-                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = axisFormatter, itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() }),
+                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = axisFormatter, itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() }, label = axisTextComponent),
                     marker = rememberDefaultCartesianMarker(
                         label = rememberTextComponent(),
                         valueFormatter = tiempoSmartFormatter

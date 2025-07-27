@@ -3,6 +3,7 @@ package com.example.barsa.Producciones
 import android.annotation.SuppressLint
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -106,7 +110,7 @@ fun InformeIndividual(
                 IconButton(onClick = {
                     onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                 }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
                 }
             }
         )
@@ -140,16 +144,18 @@ fun InformeIndividual(
                 IconButton(onClick = {
                     onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                 }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
                 }
             },
             actions = {
                 if (detalle.isNotEmpty()) {
                     IconButton(
                         onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
                 }
             }
@@ -169,16 +175,18 @@ fun InformeIndividual(
                 IconButton(onClick = {
                     onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
                 }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar")
                 }
             },
             actions = {
                 if (detalle.isNotEmpty()) {
                     IconButton(
                         onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                        modifier = Modifier
+                            .border(.6.dp, Color(0x11000000), shape = CircleShape),
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White, contentColor = Color.Black)
                     ) {
-                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White))
+                        Icon(painter = painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles", tint = Color.Black, modifier = Modifier.background(Color.White).size(32.dp))
                     }
                 }
             }

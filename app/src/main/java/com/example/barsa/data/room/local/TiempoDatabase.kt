@@ -11,15 +11,17 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         //Proceso::class,
-        Tiempo::class, Detencion::class],
-    version = 8,
+        Tiempo::class,
+        //Detencion::class
+               ],
+    version = 10,
     exportSchema = false
 )
 abstract class TiempoDatabase : RoomDatabase() {
 
     //abstract fun procesoDao(): ProcesoDao
     abstract fun tiempoDao(): TiempoDao
-    abstract fun detencionDao(): DetencionDao
+   // abstract fun detencionDao(): DetencionDao
 
     companion object {
         @Volatile

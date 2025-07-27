@@ -1,5 +1,6 @@
 package com.example.barsa.Navegator
 
+import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
@@ -56,21 +57,46 @@ fun MainNavigator(
     papeletaViewModel: PapeletaViewModel,
     inventoryViewModel: InventoryViewModel,
     notificationViewModel: NotificationViewModel,
-    networkMonitor: NetworkMonitor
+    networkMonitor: NetworkMonitor,
+    intent: Intent
 ) {
     val navController = rememberNavController()
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
     var currentRoute by remember { mutableStateOf("") }
+
+    LaunchedEffect(intent?.action) {
+        if (intent?.action == "ABRIR_CRONOMETRO") {
+            val tipoId = intent.getStringExtra("tipoId") ?: ""
+            val folio = intent.getIntExtra("folio", 0)
+            val fecha = intent.getStringExtra("fecha") ?: ""
+            val status = intent.getStringExtra("status") ?: ""
+            val etapa = intent.getStringExtra("etapa") ?: ""
+            val isRun = intent.getBooleanExtra("isRun", false)
+            currentRoute = "cronometro/$tipoId°$folio°$fecha°$status°$etapa°$isRun"
+        }
+    }
 
     // Estados para manejar el auto-login
     val accessToken by userViewModel.tokenManager.accessTokenFlow.collectAsState(initial = "")
     var isCheckingToken by remember { mutableStateOf(true) }
     var shouldAutoLogin by remember { mutableStateOf(false) }
 
-    if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador")) {
-        currentRoute = "inventario"
-    } else if (rol.equals("Produccion")) {
-        currentRoute = "producciones"
+    LaunchedEffect(rol, intent) {
+        if (intent?.action == "ABRIR_CRONOMETRO") {
+            val tipoId = intent.getStringExtra("tipoId") ?: ""
+            val folio = intent.getIntExtra("folio", 0)
+            val fecha = intent.getStringExtra("fecha") ?: ""
+            val status = intent.getStringExtra("status") ?: ""
+            val etapa = intent.getStringExtra("etapa") ?: ""
+            val isRun = intent.getBooleanExtra("isRun", false)
+            currentRoute = "cronometro/$tipoId°$folio°$fecha°$status°$etapa°$isRun"
+        } else {
+            if (rol.equals("Administrador") || rol.equals("Inventarios") || rol.equals("SuperAdministrador")) {
+                currentRoute = "inventario"
+            } else if (rol.equals("Produccion")) {
+                currentRoute = "producciones"
+            }
+        }
     }
 
     var showNotifications by remember { mutableStateOf(false) }
@@ -251,15 +277,16 @@ fun MainNavigator(
 
         // Agregando ruta de la vista de cronometro
         composable(
-            "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}"
+            "cronometro/{TipoId}/{Folio}/{Fecha}/{Status}/{Etapa}/{isRun}"
         ) { backStackEntry ->
             val TipoId = backStackEntry.arguments?.getString("TipoId") ?: ""
             val Folio = backStackEntry.arguments?.getString("Folio")?.toIntOrNull() ?: 0
             val Fecha = backStackEntry.arguments?.getString("Fecha") ?: ""
             val Status = backStackEntry.arguments?.getString("Status") ?: ""
             val Etapa = backStackEntry.arguments?.getString("Etapa") ?: ""
+            val isRun = backStackEntry.arguments?.getString("isRun")?.toBooleanStrictOrNull() ?: false
 
-            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel, networkMonitor)
+            CronometroScreen(TipoId, Folio, Fecha, Status, Etapa, isRun, onNavigate = { route -> navController.navigate(route) }, tiemposViewModel, papeletaViewModel, userViewModel, networkMonitor)
         }
 
         composable("selector/{TipoId}/{Folio}/{Fecha}/{Status}") { backStackEntry ->

@@ -39,9 +39,11 @@ data class Tiempo(
     val tiempo: Int,
     val fechaInicio: Long,
     val fechaFin: Long,
+    val inicioTiempo: Long? = null, // Fecha en la que se presiono iniciar para reanudar el conteo de un tiempo
     val isRunning: Boolean = false,
     val isFinished: Boolean = false
 )
+/*
 @Entity(
     tableName = "detenciones",
     foreignKeys = [
@@ -64,4 +66,4 @@ data class Detencion(
     val motivo: String,
     val fecha: Long,
     val activa: Boolean = false
-)
+)*/

@@ -2,7 +2,7 @@ package com.example.barsa.data.room.di
 
 import android.app.Application
 import androidx.room.Room
-import com.example.barsa.data.room.local.DetencionDao
+//import com.example.barsa.data.room.local.DetencionDao
 //import com.example.barsa.data.room.local.ProcesoDao
 import dagger.Module
 import com.example.barsa.data.room.local.TiempoDao
@@ -28,6 +28,6 @@ object DatabaseModule {
     @Provides
     fun provideTiempoDao(database: TiempoDatabase): TiempoDao = database.tiempoDao()
 
-    @Provides
-    fun provideDetencionDao(database: TiempoDatabase): DetencionDao = database.detencionDao()
+    //@Provides
+    //fun provideDetencionDao(database: TiempoDatabase): DetencionDao = database.detencionDao()
 }
