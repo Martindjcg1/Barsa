@@ -1,6 +1,9 @@
 package com.example.barsa.data.retrofit.models
 
 import com.google.gson.annotations.SerializedName
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 // Modelo para la información de imagen que devuelve el servidor
 data class ImageInfo(
     val url: String? = null,
@@ -333,3 +336,8 @@ data class DeleteMaterialResponse(
 data class DeleteMaterialBody(
     val message: String
 )
+
+
+
+
+

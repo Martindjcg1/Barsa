@@ -118,7 +118,6 @@ fun ModernNotificationBox(
                                 CircleShape
                             )
                     )
-
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -153,7 +152,6 @@ fun ModernNotificationBox(
                                 )
                             }
                         }
-
                         Row {
                             IconButton(
                                 onClick = onRefresh,
@@ -189,7 +187,6 @@ fun ModernNotificationBox(
                         }
                     }
                 }
-
                 // Content
                 Box(
                     modifier = Modifier
@@ -233,9 +230,9 @@ fun ModernNotificationBox(
                                         )
                                     }
                                 }
-
                                 NotificationsList(
-                                    notifications = notificationsState.notifications,
+                                    // Ordena las notificaciones por timestamp en orden descendente
+                                    notifications = notificationsState.notifications.sortedByDescending { it.timestamp },
                                     onDismiss = onDismissNotification,
                                     onMarkAsRead = onMarkAsRead
                                 )
@@ -411,7 +408,6 @@ fun ModernNotificationItem(
         NotificationPriority.MEDIUM -> Color(0xFF3182CE)
         NotificationPriority.LOW -> Color(0xFF38A169)
     }
-
     val typeIcon = when (notification.type) {
         NotificationType.STOCK_CRITICAL -> Icons.Default.Warning
         NotificationType.STOCK_LOW -> Icons.Default.List
@@ -420,7 +416,6 @@ fun ModernNotificationItem(
         NotificationType.WARNING -> Icons.Default.Warning
         NotificationType.INFO -> Icons.Default.Info
     }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -463,9 +458,7 @@ fun ModernNotificationItem(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-
                 Spacer(modifier = Modifier.width(16.dp))
-
                 // Content
                 Column(
                     modifier = Modifier.weight(1f)
@@ -482,7 +475,6 @@ fun ModernNotificationItem(
                             color = Color(0xFF2D3748),
                             modifier = Modifier.weight(1f)
                         )
-
                         if (!notification.isRead) {
                             Box(
                                 modifier = Modifier
@@ -491,18 +483,14 @@ fun ModernNotificationItem(
                             )
                         }
                     }
-
                     Spacer(modifier = Modifier.height(4.dp))
-
                     Text(
                         text = notification.area,
                         style = MaterialTheme.typography.labelMedium,
                         color = priorityColor,
                         fontWeight = FontWeight.Medium
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
                         text = notification.message,
                         style = MaterialTheme.typography.bodyMedium,
@@ -510,7 +498,6 @@ fun ModernNotificationItem(
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
-
                     // Metadata
                     notification.metadata?.let { metadata ->
                         if (metadata.codigo != null || metadata.existencia != null) {
@@ -540,7 +527,6 @@ fun ModernNotificationItem(
                                             )
                                         }
                                     }
-
                                     if (metadata.existencia != null && metadata.minimo != null) {
                                         Row {
                                             Text(
@@ -561,9 +547,7 @@ fun ModernNotificationItem(
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(16.dp))
-
                     // Actions - CORREGIDO: Layout mejorado para evitar cortes
                     Column(
                         modifier = Modifier.fillMaxWidth()
@@ -575,7 +559,6 @@ fun ModernNotificationItem(
                             color = Color.Gray,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
-
                         // Botones de acción en columna para evitar cortes
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -603,7 +586,6 @@ fun ModernNotificationItem(
                                     )
                                 }
                             }
-
                             Button(
                                 onClick = onDismiss,
                                 modifier = Modifier.weight(1f),

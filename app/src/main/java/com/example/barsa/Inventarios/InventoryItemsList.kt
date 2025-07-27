@@ -110,12 +110,12 @@ fun InventoryItemsList(
                 "Cubetas" -> "cubeta"
                 "Telas" -> "tela"
                 "Cascos" -> "casco"
-                "Herramientas" -> "herramienta"
+                "Herramientas" -> "Llave"
                 "Bisagras y Herrajes" -> "bisagra"
                 "Pernos y Sujetadores" -> "perno"
                 "Cintas y Adhesivos" -> "cinta"
                 "Separadores y Accesorios de Cristal" -> "cristal"
-                "Cubrecantos y Acabados" -> "cubrecanto"
+                "Cubrecantos y Acabados" -> "cubre canto"
                 else -> null
             }
         }

@@ -7,12 +7,16 @@ import com.example.barsa.data.retrofit.models.ApiWrapperResponse
 import com.example.barsa.data.retrofit.models.BitacoraListadoInventario
 import com.example.barsa.data.retrofit.models.BitacoraListadoProduccion
 import com.example.barsa.data.retrofit.models.CreateMaterialResponse
+import com.example.barsa.data.retrofit.models.CreateMovementRequest
+import com.example.barsa.data.retrofit.models.CreateMovementResponseWrapper
 import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
 import com.example.barsa.data.retrofit.models.DetencionRemota
 
 import com.example.barsa.data.retrofit.models.DetencionTiempoRequest
 import com.example.barsa.data.retrofit.models.FinalizarTiempoRequest
 import com.example.barsa.data.retrofit.models.IniciarTiempoRequest
+
+import com.example.barsa.data.retrofit.models.InventoryMovementsPaginationResponse
 import com.example.barsa.data.retrofit.models.InventoryPaginationResponse
 import com.example.barsa.data.retrofit.models.ListadoPapeletasResponse
 import com.example.barsa.data.retrofit.models.ListadoTiemposResponse
@@ -155,6 +159,21 @@ interface InventoryApiService {
         @Query("borrado") borrado: String? = null
     ): InventoryPaginationResponse
 
+    // NUEVO: Endpoint unificado para obtener listado de movimientos
+    @GET("inventario/materia/movimiento-listado")
+    suspend fun getInventoryMovements(
+        @Header("Authorization") token: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10,
+        @Query("folio") folio: String? = null,
+        @Query("notes") notes: String? = null,
+        @Query("usuario") usuario: String? = null,
+        @Query("codigoMat") codigoMat: String? = null,
+        @Query("descripcion") descripcion: String? = null,
+        @Query("fechaInicio") fechaInicio: String? = null,
+        @Query("fechaFin") fechaFin: String? = null
+    ): InventoryMovementsPaginationResponse
+
     @Multipart
     @POST("materia/crear-materia")
     suspend fun createMaterial(
@@ -192,13 +211,25 @@ interface InventoryApiService {
         @Part imagenes: List<MultipartBody.Part>? = null // Múltiples archivos con el mismo nombre "imagenes"
     ): UpdateMaterialResponse
 
-
     @DELETE("materia/borrar-materia/{codigoMat}")
     suspend fun deleteMaterial(
         @Header("Authorization") token: String,
         @Path("codigoMat") codigoMat: String
     ): Response<DeleteMaterialResponse>
+
+
+    @POST("inventario/materia/movimiento")
+    suspend fun createMovement(
+        @Header("Authorization") token: String,
+        @Body request: CreateMovementRequest
+    ): CreateMovementResponseWrapper
 }
+
+
+
+
+
+
 
 
 interface NotificationApiService {

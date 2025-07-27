@@ -15,15 +15,23 @@ import com.example.barsa.data.retrofit.repository.InventoryRepository
 import javax.inject.Inject
 import android.content.Context
 import android.net.Uri
+import com.example.barsa.data.retrofit.models.CreateMovementDetail
+import com.example.barsa.data.retrofit.models.CreateMovementResponseWrapper
 import com.example.barsa.data.retrofit.models.DeleteMaterialResponse
+import com.example.barsa.data.retrofit.models.InventoryMovementHeader
+import com.example.barsa.data.retrofit.models.InventoryMovementsPaginationResponse
+
 import com.example.barsa.data.retrofit.models.UpdateMaterialResponse
+import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
     private val inventoryRepository: InventoryRepository,
     val tokenManager: TokenManager
 ) : ViewModel() {
-
     // ==================== SEALED CLASSES ====================
     sealed class InventoryState {
         object Initial : InventoryState()
@@ -60,6 +68,22 @@ class InventoryViewModel @Inject constructor(
         data class Error(val message: String) : DeleteMaterialState()
     }
 
+    // ==================== SEALED CLASS PARA MOVIMIENTOS ====================
+    sealed class InventoryMovementsState {
+        object Initial : InventoryMovementsState()
+        object Loading : InventoryMovementsState()
+        data class Success(val response: InventoryMovementsPaginationResponse) : InventoryMovementsState()
+        data class Error(val message: String) : InventoryMovementsState()
+    }
+
+    // ==================== SEALED CLASS PARA CREAR MOVIMIENTO ====================
+    sealed class CreateMovementState {
+        object Initial : CreateMovementState()
+        object Loading : CreateMovementState()
+        data class Success(val response: CreateMovementResponseWrapper) : CreateMovementState()
+        data class Error(val message: String) : CreateMovementState()
+    }
+
     // ==================== STATE FLOWS ====================
     private val _inventoryState = MutableStateFlow<InventoryState>(InventoryState.Initial)
     val inventoryState: StateFlow<InventoryState> = _inventoryState
@@ -79,6 +103,14 @@ class InventoryViewModel @Inject constructor(
     private val _allItemsState = MutableStateFlow<Result<List<InventoryItem>>?>(null)
     val allItemsState: StateFlow<Result<List<InventoryItem>>?> = _allItemsState
 
+    // ==================== STATE FLOW PARA MOVIMIENTOS ====================
+    private val _inventoryMovementsState = MutableStateFlow<InventoryMovementsState>(InventoryMovementsState.Initial)
+    val inventoryMovementsState: StateFlow<InventoryMovementsState> = _inventoryMovementsState
+
+    // ==================== STATE FLOW PARA CREAR MOVIMIENTO ====================
+    private val _createMovementState = MutableStateFlow<CreateMovementState>(CreateMovementState.Initial)
+    val createMovementState: StateFlow<CreateMovementState> = _createMovementState
+
     // Variables para el manejo de paginación
     private val _currentPage = MutableStateFlow(1)
     val currentPage: StateFlow<Int> = _currentPage
@@ -86,20 +118,49 @@ class InventoryViewModel @Inject constructor(
     private val _itemsPerPage = MutableStateFlow(10)
     val itemsPerPage: StateFlow<Int> = _itemsPerPage
 
-    // ==================== FUNCIONES AUXILIARES PARA MANEJO SEGURO DE NULLS ====================
+    // ==================== FUNCIONES AUXILIARES SEGURAS MEJORADAS ====================
+    private fun safeString(value: String?): String {
+        return try {
+            value?.trim()?.takeIf { it.isNotBlank() } ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun safeOptionalString(value: String?): String? {
+        return try {
+            value?.trim()?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // CORREGIDO: Funciones auxiliares más seguras
     private fun String?.safeTrim(): String {
-        return this?.trim() ?: ""
+        return try {
+            this?.trim() ?: ""
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     private fun String?.safeIsNotBlank(): Boolean {
-        return this?.isNotBlank() == true
+        return try {
+            this?.isNotBlank() == true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun String?.safeToCleanString(): String? {
-        return this?.trim()?.takeIf { it.isNotBlank() }
+        return try {
+            this?.trim()?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
+        }
     }
 
-    // ==================== FUNCIONES PRINCIPALES ====================
+    // ==================== FUNCIONES PRINCIPALES DE INVENTARIO ====================
     fun getInventoryItems(
         page: Int = 1,
         limit: Int = 10,
@@ -113,18 +174,16 @@ class InventoryViewModel @Inject constructor(
             Log.d("InventoryViewModel", "Iniciando getInventoryItems - Página: $page")
             _inventoryState.value = InventoryState.Loading
             _currentPage.value = page
-
             try {
                 val result = inventoryRepository.getInventoryItems(
                     page = page,
                     limit = limit,
-                    codigoMat = codigoMat.safeToCleanString(),
-                    descripcion = descripcion.safeToCleanString(),
-                    unidad = unidad.safeToCleanString(),
-                    proceso = proceso.safeToCleanString(),
-                    borrado = borrado.safeToCleanString()
+                    codigoMat = safeOptionalString(codigoMat),
+                    descripcion = safeOptionalString(descripcion),
+                    unidad = safeOptionalString(unidad),
+                    proceso = safeOptionalString(proceso),
+                    borrado = safeOptionalString(borrado)
                 )
-
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "GetInventoryItems exitoso - ${response.data.size} items")
                     // Log detallado usando propiedades seguras
@@ -133,13 +192,11 @@ class InventoryViewModel @Inject constructor(
                         Log.d("InventoryViewModel", "    Stock: ${item.existenciaFormateada}, Estado: ${item.estadoStock}")
                         Log.d("InventoryViewModel", "    Precio: ${item.precioFormateado}, Imágenes: ${if (item.tieneImagenes) "Sí" else "No"}")
                     }
-
                     // Estadísticas usando propiedades seguras
                     val itemsConImagenes = response.data.count { it.tieneImagenes }
                     val itemsStockBajo = response.data.count { it.estadoStock == "Stock bajo" }
                     val itemsSinStock = response.data.count { it.estadoStock == "Sin stock" }
                     Log.d("InventoryViewModel", "Estadísticas - Con imágenes: $itemsConImagenes, Stock bajo: $itemsStockBajo, Sin stock: $itemsSinStock")
-
                     _inventoryState.value = InventoryState.Success(response)
                 }.onFailure { error ->
                     Log.e("InventoryViewModel", "GetInventoryItems falló: ${error.message}")
@@ -162,7 +219,7 @@ class InventoryViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             // Validar query de forma segura
-            val cleanQuery = query.safeToCleanString()
+            val cleanQuery = safeOptionalString(query)
             if (cleanQuery == null) {
                 Log.w("InventoryViewModel", "Query de búsqueda vacío o null")
                 _searchState.value = SearchState.Error("Consulta de búsqueda vacía")
@@ -171,8 +228,8 @@ class InventoryViewModel @Inject constructor(
 
             Log.d("InventoryViewModel", "Buscando items: '$cleanQuery' - Página: $page")
             Log.d("InventoryViewModel", "Buscar en código: $searchInCode, Buscar en descripción: $searchInDescription")
-            _searchState.value = SearchState.Loading
 
+            _searchState.value = SearchState.Loading
             try {
                 val result = inventoryRepository.searchInventoryItems(
                     query = cleanQuery,
@@ -181,7 +238,6 @@ class InventoryViewModel @Inject constructor(
                     searchInCode = searchInCode,
                     searchInDescription = searchInDescription
                 )
-
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda exitosa - ${response.data.size} items encontrados")
                     // Log detallado de resultados usando propiedades seguras
@@ -225,7 +281,7 @@ class InventoryViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             // Validar código de forma segura
-            val cleanCode = code.safeToCleanString()
+            val cleanCode = safeOptionalString(code)
             if (cleanCode == null) {
                 Log.w("InventoryViewModel", "Código de búsqueda vacío o null")
                 _searchState.value = SearchState.Error("Código de búsqueda vacío")
@@ -234,7 +290,6 @@ class InventoryViewModel @Inject constructor(
 
             Log.d("InventoryViewModel", "Buscando por código: '$cleanCode'")
             _searchState.value = SearchState.Loading
-
             try {
                 val result = inventoryRepository.searchByCode(cleanCode, page, limit)
                 result.onSuccess { response ->
@@ -263,7 +318,7 @@ class InventoryViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             // Validar descripción de forma segura
-            val cleanDescription = description.safeToCleanString()
+            val cleanDescription = safeOptionalString(description)
             if (cleanDescription == null) {
                 Log.w("InventoryViewModel", "Descripción de búsqueda vacía o null")
                 _searchState.value = SearchState.Error("Descripción de búsqueda vacía")
@@ -272,7 +327,6 @@ class InventoryViewModel @Inject constructor(
 
             Log.d("InventoryViewModel", "Buscando por descripción: '$cleanDescription'")
             _searchState.value = SearchState.Loading
-
             try {
                 val result = inventoryRepository.searchByDescription(cleanDescription, page, limit)
                 result.onSuccess { response ->
@@ -308,19 +362,17 @@ class InventoryViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("InventoryViewModel", "Búsqueda avanzada - Query: '$query', Código: '$codigoMat', Descripción: '$descripcion'")
             _searchState.value = SearchState.Loading
-
             try {
                 val result = inventoryRepository.advancedSearch(
-                    query = query.safeToCleanString(),
-                    codigoMat = codigoMat.safeToCleanString(),
-                    descripcion = descripcion.safeToCleanString(),
-                    unidad = unidad.safeToCleanString(),
-                    proceso = proceso.safeToCleanString(),
-                    borrado = borrado.safeToCleanString(),
+                    query = safeOptionalString(query),
+                    codigoMat = safeOptionalString(codigoMat),
+                    descripcion = safeOptionalString(descripcion),
+                    unidad = safeOptionalString(unidad),
+                    proceso = safeOptionalString(proceso),
+                    borrado = safeOptionalString(borrado),
                     page = page,
                     limit = limit
                 )
-
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "Búsqueda avanzada exitosa - ${response.data.size} items encontrados")
                     // Log detallado usando propiedades seguras
@@ -344,8 +396,7 @@ class InventoryViewModel @Inject constructor(
     // Función para búsqueda local (en datos ya cargados) - útil para filtrado rápido
     fun searchInCurrentData(query: String?): List<InventoryItem> {
         val currentData = getCurrentInventoryData()
-        val cleanQuery = query.safeToCleanString()
-
+        val cleanQuery = safeOptionalString(query)
         return if (cleanQuery == null) {
             currentData
         } else {
@@ -356,7 +407,6 @@ class InventoryViewModel @Inject constructor(
                         item.procesoSafe.contains(cleanQuery, ignoreCase = true) ||
                         item.unidadSafe.contains(cleanQuery, ignoreCase = true)
             }
-
             // Log de resultados de búsqueda local
             Log.d("InventoryViewModel", "Búsqueda local '$cleanQuery' - ${filteredItems.size} de ${currentData.size} items")
             filteredItems.forEach { item ->
@@ -366,6 +416,461 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
+    // ==================== FUNCIONES PARA MOVIMIENTOS DE INVENTARIO ====================
+    fun getInventoryMovements(
+        page: Int = 1,
+        limit: Int = 10,
+        folio: String? = null,
+        notes: String? = null,
+        usuario: String? = null,
+        codigoMat: String? = null,
+        descripcion: String? = null,
+        fechaInicio: String? = null,
+        fechaFin: String? = null
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Iniciando getInventoryMovements - Página: $page")
+            _inventoryMovementsState.value = InventoryMovementsState.Loading
+            try {
+                val result = inventoryRepository.getInventoryMovements(
+                    page = page,
+                    limit = limit,
+                    folio = safeOptionalString(folio),
+                    notes = safeOptionalString(notes),
+                    usuario = safeOptionalString(usuario),
+                    codigoMat = safeOptionalString(codigoMat),
+                    descripcion = safeOptionalString(descripcion),
+                    fechaInicio = safeOptionalString(fechaInicio),
+                    fechaFin = safeOptionalString(fechaFin)
+                )
+                result.onSuccess { response ->
+                    Log.d("InventoryViewModel", "GetInventoryMovements exitoso - ${response.data.size} movimientos")
+                    // Log detallado usando propiedades seguras
+                    response.data.forEach { movement ->
+                        Log.d("InventoryViewModel", "  ${movement.tipoMovimiento}: Consecutivo ${movement.consecutivoSafe}")
+                        Log.d("InventoryViewModel", "    Usuario: ${movement.usuarioSafe}, Fecha: ${movement.fechaFormateada}")
+                        Log.d("InventoryViewModel", "    Detalles: ${movement.detallesSafe.size} items, Total: ${movement.valorTotalFormateado}")
+                    }
+                    // Estadísticas usando propiedades seguras
+                    val entradas = response.data.count { it.isEntry }
+                    val salidas = response.data.count { it.isExit }
+                    val procesados = response.data.count { it.procesadaSafe }
+                    val conObservaciones = response.data.count { it.tieneObservacion }
+                    Log.d("InventoryViewModel", "Estadísticas - Entradas: $entradas, Salidas: $salidas")
+                    Log.d("InventoryViewModel", "Procesados: $procesados, Con observaciones: $conObservaciones")
+                    _inventoryMovementsState.value = InventoryMovementsState.Success(response)
+                }.onFailure { error ->
+                    Log.e("InventoryViewModel", "GetInventoryMovements falló: ${error.message}")
+                    _inventoryMovementsState.value = InventoryMovementsState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "Exception en getInventoryMovements ViewModel", e)
+                _inventoryMovementsState.value = InventoryMovementsState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // Búsqueda por usuario
+    fun searchMovementsByUser(
+        usuario: String?,
+        page: Int = 1,
+        limit: Int = 10
+    ) {
+        viewModelScope.launch {
+            val cleanUsuario = safeOptionalString(usuario)
+            if (cleanUsuario == null) {
+                Log.w("InventoryViewModel", "Usuario de búsqueda vacío")
+                _inventoryMovementsState.value = InventoryMovementsState.Error("Usuario de búsqueda vacío")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Buscando movimientos por usuario: '$cleanUsuario'")
+            _inventoryMovementsState.value = InventoryMovementsState.Loading
+            try {
+                val result = inventoryRepository.searchMovementsByUser(cleanUsuario, page, limit)
+                result.onSuccess { response ->
+                    Log.d("InventoryViewModel", "Búsqueda por usuario exitosa - ${response.data.size} movimientos")
+                    response.data.forEach { movement ->
+                        Log.d("InventoryViewModel", "  ${movement.tipoMovimiento}: ${movement.consecutivoSafe} (${movement.fechaFormateada})")
+                    }
+                    _inventoryMovementsState.value = InventoryMovementsState.Success(response)
+                }.onFailure { error ->
+                    Log.e("InventoryViewModel", "Búsqueda por usuario falló: ${error.message}")
+                    _inventoryMovementsState.value = InventoryMovementsState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "Exception en searchMovementsByUser", e)
+                _inventoryMovementsState.value = InventoryMovementsState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // Búsqueda por rango de fechas
+    fun searchMovementsByDateRange(
+        fechaInicio: String?,
+        fechaFin: String?,
+        page: Int = 1,
+        limit: Int = 10
+    ) {
+        viewModelScope.launch {
+            val cleanFechaInicio = safeOptionalString(fechaInicio)
+            val cleanFechaFin = safeOptionalString(fechaFin)
+
+            if (cleanFechaInicio == null && cleanFechaFin == null) {
+                Log.w("InventoryViewModel", "Fechas de búsqueda vacías")
+                _inventoryMovementsState.value = InventoryMovementsState.Error("Debe especificar al menos una fecha")
+                return@launch
+            }
+
+            Log.d("InventoryViewModel", "Buscando movimientos por fechas: $cleanFechaInicio - $cleanFechaFin")
+            _inventoryMovementsState.value = InventoryMovementsState.Loading
+            try {
+                val result = inventoryRepository.searchMovementsByDateRange(
+                    fechaInicio = cleanFechaInicio ?: "",
+                    fechaFin = cleanFechaFin ?: "",
+                    page = page,
+                    limit = limit
+                )
+                result.onSuccess { response ->
+                    Log.d("InventoryViewModel", "Búsqueda por fechas exitosa - ${response.data.size} movimientos")
+                    _inventoryMovementsState.value = InventoryMovementsState.Success(response)
+                }.onFailure { error ->
+                    Log.e("InventoryViewModel", "Búsqueda por fechas falló: ${error.message}")
+                    _inventoryMovementsState.value = InventoryMovementsState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "Exception en searchMovementsByDateRange", e)
+                _inventoryMovementsState.value = InventoryMovementsState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // ==================== FUNCIONES PARA CREAR MOVIMIENTO CORREGIDAS ====================
+    fun createMovement(
+        folio: Int,
+        movId: Int,
+        fecha: String,
+        detalles: List<CreateMovementDetail>,
+        observacion: String = "",
+        autoriza: String = "",
+        procesada: Boolean = false
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "=== INICIANDO CREATE MOVEMENT DESDE VIEWMODEL ===")
+            Log.d("InventoryViewModel", "Folio: $folio, MovId: $movId, Fecha: $fecha")
+            Log.d("InventoryViewModel", "Detalles: ${detalles.size}, Observación: '$observacion'")
+
+            _createMovementState.value = CreateMovementState.Loading
+            try {
+                val result = inventoryRepository.createMovement(
+                    folio = folio,
+                    movId = movId,
+                    fecha = safeString(fecha).takeIf { it.isNotBlank() } ?: getCurrentDateForMovement(),
+                    detalles = detalles,
+                    observacion = safeString(observacion),
+                    autoriza = safeString(autoriza),
+                    procesada = procesada
+                )
+                result.onSuccess { response ->
+                    Log.d("InventoryViewModel", "✅ CreateMovement exitoso: ${response.message}")
+                    _createMovementState.value = CreateMovementState.Success(response)
+                }.onFailure { error ->
+                    Log.e("InventoryViewModel", "❌ CreateMovement falló: ${error.message}")
+                    _createMovementState.value = CreateMovementState.Error(error.message ?: "Error desconocido")
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "💥 Exception en createMovement ViewModel", e)
+                _createMovementState.value = CreateMovementState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // ✅ FUNCIÓN CORREGIDA PARA CREAR MOVIMIENTO DESDE ITEMS SELECCIONADOS
+    fun createMovementFromSelectedItems(
+        folio: Int,
+        movId: Int,
+        fecha: String,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = "",
+        procesada: Boolean = false
+    ) {
+        viewModelScope.launch {
+            try {
+                Log.d("InventoryViewModel", "=== CREANDO MOVIMIENTO DESDE ITEMS SELECCIONADOS ===")
+                Log.d("InventoryViewModel", "Items: ${selectedItems.size}")
+
+                // ✅ VALIDACIÓN MEJORADA DE PARÁMETROS
+                val validationError = validateMovementData(folio, movId, selectedItems)
+                if (validationError != null) {
+                    Log.e("InventoryViewModel", "❌ Error de validación: $validationError")
+                    _createMovementState.value = CreateMovementState.Error(validationError)
+                    return@launch
+                }
+
+                // NUEVO: Validación más robusta de parámetros
+                val safeObservacion = safeString(observacion)
+                val safeAutoriza = safeString(autoriza)
+                val safeFecha = safeString(fecha).takeIf { it.isNotEmpty() }
+                    ?: getCurrentDateForMovement()
+
+                Log.d("InventoryViewModel", "📋 Parámetros validados:")
+                Log.d("InventoryViewModel", "  📌 Folio: $folio")
+                Log.d("InventoryViewModel", "  📌 MovId: $movId")
+                Log.d("InventoryViewModel", "  📌 Fecha: $safeFecha")
+                Log.d("InventoryViewModel", "  📌 Observación: '$safeObservacion'")
+                Log.d("InventoryViewModel", "  📌 Autoriza: '$safeAutoriza'")
+                Log.d("InventoryViewModel", "  📌 Procesada: $procesada")
+
+                _createMovementState.value = CreateMovementState.Loading
+
+                val result = inventoryRepository.createMovementFromInventoryItems(
+                    folio = folio,
+                    movId = movId,
+                    fecha = safeFecha,
+                    selectedItems = selectedItems,
+                    observacion = safeObservacion,
+                    autoriza = safeAutoriza,
+                    procesada = procesada
+                )
+
+                result.onSuccess { response ->
+                    Log.d("InventoryViewModel", "✅ CreateMovement desde items exitoso: ${response.message}")
+                    _createMovementState.value = CreateMovementState.Success(response)
+
+                    // Opcional: recargar los movimientos para mostrar el nuevo
+                    delay(500)
+                    getInventoryMovements(page = 1, limit = 10)
+
+                }.onFailure { error ->
+                    Log.e("InventoryViewModel", "❌ CreateMovement desde items falló: ${error.message}")
+
+                    // ✅ MANEJO ESPECÍFICO DE ERRORES
+                    val errorMessage = when {
+                        error.message?.contains("folio de papeleta no existe", ignoreCase = true) == true -> {
+                            "El folio de papeleta $folio no existe. Verifica el número e intenta nuevamente."
+                        }
+                        error.message?.contains("Token de acceso no disponible") == true -> {
+                            "Sesión expirada. Por favor, inicia sesión nuevamente."
+                        }
+                        error.message?.contains("Fallo de conexión") == true -> {
+                            "Sin conexión a internet. Verifica tu red e intenta nuevamente."
+                        }
+                        error.message?.contains("Stock insuficiente", ignoreCase = true) == true -> {
+                            error.message ?: "Stock insuficiente. Verifica las cantidades disponibles."
+                        }
+                        else -> error.message ?: "Error desconocido al crear el movimiento"
+                    }
+
+                    _createMovementState.value = CreateMovementState.Error(errorMessage)
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "💥 Exception en createMovementFromSelectedItems", e)
+                _createMovementState.value = CreateMovementState.Error("Error inesperado: ${e.message}")
+            }
+        }
+    }
+
+    // ==================== NUEVAS FUNCIONES PARA MOVIMIENTOS ESPECÍFICOS ====================
+    // Función para crear salida de almacén (movId = 5)
+    fun createExitMovement(
+        folio: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = ""
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Creando salida de almacén")
+            Log.d("InventoryViewModel", "Folio: $folio, Items: ${selectedItems.size}")
+            // Validar stock antes de crear el movimiento
+            val stockValidation = validateStockForExit(selectedItems)
+            if (stockValidation != null) {
+                Log.e("InventoryViewModel", "Validación de stock falló: $stockValidation")
+                _createMovementState.value = CreateMovementState.Error(stockValidation)
+                return@launch
+            }
+            createMovementFromSelectedItems(
+                folio = folio,
+                movId = 5, // Salida de almacén
+                fecha = getCurrentDateForMovement(),
+                selectedItems = selectedItems,
+                observacion = safeString(observacion),
+                autoriza = safeString(autoriza),
+                procesada = false
+            )
+        }
+    }
+
+    // Función para crear entrada de almacén (movId = 4)
+    fun createEntryMovement(
+        folio: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = ""
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Creando entrada de almacén")
+            Log.d("InventoryViewModel", "Folio: $folio, Items: ${selectedItems.size}")
+            createMovementFromSelectedItems(
+                folio = folio,
+                movId = 4, // Entrada de almacén
+                fecha = getCurrentDateForMovement(),
+                selectedItems = selectedItems,
+                observacion = safeString(observacion),
+                autoriza = safeString(autoriza),
+                procesada = false
+            )
+        }
+    }
+
+    // Función para crear devolución de cliente (movId = 1)
+    fun createClientReturnMovement(
+        folio: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = ""
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Creando devolución de cliente")
+            Log.d("InventoryViewModel", "Folio: $folio, Items: ${selectedItems.size}")
+            createMovementFromSelectedItems(
+                folio = folio,
+                movId = 1, // Devolución de cliente
+                fecha = getCurrentDateForMovement(),
+                selectedItems = selectedItems,
+                observacion = safeString(observacion),
+                autoriza = safeString(autoriza),
+                procesada = false
+            )
+        }
+    }
+
+    // Función para crear devolución a proveedor (movId = 2)
+    fun createSupplierReturnMovement(
+        folio: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = ""
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Creando devolución a proveedor")
+            Log.d("InventoryViewModel", "Folio: $folio, Items: ${selectedItems.size}")
+            // Validar stock antes de crear el movimiento
+            val stockValidation = validateStockForExit(selectedItems)
+            if (stockValidation != null) {
+                Log.e("InventoryViewModel", "Validación de stock falló: $stockValidation")
+                _createMovementState.value = CreateMovementState.Error(stockValidation)
+                return@launch
+            }
+            createMovementFromSelectedItems(
+                folio = folio,
+                movId = 2, // Devolución a proveedor
+                fecha = getCurrentDateForMovement(),
+                selectedItems = selectedItems,
+                observacion = safeString(observacion),
+                autoriza = safeString(autoriza),
+                procesada = false
+            )
+        }
+    }
+
+    // Función para crear devolución a almacén (movId = 3)
+    fun createWarehouseReturnMovement(
+        folio: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>,
+        observacion: String = "",
+        autoriza: String = ""
+    ) {
+        viewModelScope.launch {
+            Log.d("InventoryViewModel", "Creando devolución a almacén")
+            Log.d("InventoryViewModel", "Folio: $folio, Items: ${selectedItems.size}")
+            createMovementFromSelectedItems(
+                folio = folio,
+                movId = 3, // Devolución a almacén
+                fecha = getCurrentDateForMovement(),
+                selectedItems = selectedItems,
+                observacion = safeString(observacion),
+                autoriza = safeString(autoriza),
+                procesada = false
+            )
+        }
+    }
+
+    // ==================== FUNCIONES DE VALIDACIÓN ====================
+    // Validar stock para movimientos de salida
+    fun validateStockForExit(selectedItems: List<Pair<InventoryItem, Double>>): String? {
+        selectedItems.forEach { (item, cantidad) ->
+            if (cantidad > item.existenciaSafe) {
+                return "Stock insuficiente para ${item.codigoMatSafe}. Disponible: ${item.existenciaFormateada}, Solicitado: ${String.format("%.2f", cantidad)}"
+            }
+            if (cantidad <= 0) {
+                return "La cantidad debe ser mayor a 0 para ${item.codigoMatSafe}"
+            }
+        }
+        return null
+    }
+
+    // Reset para crear movimiento
+    fun resetCreateMovementState() {
+        _createMovementState.value = CreateMovementState.Initial
+    }
+
+    // Función helper para obtener la fecha actual en formato requerido
+    fun getCurrentDateForMovement(): String {
+        return try {
+            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            formatter.format(Date())
+        } catch (e: Exception) {
+            "2024-01-01" // Fecha por defecto en caso de error
+        }
+    }
+
+    // Función para validar datos antes de crear movimiento
+    fun validateMovementData(
+        folio: Int,
+        movId: Int,
+        selectedItems: List<Pair<InventoryItem, Double>>
+    ): String? {
+        return when {
+            folio <= 0 -> "El folio debe ser un número mayor a 0"
+            movId <= 0 -> "Debe seleccionar un tipo de movimiento válido"
+            selectedItems.isEmpty() -> "Debe seleccionar al menos un producto"
+            selectedItems.any { it.second <= 0 } -> "Todas las cantidades deben ser mayores a 0"
+            selectedItems.any { it.first.codigoMatSafe.isBlank() } -> "Todos los productos deben tener un código válido"
+            else -> null // Sin errores
+        }
+    }
+
+    // Función para generar folio automático
+    fun generateAutoFolio(): Int {
+        return (System.currentTimeMillis() / 1000).toInt()
+    }
+
+    // Función para obtener el nombre del tipo de movimiento
+    fun getMovementTypeName(movId: Int): String {
+        return when (movId) {
+            1 -> "Devolución de Cliente"
+            2 -> "Devolución a Proveedor"
+            3 -> "Devolución a Almacén"
+            4 -> "Entrada a Almacén"
+            5 -> "Salida de Almacén"
+            else -> "Movimiento Desconocido"
+        }
+    }
+
+    // Función para obtener el icono del tipo de movimiento
+    fun getMovementTypeIcon(movId: Int): String {
+        return when (movId) {
+            1 -> "↩️" // Devolución cliente
+            2 -> "📤" // Devolución proveedor
+            3 -> "🔄" // Devolución almacén
+            4 -> "📥" // Entrada
+            5 -> "📤" // Salida
+            else -> "❓"
+        }
+    }
+
+    // ==================== FUNCIONES CRUD DE MATERIALES ====================
     fun createMaterial(
         context: Context,
         codigoMat: String?,
@@ -383,15 +888,13 @@ class InventoryViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             // Validar datos de forma segura
-            val cleanCodigoMat = codigoMat.safeToCleanString()
-            val cleanDescripcion = descripcion.safeToCleanString()
-
+            val cleanCodigoMat = safeOptionalString(codigoMat)
+            val cleanDescripcion = safeOptionalString(descripcion)
             if (cleanCodigoMat == null) {
                 Log.e("InventoryViewModel", "Código de material requerido")
                 _createMaterialState.value = CreateMaterialState.Error("Código de material requerido")
                 return@launch
             }
-
             if (cleanDescripcion == null) {
                 Log.e("InventoryViewModel", "Descripción requerida")
                 _createMaterialState.value = CreateMaterialState.Error("Descripción requerida")
@@ -405,16 +908,15 @@ class InventoryViewModel @Inject constructor(
             val safeMin = maxOf(0.0, min)
             val safeInventarioInicial = maxOf(0.0, inventarioInicial)
             val safeCantxunidad = maxOf(1.0, cantxunidad)
-            val cleanUnidad = unidad.safeToCleanString() ?: "UND"
-            val cleanUnidadEntrada = unidadEntrada.safeToCleanString() ?: "UND"
-            val cleanProceso = proceso.safeToCleanString() ?: "Sin proceso"
+            val cleanUnidad = safeString(unidad).takeIf { it.isNotBlank() } ?: "UND"
+            val cleanUnidadEntrada = safeString(unidadEntrada).takeIf { it.isNotBlank() } ?: "UND"
+            val cleanProceso = safeString(proceso).takeIf { it.isNotBlank() } ?: "Sin proceso"
 
             Log.d("InventoryViewModel", "Iniciando createMaterial - Código: $cleanCodigoMat")
             Log.d("InventoryViewModel", "Datos validados: descripcion=$cleanDescripcion, unidad=$cleanUnidad, pcompra=$safePcompra, existencia=$safeExistencia, max=$safeMax, min=$safeMin, inventarioInicial=$safeInventarioInicial, unidadEntrada=$cleanUnidadEntrada, cantxunidad=$safeCantxunidad, proceso=$cleanProceso")
             Log.d("InventoryViewModel", "Imágenes recibidas: ${imageUris.size}")
 
             _createMaterialState.value = CreateMaterialState.Loading
-
             try {
                 val result = inventoryRepository.createMaterial(
                     context = context,
@@ -431,7 +933,6 @@ class InventoryViewModel @Inject constructor(
                     proceso = cleanProceso,
                     imageUris = imageUris
                 )
-
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "CreateMaterial exitoso: ${response.message}")
                     // Log del item creado usando propiedades seguras
@@ -470,15 +971,13 @@ class InventoryViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             // Validar datos de forma segura
-            val cleanCodigoMat = codigoMat.safeToCleanString()
-            val cleanDescripcion = descripcion.safeToCleanString()
-
+            val cleanCodigoMat = safeOptionalString(codigoMat)
+            val cleanDescripcion = safeOptionalString(descripcion)
             if (cleanCodigoMat == null) {
                 Log.e("InventoryViewModel", "Código de material requerido")
                 _updateMaterialState.value = UpdateMaterialState.Error("Código de material requerido")
                 return@launch
             }
-
             if (cleanDescripcion == null) {
                 Log.e("InventoryViewModel", "Descripción requerida")
                 _updateMaterialState.value = UpdateMaterialState.Error("Descripción requerida")
@@ -492,16 +991,15 @@ class InventoryViewModel @Inject constructor(
             val safeMin = maxOf(0.0, min)
             val safeInventarioInicial = maxOf(0.0, inventarioInicial)
             val safeCantxunidad = maxOf(1.0, cantxunidad)
-            val cleanUnidad = unidad.safeToCleanString() ?: "UND"
-            val cleanUnidadEntrada = unidadEntrada.safeToCleanString() ?: "UND"
-            val cleanProceso = proceso.safeToCleanString() ?: "Sin proceso"
+            val cleanUnidad = safeString(unidad).takeIf { it.isNotBlank() } ?: "UND"
+            val cleanUnidadEntrada = safeString(unidadEntrada).takeIf { it.isNotBlank() } ?: "UND"
+            val cleanProceso = safeString(proceso).takeIf { it.isNotBlank() } ?: "Sin proceso"
 
             Log.d("InventoryViewModel", "Iniciando updateMaterial - Código: $cleanCodigoMat")
             Log.d("InventoryViewModel", "Datos validados: descripcion=$cleanDescripcion, unidad=$cleanUnidad, pcompra=$safePcompra, existencia=$safeExistencia, max=$safeMax, min=$safeMin, inventarioInicial=$safeInventarioInicial, unidadEntrada=$cleanUnidadEntrada, cantxunidad=$safeCantxunidad, proceso=$cleanProceso, borrado=$borrado")
             Log.d("InventoryViewModel", "Nuevas imágenes: ${newImageUris.size}")
 
             _updateMaterialState.value = UpdateMaterialState.Loading
-
             try {
                 val result = inventoryRepository.updateMaterial(
                     context = context,
@@ -519,7 +1017,6 @@ class InventoryViewModel @Inject constructor(
                     borrado = borrado,
                     newImageUris = newImageUris
                 )
-
                 result.onSuccess { response ->
                     Log.d("InventoryViewModel", "UpdateMaterial exitoso: ${response.message}")
                     // Log del item actualizado usando propiedades seguras
@@ -543,7 +1040,7 @@ class InventoryViewModel @Inject constructor(
     fun deleteMaterial(codigoMat: String?) {
         viewModelScope.launch {
             // Validar código de forma segura
-            val cleanCodigoMat = codigoMat.safeToCleanString()
+            val cleanCodigoMat = safeOptionalString(codigoMat)
             if (cleanCodigoMat == null) {
                 Log.e("InventoryViewModel", "Código de material requerido para eliminar")
                 _deleteMaterialState.value = DeleteMaterialState.Error("Código de material requerido")
@@ -552,7 +1049,6 @@ class InventoryViewModel @Inject constructor(
 
             Log.d("InventoryViewModel", "Iniciando deleteMaterial - Código: $cleanCodigoMat")
             _deleteMaterialState.value = DeleteMaterialState.Loading
-
             try {
                 val result = inventoryRepository.deleteMaterial(cleanCodigoMat)
                 result.onSuccess { response ->
@@ -641,18 +1137,25 @@ class InventoryViewModel @Inject constructor(
         _allItemsState.value = null
     }
 
+    // Reset para movimientos
+    fun resetInventoryMovementsState() {
+        _inventoryMovementsState.value = InventoryMovementsState.Initial
+    }
+
     fun clearAllStates() {
         _inventoryState.value = InventoryState.Initial
         _searchState.value = SearchState.Initial
         _createMaterialState.value = CreateMaterialState.Initial
         _updateMaterialState.value = UpdateMaterialState.Initial
         _deleteMaterialState.value = DeleteMaterialState.Initial
+        _inventoryMovementsState.value = InventoryMovementsState.Initial
+        _createMovementState.value = CreateMovementState.Initial
         _allItemsState.value = null
         _currentPage.value = 1
         _itemsPerPage.value = 10
     }
 
-    // ==================== FUNCIONES AUXILIARES ====================
+    // ==================== FUNCIONES AUXILIARES DE INVENTARIO ====================
     fun getCurrentInventoryData(): List<InventoryItem> {
         return when (val currentState = _inventoryState.value) {
             is InventoryState.Success -> currentState.response.data
@@ -677,8 +1180,7 @@ class InventoryViewModel @Inject constructor(
 
     fun getItemByCode(codigoMat: String?): InventoryItem? {
         val currentData = getCurrentInventoryData()
-        val cleanCode = codigoMat.safeToCleanString() ?: return null
-
+        val cleanCode = safeOptionalString(codigoMat) ?: return null
         return currentData.find { it.codigoMatSafe.equals(cleanCode, ignoreCase = true) }
     }
 
@@ -707,6 +1209,49 @@ class InventoryViewModel @Inject constructor(
         )
     }
 
+    // ==================== FUNCIONES AUXILIARES PARA MOVIMIENTOS ====================
+    fun getCurrentMovementsData(): List<InventoryMovementHeader> {
+        return when (val currentState = _inventoryMovementsState.value) {
+            is InventoryMovementsState.Success -> currentState.response.data
+            else -> emptyList()
+        }
+    }
+
+    fun hasMovementsData(): Boolean {
+        return _inventoryMovementsState.value is InventoryMovementsState.Success
+    }
+
+    fun getMovementsByType(movId: Int): List<InventoryMovementHeader> {
+        val currentData = getCurrentMovementsData()
+        return currentData.filter { it.movIdSafe == movId }
+    }
+
+    fun getEntriesMovements(): List<InventoryMovementHeader> {
+        val currentData = getCurrentMovementsData()
+        return currentData.filter { it.isEntry }
+    }
+
+    fun getExitsMovements(): List<InventoryMovementHeader> {
+        val currentData = getCurrentMovementsData()
+        return currentData.filter { it.isExit }
+    }
+
+    fun getMovementsStats(): Map<String, Int> {
+        val currentData = getCurrentMovementsData()
+        return mapOf(
+            "total" to currentData.size,
+            "entradas" to currentData.count { it.isEntry },
+            "salidas" to currentData.count { it.isExit },
+            "procesados" to currentData.count { it.procesadaSafe },
+            "conObservaciones" to currentData.count { it.tieneObservacion },
+            "devolucionCliente" to currentData.count { it.movIdSafe == 1 },
+            "devolucionProveedor" to currentData.count { it.movIdSafe == 2 },
+            "devolucionAlmacen" to currentData.count { it.movIdSafe == 3 },
+            "entradaAlmacen" to currentData.count { it.movIdSafe == 4 },
+            "salidaAlmacen" to currentData.count { it.movIdSafe == 5 }
+        )
+    }
+
     // Función para recargar datos después de operaciones CRUD
     fun reloadInventoryData(
         page: Int = 1,
@@ -714,6 +1259,6 @@ class InventoryViewModel @Inject constructor(
         descripcion: String? = null
     ) {
         Log.d("InventoryViewModel", "Recargando datos del inventario después de operación CRUD")
-        getInventoryItems(page = page, limit = limit, descripcion = descripcion)
+        getInventoryItems(page = page, limit = limit, descripcion = safeOptionalString(descripcion))
     }
 }

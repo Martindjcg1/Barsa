@@ -150,7 +150,7 @@ fun categorizarMaterial(descripcion: String): String {
         descripcion.contains("cubeta", ignoreCase = true) -> "Cubetas"
         descripcion.contains("tela", ignoreCase = true) -> "Telas"
         descripcion.contains("casco", ignoreCase = true) -> "Cascos"
-        descripcion.contains("herramienta", ignoreCase = true) -> "Herramientas"
+        descripcion.contains("Llave", ignoreCase = true) -> "Llave"
         descripcion.contains("bisagra", ignoreCase = true) ||
                 descripcion.contains("herraje", ignoreCase = true) -> "Bisagras y Herrajes"
         descripcion.contains("perno", ignoreCase = true) ||

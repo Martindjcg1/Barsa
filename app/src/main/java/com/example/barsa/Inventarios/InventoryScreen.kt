@@ -25,13 +25,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.barsa.Inventarios.InventoryChangesScreen
 import com.example.barsa.data.retrofit.models.InventoryItem
 import com.example.barsa.data.retrofit.ui.InventoryViewModel
+import com.example.barsa.data.retrofit.ui.PapeletaViewModel
 import com.example.barsa.data.retrofit.ui.UserViewModel
 
 @Composable
 fun InventoryScreen(
     onNavigate: (String) -> Unit,
     inventoryViewModel: InventoryViewModel,
-    userViewModel: UserViewModel
+    userViewModel: UserViewModel,
+
 ) {
     var selectedCategory by remember { mutableStateOf<InventoryCategory?>(null) }
     var showAdminPanel by remember { mutableStateOf(false) }
@@ -279,13 +281,32 @@ fun InventoryScreen(
 
         when {
             transactionAction == "entry" -> {
-                // Comentado por ahora
+                InventoryEntriesScreen(
+                    onBackClick = {
+                        transactionAction = null // Manejar navegación de vuelta
+                    },
+                    inventoryViewModel = inventoryViewModel,
+                    userViewModel = userViewModel,
+
+                )
             }
             transactionAction == "exit" -> {
-                // Comentado por ahora
+                InventoryExitsScreen(
+                    onBackClick = {
+                        transactionAction = null // Manejar navegación de vuelta
+                    },
+                    inventoryViewModel = inventoryViewModel,
+                    userViewModel = userViewModel
+                )
+
             }
             transactionAction == "history" -> {
-                // Comentado por ahora
+                InventoryChangesScreen(
+                    inventoryViewModel = inventoryViewModel,
+                    onBackClick = {
+                        transactionAction = null // Manejar navegación de vuelta
+                    }
+                )
             }
             adminAction == "add" -> {
                 AddInventoryScreen(

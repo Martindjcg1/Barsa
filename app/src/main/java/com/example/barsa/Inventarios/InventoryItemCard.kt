@@ -70,7 +70,6 @@ fun InventoryItemCard(
                     fontWeight = FontWeight.Bold
                 )
             }
-
             Spacer(modifier = Modifier.height(12.dp))
 
             // Mostrar la primera imagen si existe - usar la propiedad computada
@@ -94,7 +93,6 @@ fun InventoryItemCard(
                             .clip(RoundedCornerShape(8.dp)),
                         contentScale = ContentScale.Fit
                     )
-
                     // Indicador de múltiples imágenes
                     if (item.imagenes.size > 1) {
                         Box(
@@ -134,17 +132,13 @@ fun InventoryItemCard(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-
             Spacer(modifier = Modifier.height(8.dp))
-
             Text(
                 text = item.descripcionSafe,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(vertical = 4.dp)
             )
-
             Divider(modifier = Modifier.padding(vertical = 8.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -184,7 +178,6 @@ fun InventoryItemCard(
                     )
                 }
             }
-
             // Información adicional del proceso
             if (item.procesoSafe.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -194,23 +187,7 @@ fun InventoryItemCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            // Añadir botón de reabastecimiento si el stock está bajo o no hay stock
-            if (item.existenciaSafe < item.minSafe) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = { /* Funcionalidad de reabastecimiento */ },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = stockColor
-                    )
-                ) {
-                    Text(
-                        text = "Reabastecer",
-                        color = Color.White
-                    )
-                }
-            }
+            // Se ha eliminado el bloque del botón "Reabastecer"
         }
     }
 
