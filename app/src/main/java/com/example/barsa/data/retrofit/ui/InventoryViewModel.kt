@@ -168,7 +168,7 @@ class InventoryViewModel @Inject constructor(
         descripcion: String? = null,
         unidad: String? = null,
         proceso: String? = null,
-        borrado: String? = null
+        borrado: String? = "false"
     ) {
         viewModelScope.launch {
             Log.d("InventoryViewModel", "Iniciando getInventoryItems - Página: $page")

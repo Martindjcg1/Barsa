@@ -74,7 +74,7 @@ class InventoryRepository @Inject constructor(
         descripcion: String? = null,
         unidad: String? = null,
         proceso: String? = null,
-        borrado: String? = null
+        borrado: String? = "false"
     ): Result<InventoryPaginationResponse> {
         return try {
             val token = tokenManager.accessTokenFlow.firstOrNull()
@@ -148,7 +148,7 @@ class InventoryRepository @Inject constructor(
                 descripcion = null,
                 unidad = null,
                 proceso = null,
-                borrado = null
+                borrado = "false"
             )
             // Log detallado de resultados usando propiedades seguras
             response.data.forEach { item ->
@@ -199,7 +199,7 @@ class InventoryRepository @Inject constructor(
                 descripcion = cleanDescription,
                 unidad = null,
                 proceso = null,
-                borrado = null
+                borrado = "false"
             )
             // Log detallado usando propiedades seguras
             response.data.forEach { item ->
@@ -307,7 +307,7 @@ class InventoryRepository @Inject constructor(
         descripcion: String? = null,
         unidad: String? = null,
         proceso: String? = null,
-        borrado: String? = null,
+        borrado: String? = "false",
         page: Int = 1,
         limit: Int = 10
     ): Result<InventoryPaginationResponse> {
