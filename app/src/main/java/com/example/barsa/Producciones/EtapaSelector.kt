@@ -63,55 +63,34 @@ fun EtapaSelector(
     userViewModel: UserViewModel
 ) {
     val context = LocalContext.current
+
     val etapaState by papeletaViewModel.etapasState.collectAsState()
     val desactivacionState by papeletaViewModel.desactivacionState.collectAsState()
     val nombreUsuario by userViewModel.tokenManager.accessNombreUsuario.collectAsState(initial = "")
+
+    val tiemposEnEjecucion by papeletaViewModel.tiemposEnEjecucion.collectAsState(emptyList())
+
+    var showDialog by remember { mutableStateOf(false) }
     val rol by userViewModel.tokenManager.accessRol.collectAsState(initial = "")
 
-    LaunchedEffect(Folio) {
+    // 🔄 Cargar datos cuando cambia el Folio
+    LaunchedEffect(Unit) {
         papeletaViewModel.cargarInfoEtapasPorFolio(Folio)
-    }
-
-    LaunchedEffect(Folio) {
         papeletaViewModel.cargarUltimaDetencionActiva(Folio)
     }
 
-    LaunchedEffect(etapaState) {
-        (etapaState as? PapeletaViewModel.EtapasState.Error)?.let {
-            Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetEtapasState()
-        }
-    }
-
+    // ✅ Manejo de desactivación de detención
     LaunchedEffect(desactivacionState) {
         desactivacionState?.onSuccess { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            papeletaViewModel.cargarInfoEtapasPorFolio(Folio)
+            papeletaViewModel.cargarUltimaDetencionActiva(Folio)
             papeletaViewModel.resetDesactivacionState()
         }?.onFailure { error ->
             Toast.makeText(context, error.message ?: "Error desconocido", Toast.LENGTH_SHORT).show()
             papeletaViewModel.resetDesactivacionState()
         }
     }
-
-    val todasLasEtapas = listOf("Madera", "Producción", "Pintura", "Armado", "Tapiceria", "Empaque")
-
-    val uiState by combine(
-        //tiemposViewModel.getEtapasFinalizadas(Folio),
-        //tiemposViewModel.getEtapaDisponible(Folio),
-        papeletaViewModel.etapasFinalizadas,
-        papeletaViewModel.etapasDisponibles,
-        papeletaViewModel.ultimaDetencion
-    ) { finalizadas, disponibles, detencion ->
-        Triple(finalizadas, disponibles, detencion)
-    }.collectAsState(initial = Triple(emptySet(), emptyList(), null))
-
-    val etapasFinalizadas = uiState.first
-    val etapaDisponible = uiState.second
-    val detencion = uiState.third
-    val hayDetencionActiva = detencion?.activa == true
-    var showDialog by remember { mutableStateOf(false) }
-
-    val tiemposEnEjecucion by papeletaViewModel.tiemposEnEjecucion.collectAsState(emptyList())
 
     TopAppBar(
         title = { Text("Etapas", style = MaterialTheme.typography.titleMedium) },
@@ -122,132 +101,148 @@ fun EtapaSelector(
         }
     )
 
-    if (etapaState is PapeletaViewModel.EtapasState.Loading) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(todasLasEtapas) { etapa ->
-                val esFinalizada = etapa in etapasFinalizadas
-                val esDisponible = etapa in etapaDisponible
-                //val estaDeshabilitada = hayDetencionActiva || (!esFinalizada && !esDisponible)
-                val tiempoActivo = tiemposEnEjecucion.firstOrNull { it.etapa == etapa }
-                val estaOcupadaPorOtro = (tiempoActivo != null) && (nombreUsuario != tiempoActivo.usuario)
-                val estaDeshabilitada = hayDetencionActiva || (!esFinalizada && !esDisponible) || estaOcupadaPorOtro
-
-                val onClickAction = {
-                    if (esFinalizada) {
-                        onNavigate("informeIndividual/${TipoId}°${Folio}°${Fecha}°${Status}°${etapa}")
-                    } else if (esDisponible) {
-                        onEtapaSeleccionada(etapa)
-                    }
-                }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth().animateContentSize(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    border = BorderStroke(2.dp, if (hayDetencionActiva) Color.Red else if (esFinalizada) Color.Green else if (esDisponible) MaterialTheme.colorScheme.primary else Color.Transparent),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when {
-                            hayDetencionActiva -> Color(0xFFFCD7DB) // Rojo claro
-                            esFinalizada -> MaterialTheme.colorScheme.secondaryContainer
-                            esDisponible -> MaterialTheme.colorScheme.primaryContainer
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable(enabled = !estaDeshabilitada, onClick = onClickAction)
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = when {
-                                hayDetencionActiva -> Color.Red
-                                esFinalizada -> Color.Green
-                                esDisponible -> MaterialTheme.colorScheme.primary
-                                else -> Color.Gray
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Text(
-                            text = etapa,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = if (esDisponible && !hayDetencionActiva) FontWeight.Bold else FontWeight.Normal
-                            ),
-                            color = when {
-                                hayDetencionActiva -> MaterialTheme.colorScheme.onPrimaryContainer
-                                esFinalizada || esDisponible -> MaterialTheme.colorScheme.onPrimaryContainer
-                                else -> Color.Gray
-                            }
-                        )
-                        if (tiempoActivo != null) {
-                            if (nombreUsuario != tiempoActivo.usuario) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = " En uso por: ${tiempoActivo.usuario}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
-                        }
-                    }
-                }
+    when (etapaState) {
+        is PapeletaViewModel.EtapasState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { onNavigate("informeFolio/${TipoId}°${Folio}°${Fecha}°${Status}") },
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
-        ) {
-            Text("Informe general de papeleta", color = Color.White)
-        }
+        is PapeletaViewModel.EtapasState.Error -> {
+            val errorMessage = (etapaState as PapeletaViewModel.EtapasState.Error).message
+            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
 
-        // Botón "Detalles de detención"
-        if (hayDetencionActiva) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { showDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text("Detalles de detención", color = Color.White)
+                Button(onClick = {
+                    papeletaViewModel.resetEtapasState()
+                    papeletaViewModel.cargarInfoEtapasPorFolio(Folio)
+                    papeletaViewModel.cargarUltimaDetencionActiva(Folio)
+                }) {
+                    Text("Reintentar")
+                }
             }
         }
-    }
 
-    // Diálogo para mostrar detalles de la detención
-    if (showDialog) {
-        DetencionDialog(
-            detencion = detencion!!,
-            onClose = { showDialog = false },
-            onDesactivar = {
-                //tiemposViewModel.setDetencionActiva(detencion.id, false)
-                Log.d("Boton desactivar","folio ${detencion.folio}, etapa: ${detencion.etapa}")
-                papeletaViewModel.desactivarDetencionTiempo(detencion.folio, detencion.etapa)
-                Log.d("Boton desactivar","id: ${detencion.id}, false")
+        is PapeletaViewModel.EtapasState.Success -> {
+            val uiState by combine(
+                papeletaViewModel.etapasFinalizadas,
+                papeletaViewModel.etapasDisponibles,
+                papeletaViewModel.ultimaDetencion
+            ) { finalizadas, disponibles, detencion ->
+                Triple(finalizadas, disponibles, detencion)
+            }.collectAsState(initial = Triple(emptySet(), emptyList(), null))
+            val (etapasFinalizadas, etapasDisponibles, detencion) = uiState
+            val todasLasEtapas = listOf("Madera", "Producción", "Pintura", "Armado", "Tapiceria", "Empaque")
+            val hayDetencionActiva = detencion?.activa == true
+
+            Column(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(todasLasEtapas) { etapa ->
+                        val esFinalizada = etapa in etapasFinalizadas
+                        val esDisponible = etapa in etapasDisponibles
+                        val tiempoActivo = tiemposEnEjecucion.firstOrNull { it.etapa == etapa }
+                        val estaOcupadaPorOtro = (tiempoActivo != null) && (nombreUsuario != tiempoActivo.usuario)
+                        val estaDeshabilitada = hayDetencionActiva || (!esFinalizada && !esDisponible) || estaOcupadaPorOtro
+
+                        val onClickAction = {
+                            if (esFinalizada) {
+                                onNavigate("informeIndividual/${TipoId}°${Folio}°${Fecha}°${Status}°${etapa}")
+                            } else if (esDisponible) {
+                                onEtapaSeleccionada(etapa)
+                            }
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth().animateContentSize(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            border = BorderStroke(2.dp, if (hayDetencionActiva) Color.Red else if (esFinalizada) Color.Green else if (esDisponible) MaterialTheme.colorScheme.primary else Color.Transparent),
+                            colors = CardDefaults.cardColors(
+                                containerColor = when {
+                                    hayDetencionActiva -> Color(0xFFFCD7DB)
+                                    esFinalizada -> MaterialTheme.colorScheme.secondaryContainer
+                                    esDisponible -> MaterialTheme.colorScheme.primaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !estaDeshabilitada, onClick = onClickAction)
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = when {
+                                        hayDetencionActiva -> Color.Red
+                                        esFinalizada -> Color.Green
+                                        esDisponible -> MaterialTheme.colorScheme.primary
+                                        else -> Color.Gray
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = etapa,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = if (esDisponible && !hayDetencionActiva) FontWeight.Bold else FontWeight.Normal
+                                    ),
+                                    color = if (hayDetencionActiva || esFinalizada || esDisponible) MaterialTheme.colorScheme.onPrimaryContainer else Color.Gray
+                                )
+
+                                tiempoActivo?.let {
+                                    if (nombreUsuario != it.usuario) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("En uso por: ${it.usuario}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { onNavigate("informeFolio/${TipoId}°${Folio}°${Fecha}°${Status}") },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                ) {
+                    Text("Informe general de papeleta", color = Color.White)
+                }
+
+                if (hayDetencionActiva && rol == "Produccion") {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { showDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Detalles de detención", color = Color.White)
+                    }
+                }
             }
-        )
+
+            if (showDialog) {
+                DetencionDialog(
+                    detencion = detencion!!,
+                    onClose = { showDialog = false },
+                    onDesactivar = {
+                        papeletaViewModel.desactivarDetencionTiempo(detencion.folio, detencion.etapa)
+                       // papeletaViewModel.cargarInfoEtapasPorFolio(Folio)
+                        //papeletaViewModel.cargarUltimaDetencionActiva(Folio)
+                    }
+                )
+            }
+        }
     }
 }
+
 
 @Composable
 fun DetencionDialog(

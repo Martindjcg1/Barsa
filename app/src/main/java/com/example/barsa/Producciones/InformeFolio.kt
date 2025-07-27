@@ -63,11 +63,14 @@ import com.patrykandpatrick.vico.core.cartesian.layer.CartesianLayerPadding
 import com.patrykandpatrick.vico.core.cartesian.layer.ColumnCartesianLayer
 import com.patrykandpatrick.vico.core.cartesian.marker.ColumnCartesianLayerMarkerTarget
 import com.patrykandpatrick.vico.core.cartesian.marker.DefaultCartesianMarker
+import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import androidx.compose.foundation.background
-import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
+import com.example.barsa.data.retrofit.models.DetallePapeleta
+import com.example.barsa.data.retrofit.models.DetencionRemota
+import com.example.barsa.data.retrofit.models.TiempoRemoto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,128 +85,125 @@ fun InformeFolio(
     val context = LocalContext.current
     val tiemposState by papeletaViewModel.tiemposFolioState.collectAsState()
     val detencionesState by papeletaViewModel.detencionesFolioState.collectAsState()
-    val detalle = papeletaViewModel.detalleActual.collectAsState().value
+    val detalle by papeletaViewModel.detalleActual.collectAsState()
 
     var showDialog by remember { mutableStateOf(false) }
     var etapaDialog by remember { mutableStateOf("") }
 
+    // 🔄 Cargar al inicio
     LaunchedEffect(Folio) {
-        papeletaViewModel.resetTiemposFolioState()
-        papeletaViewModel.resetDetencionesFolioState()
         papeletaViewModel.cargarTiemposPorFolio(Folio)
         papeletaViewModel.cargarDetencionesPorFolio(Folio)
     }
 
+    // 🔔 Mostrar toasts de error
     LaunchedEffect(tiemposState, detencionesState) {
         (tiemposState as? PapeletaViewModel.TiemposFolioState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetTiemposFolioState()
         }
         (detencionesState as? PapeletaViewModel.DetencionesFolioState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetDetencionesFolioState()
         }
     }
+
+    // 🚦 Manejo de estados combinados
+    val isLoading = tiemposState is PapeletaViewModel.TiemposFolioState.Loading ||
+            detencionesState is PapeletaViewModel.DetencionesFolioState.Loading
+
+    val isError = tiemposState is PapeletaViewModel.TiemposFolioState.Error ||
+            detencionesState is PapeletaViewModel.DetencionesFolioState.Error
 
     val tiempos = (tiemposState as? PapeletaViewModel.TiemposFolioState.Success)?.lista.orEmpty()
     val detenciones = (detencionesState as? PapeletaViewModel.DetencionesFolioState.Success)?.lista.orEmpty()
 
-    if (tiempos.isEmpty()) {
-        TopAppBar(
-            title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
-            navigationIcon = {
-                Row {
-                    IconButton(onClick = {
-                        onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
-                    }
+    // 🔄 AppBar común
+    TopAppBar(
+        title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
+        navigationIcon = {
+            Row {
+                IconButton(onClick = { onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}") }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
                 }
-            },
-            actions = {
-                if (detalle.isNotEmpty()) {
+                if (tiempos.isNotEmpty() && detenciones.isNotEmpty()) {
                     IconButton(
-                        onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
+                        onClick = { generarPDF(context, Folio, tiempos, detenciones) },
+                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White)
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.detalles),
-                            contentDescription = "Ver detalles",
-                            tint = Color.Black,
-                            modifier = Modifier.background(Color.White)
-                        )
+                        Icon(painterResource(id = R.drawable.ic_aranceles), contentDescription = "Exportar PDF")
                     }
                 }
             }
-        )
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Sin tiempos capturados o en proceso")
+        },
+        actions = {
+            if (detalle.isNotEmpty()) {
+                IconButton(onClick = { showDialog = true }) {
+                    Icon(painterResource(id = R.drawable.detalles), contentDescription = "Ver detalles")
+                }
+            }
         }
-    }
-    else
-    {
-        TopAppBar(
-            title = { Text("Folio: $Folio", style = MaterialTheme.typography.titleMedium) },
-            navigationIcon = {
-                Row {
-                    IconButton(onClick = {
-                        onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
-                    }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
-                    }
-                    IconButton(
-                        onClick = {
-                            generarPDF(context, Folio, tiempos, detenciones)
-                        },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White,
-                            contentColor = Color.Black)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_aranceles),
-                            contentDescription = "Exportar PDF",
-                            tint = Color.Black,
-                            modifier = Modifier.background(Color.White)
-                        )
-                    }
-                }
-            },
-            actions = {
-                if (detalle.isNotEmpty()) {
-                    IconButton(
-                        onClick = { showDialog = true },
-                        colors = IconButtonDefaults.iconButtonColors(Color.Black)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.detalles),
-                            contentDescription = "Ver detalles",
-                            tint = Color.Black,
-                            modifier = Modifier.background(Color.White)
-                        )
-                    }
-                }
-            }
-        )
-    }
+    )
 
-    Spacer(modifier = Modifier.height(16.dp))
-
-    if (tiemposState is PapeletaViewModel.TiemposFolioState.Loading ||
-        detencionesState is PapeletaViewModel.DetencionesFolioState.Loading
-    ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    // 🚥 Loading
+    if (isLoading) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
 
+    // ❌ Error
+    if (isError) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Button(onClick = {
+                    papeletaViewModel.resetTiemposFolioState()
+                    papeletaViewModel.resetDetencionesFolioState()
+                    papeletaViewModel.cargarTiemposPorFolio(Folio)
+                    papeletaViewModel.cargarDetencionesPorFolio(Folio)
+                }) {
+                    Text("Reintentar")
+                }
+            }
+        }
+        return
+    }
+
+    // 📭 Sin tiempos
+    if (tiempos.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Sin tiempos capturados o en proceso")
+        }
+        return
+    }
+
+    // ✅ Contenido principal
+    InformeFolioContenido(
+        tiempos = tiempos,
+        detenciones = detenciones,
+        detalle = detalle,
+        showDialog = showDialog,
+        onShowDialogChange = { showDialog = it },
+        etapaDialog = etapaDialog,
+        onEtapaDialogChange = { etapaDialog = it }
+    )
+}
+
+@Composable
+fun InformeFolioContenido(
+    tiempos: List<TiempoRemoto>,
+    detenciones: List<DetencionRemota>,
+    detalle: List<DetallePapeleta>,
+    showDialog: Boolean,
+    onShowDialogChange: (Boolean) -> Unit,
+    etapaDialog: String,
+    onEtapaDialogChange: (String) -> Unit
+) {
     val modelProducer = remember { CartesianChartModelProducer() }
     val labelKey = remember { ExtraStore.Key<List<String>>() }
 
     LaunchedEffect(tiempos) {
         modelProducer.runTransaction {
-            columnSeries {
-                series(tiempos.map { it.tiempo.toFloat() })
-            }
+            columnSeries { series(tiempos.map { it.tiempo.toFloat() }) }
             extras { it[labelKey] = tiempos.map { it.etapa } }
         }
     }
@@ -212,122 +212,132 @@ fun InformeFolio(
         context.model.extraStore[labelKey].getOrNull(x.toInt()) ?: ""
     }
 
-    // Tooltip / Marker personalizado
     val tiempoSmartFormatter = DefaultCartesianMarker.ValueFormatter { _, targets ->
         val column = (targets.first() as ColumnCartesianLayerMarkerTarget).columns.first()
         val tiempoSegundos = column.entry.y.toInt()
-        val texto = formatTiempoSmart(tiempoSegundos)
-
         SpannableStringBuilder().apply {
-            append(
-                texto,
-                ForegroundColorSpan(0xFF4CAF50.toInt()), // Verde
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+            append(formatTiempoSmart(tiempoSegundos), ForegroundColorSpan(0xFF4CAF50.toInt()), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 
-    LazyColumn(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    LazyColumn(Modifier.padding(16.dp)) {
         item {
             Text("Informe por etapas", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
 
-            if (tiempos.isNotEmpty()) {
-                CartesianChartHost(
-                    chart = rememberCartesianChart(
-                        rememberColumnCartesianLayer(
-                            ColumnCartesianLayer.ColumnProvider.series(
-                                rememberLineComponent(
-                                    fill = fill(Color(0xFF4CAF50)), // Verde
-                                    thickness = 16.dp,
-                                    shape = RoundedCornerShape(6.dp).toVicoShape()
-                                )
-                            )
-                        ),
-                        startAxis = VerticalAxis.rememberStart(
-                            valueFormatter = { _, y, _ -> formatTiempoSmart(y.toInt()) }
-                        ),
-                        bottomAxis = HorizontalAxis.rememberBottom(
-                            itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() },
-                            valueFormatter = axisFormatter
-                        ),
-                        marker = rememberDefaultCartesianMarker(
-                            label = rememberTextComponent(), // Puedes personalizar el label si lo deseas
-                            valueFormatter = tiempoSmartFormatter
-                        ),
-                        layerPadding = {
-                            CartesianLayerPadding(
-                                scalableStartDp = 8f,
-                                scalableEndDp = 8f
-                            )
-                        }
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberColumnCartesianLayer(
+                        ColumnCartesianLayer.ColumnProvider.series(
+                            rememberLineComponent(fill = fill(Color(0xFF4CAF50)), thickness = 16.dp, shape = RoundedCornerShape(6.dp).toVicoShape())
+                        )
                     ),
-                    modelProducer = modelProducer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(240.dp),
-                    scrollState = rememberVicoScrollState(scrollEnabled = false)
-                )
+                    startAxis = VerticalAxis.rememberStart(valueFormatter = { _, y, _ -> formatTiempoSmart(y.toInt()) }),
+                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = axisFormatter, itemPlacer = remember { HorizontalAxis.ItemPlacer.segmented() }),
+                    marker = rememberDefaultCartesianMarker(
+                        label = rememberTextComponent(),
+                        valueFormatter = tiempoSmartFormatter
+                    ),
+                    layerPadding = { CartesianLayerPadding(scalableStartDp = 8f, scalableEndDp = 8f) }
+                ),
+                modelProducer = modelProducer,
+                modifier = Modifier.fillMaxWidth().height(240.dp),
+                scrollState = rememberVicoScrollState(scrollEnabled = true)
+            )
 
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            Spacer(Modifier.height(16.dp))
         }
 
         tiempos.forEach { tiempo ->
             val etapaDetenciones = detenciones.filter { it.etapa == tiempo.etapa }
             item {
-                val fechafin = tiempo.fechaFin ?: ""
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(tiempo.etapa, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        InfoText("Inicio", formatearFechaHoraLinda(tiempo.fechaInicio ?: ""))
-                        if (fechafin.isNotEmpty()) {
-                            InfoText("Finalización", formatearFechaHoraLinda(fechafin))
-                        } else {
-                            InfoText("Sin Finalizar", "En curso")
-                        }
-                        InfoText("Tiempo total", formatTiempoSmart(tiempo.tiempo))
-
-                        if (etapaDetenciones.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                                Button(onClick = { etapaDialog = tiempo.etapa }) {
-                                    Text("Ver detenciones")
-                                }
-                            }
-                        }
-                    }
-                }
+                InformeFolioCard(
+                    tiempo = tiempo,
+                    etapaDetenciones = etapaDetenciones,
+                    onVerDetenciones = { onEtapaDialogChange(tiempo.etapa) }
+                )
             }
         }
     }
 
     if (showDialog) {
-        DetallePapeletaDialog(detalles = detalle, onDismiss = { showDialog = false })
+        DetallePapeletaDialog(detalles = detalle, onDismiss = { onShowDialogChange(false) })
     }
 
     if (etapaDialog.isNotEmpty()) {
-        Dialog(onDismissRequest = { etapaDialog = "" }) {
-            Card(
-                modifier = Modifier.padding(16.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                val lista = detenciones.filter { it.etapa == etapaDialog }
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Detenciones - $etapaDialog", fontWeight = FontWeight.Bold)
-                        IconButton(onClick = { etapaDialog = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Cerrar")
-                        }
+        InformeFolioDetencionesDialog(etapa = etapaDialog, detenciones = detenciones, onClose = { onEtapaDialogChange("") })
+    }
+}
+
+@Composable
+fun InformeFolioCard(
+    tiempo: TiempoRemoto,
+    etapaDetenciones: List<DetencionRemota>,
+    onVerDetenciones: () -> Unit
+) {
+    val fechafin = tiempo.fechaFin ?: ""
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(tiempo.etapa, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            InfoText("Inicio", formatearFechaHoraLinda(tiempo.fechaInicio ?: ""))
+            if (fechafin.isNotEmpty()) {
+                InfoText("Finalización", formatearFechaHoraLinda(fechafin))
+            } else {
+                InfoText("Sin Finalizar", "En curso")
+            }
+            InfoText("Tiempo total", formatTiempoSmart(tiempo.tiempo))
+
+            if (etapaDetenciones.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    Button(onClick = onVerDetenciones) {
+                        Text("Ver detenciones")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InformeFolioDetencionesDialog(
+    etapa: String,
+    detenciones: List<DetencionRemota>,
+    onClose: () -> Unit
+) {
+    val lista = detenciones.filter { it.etapa == etapa }
+
+    Dialog(onDismissRequest = onClose) {
+        Card(
+            modifier = Modifier.padding(16.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Detenciones - $etapa", fontWeight = FontWeight.Bold)
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Cerrar")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (lista.isEmpty()) {
+                    Text("No hay detenciones registradas.", style = MaterialTheme.typography.bodyMedium)
+                } else {
                     lista.forEach {
                         InfoText("Motivo", it.motivo)
                         InfoText("Fecha", formatearFechaHoraLinda(it.fecha))
@@ -338,6 +348,8 @@ fun InformeFolio(
         }
     }
 }
+
+
 
 // Función para mostrar tiempos adaptativos
 fun formatTiempoSmart(segundos: Int): String {

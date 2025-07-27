@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,7 +66,7 @@ fun InformeIndividual(
     var showDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Folio, Etapa) {
-        papeletaViewModel.resetTiempoEtapaState()
+        //papeletaViewModel.resetTiempoEtapaState()
         papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
         papeletaViewModel.cargarDetencionesPorEtapa(Folio, Etapa)
     }
@@ -73,14 +74,16 @@ fun InformeIndividual(
     LaunchedEffect(etapaState, detencionState) {
         (etapaState as? PapeletaViewModel.TiempoEtapaState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetTiempoEtapaState()
+            //papeletaViewModel.resetTiempoEtapaState()
         }
 
         (detencionState as? PapeletaViewModel.DetencionesEtapaState.Error)?.let {
             Toast.makeText(context, it.message, Toast.LENGTH_LONG).show()
-            papeletaViewModel.resetDetencionesEtapaState()
+            //papeletaViewModel.resetDetencionesEtapaState()
         }
     }
+
+    val tiempo = tiempoDesdeDBA.value
 
     if (etapaState is PapeletaViewModel.TiempoEtapaState.Loading) {
         Box(
@@ -94,12 +97,45 @@ fun InformeIndividual(
         return
     }
 
-    val tiempo = tiempoDesdeDBA.value
-
-    if (tiempo == null)
-    {
+    if (etapaState is PapeletaViewModel.TiempoEtapaState.Error ||
+        detencionState is PapeletaViewModel.DetencionesEtapaState.Error
+    ) {
         TopAppBar(
             title = {},
+            navigationIcon = {
+                IconButton(onClick = {
+                    onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")
+                }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Regresar")
+                }
+            }
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                //Text(text = "No se pudo cargar la información.", style = MaterialTheme.typography.bodyLarge, color = Color.Red)
+                //Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = {
+                    papeletaViewModel.resetTiempoEtapaState()
+                    papeletaViewModel.resetDetencionesEtapaState()
+                    papeletaViewModel.cargarTiempoPorEtapa(Folio, Etapa)
+                    papeletaViewModel.cargarDetencionesPorEtapa(Folio, Etapa)
+                }) {
+                    Text("Reintentar")
+                }
+            }
+        }
+        return
+    }
+    else if (tiempo == null)
+    {
+        TopAppBar(
+            title = {Text("$Etapa", style = MaterialTheme.typography.titleMedium)},
             navigationIcon = {
                 IconButton(onClick = {
                     onNavigate("selector/${TipoId}°${Folio}°${Fecha}°${Status}")

@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             BarsaTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    MainNavigator(tiemposViewModel, userViewModel, papeletaViewModel,inventarioViewModel,notificationViewModel
+                    MainNavigator(tiemposViewModel, userViewModel, papeletaViewModel,inventarioViewModel,notificationViewModel, networkMonitor
                          )
                 }
             }

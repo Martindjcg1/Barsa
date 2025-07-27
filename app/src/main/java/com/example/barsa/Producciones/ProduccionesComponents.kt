@@ -1,5 +1,6 @@
 package com.example.barsa.Producciones
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
@@ -30,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +54,10 @@ import com.example.barsa.R
 import com.example.barsa.data.retrofit.models.DetallePapeleta
 import com.example.barsa.data.retrofit.models.Papeleta
 import com.example.barsa.data.retrofit.ui.PapeletaViewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 /*
 @Composable
@@ -503,5 +511,92 @@ fun SearchBar(
                 tint = accentBrown
             )
         }
+    }
+}
+
+@Composable
+fun InformePeriodoDialog(
+    onDismiss: () -> Unit,
+    onAceptar: (String, String) -> Unit
+) {
+    var fechaInicio by remember { mutableStateOf<String?>(null) }
+    var fechaFin by remember { mutableStateOf<String?>(null) }
+    var showDatePickerInicio by remember { mutableStateOf(false) }
+    var showDatePickerFin by remember { mutableStateOf(false) }
+
+    val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.padding(16.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Informe por periodo", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = { showDatePickerInicio = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = fechaInicio?.let { "Inicio: $it" } ?: "Seleccionar fecha inicio")
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(onClick = { showDatePickerFin = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = fechaFin?.let { "Fin: $it" } ?: "Seleccionar fecha fin")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            fechaInicio?.let { inicio ->
+                                fechaFin?.let { fin ->
+                                    onAceptar(inicio, fin)
+                                }
+                            }
+                        },
+                        enabled = fechaInicio != null && fechaFin != null
+                    ) {
+                        Text("Aceptar")
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDatePickerInicio) {
+        DatePickerDialog(
+            LocalContext.current,
+            { _, year, month, dayOfMonth ->
+                val calendar = Calendar.getInstance().apply { set(year, month, dayOfMonth) }
+                fechaInicio = dateFormatter.format(calendar.time)
+                showDatePickerInicio = false
+            },
+            Calendar.getInstance().get(Calendar.YEAR),
+            Calendar.getInstance().get(Calendar.MONTH),
+            Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    if (showDatePickerFin) {
+        DatePickerDialog(
+            LocalContext.current,
+            { _, year, month, dayOfMonth ->
+                val calendar = Calendar.getInstance().apply { set(year, month, dayOfMonth) }
+                fechaFin = dateFormatter.format(calendar.time)
+                showDatePickerFin = false
+            },
+            Calendar.getInstance().get(Calendar.YEAR),
+            Calendar.getInstance().get(Calendar.MONTH),
+            Calendar.getInstance().get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 }
